@@ -39,7 +39,11 @@ public class NPC_ML : ModuleRules
 				"Slate",
 				"SlateCore",
 				"LearningAgents",
-				"LearningAgentsTraining"
+				"LearningTraining",
+				"LearningAgentsTraining",
+				"DeveloperSettings",
+				"GameplayTags",
+				"NavigationSystem"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

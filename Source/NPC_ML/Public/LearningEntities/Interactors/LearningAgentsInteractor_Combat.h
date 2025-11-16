@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "LearningAgentsInteractor.h"
+#include "Components/LearningAgentCombatObservationComponent.h"
+#include "Settings/CombatLearningSettings.h"
 #include "LearningAgentsInteractor_Combat.generated.h"
 
 /**
@@ -19,11 +21,24 @@ public:
 	virtual void SpecifyAgentAction_Implementation(FLearningAgentsActionSchemaElement& OutActionSchemaElement, ULearningAgentsActionSchema* InActionSchema) override;
 	virtual void GatherAgentObservation_Implementation(FLearningAgentsObservationObjectElement& OutObservationObjectElement, ULearningAgentsObservationObject* InObservationObject, const int32 AgentId) override;
 	virtual void PerformAgentAction_Implementation(const ULearningAgentsActionObject* InActionObject, const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
+	
+protected:
+	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetSelfObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetLidarObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual FLearningAgentsObservationSchemaElement GetEnemyObservationSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual FLearningAgentsObservationSchemaElement GetAllyObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetCombatStateObservationSchema(ULearningAgentsObservationSchema* InObservationSchema) const;
 
+	virtual FLearningAgentsObservationObjectElement GatherSelfObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId,
+	                                                                       const FSelfData& SelfData) const;
+	virtual FLearningAgentsObservationObjectElement GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject, int32 AgentId, ULearningAgentCombatObservationComponent*
+		LAObservationComponent);
+	virtual FLearningAgentsObservationObjectElement GatherCombatStateObservation(ULearningAgentsObservationObject* InObservationObject, int32 AgentId, const FCombatStateData& CombatStateData);
+	virtual FLearningAgentsObservationObjectElement GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject, int32 AgentId, const TArray<FEnemyData>& EnemiesData);
+	virtual FLearningAgentsObservationObjectElement GatherAlliesObservations(ULearningAgentsObservationObject* InObservationObject, int32 AgentId, const TArray<FAllyData>& AlliesData);
+	
 private:
-	TMap<FName, FLearningAgentsObservationSchemaElement> GetSelfObservations(ULearningAgentsObservationSchema* InObservationSchema) const;
-	TMap<FName, FLearningAgentsObservationSchemaElement> GetLidarObservations(ULearningAgentsObservationSchema* InObservationSchema) const;
-	TMap<FName, FLearningAgentsObservationSchemaElement> GetEnemiesObservations(ULearningAgentsObservationSchema* InObservationSchema) const;
-	TMap<FName, FLearningAgentsObservationSchemaElement> GetAlliesObservations(ULearningAgentsObservationSchema* InObservationSchema) const;
-	TMap<FName, FLearningAgentsObservationSchemaElement> GetEnvironmentObservations(ULearningAgentsObservationSchema* InObservationSchema) const;
+	FLearningAgentsObservationSchemaElement GetWeaponObservationSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* LearningSettings) const;
+	FLearningAgentsObservationObjectElement GetWeaponObservation(ULearningAgentsObservationObject* AgentObject, int
+	                                                             AgentId, const FWeaponData& WeaponData, const UCombatLearningSettings* Settings, const FVector& AgentLocation) const;
 };

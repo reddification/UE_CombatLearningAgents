@@ -4,7 +4,7 @@
 
 // will be used as bitflag so can't be uint8
 UENUM()
-enum class ELACombatStates
+enum class ELACombatState
 {
 	None,
 	Attacking,
@@ -38,4 +38,39 @@ enum class ELAActiveWeaponType : uint8
 	Unarmed = 0,
 	Melee,
 	Ranged,
+};
+
+UENUM()
+enum class ELAGesture : uint8
+{
+	None = 0,
+	Taunt,
+	ShowOff,
+	Provoke,
+	PointAt,
+	ShowRespect,
+	Frightened,
+	BegMercy,
+	CallForHelp,
+	DontDoIt,
+	PutYourWeaponAway,
+	GoAway
+};
+
+
+struct FWalkablePath
+{
+	FVector EndLocation;
+};
+
+struct FLAWalkablePath
+{
+	FVector EndLocation;
+};
+
+struct FLASpatialObservation
+{
+	FVector Location;
+	bool bAgentCanSee;
+	bool bObstructed;
 };
