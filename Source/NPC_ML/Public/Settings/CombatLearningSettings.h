@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DeveloperSettings.h"
+#include "LearningAgentsObservations.h"
+#include "Data/LearningAgentsDataTypes.h"
 #include "CombatLearningSettings.generated.h"
 
 /**
@@ -56,7 +58,33 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, meta=(ClampMin = 1.f, UIMin = 1.f))
 	float MaxExpectedCombatDuration = 120.f;
-
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	FLidarRaindropParams DownwardRaindropsParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	FLidarRaindropParams ForwardRaindropsParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	FLidarRaindropParams BackwardRaindropsParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	FConv2dObservationParams LidarRaindropDownwardConv2dParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	FConv2dObservationParams LidarRaindropForwardConv2dParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	FConv2dObservationParams LidarRaindropBackwardConv2dParams;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
+	float MaxCeilingHeight = 1500.f;
+	
+	FORCEINLINE int GetDownwardRaindropResolution() const { return DownwardRaindropsParams.Radius * 2 / DownwardRaindropsParams.Density; }
+	FORCEINLINE int GetForwardRaindropResolution() const { return ForwardRaindropsParams.Radius * 2 / ForwardRaindropsParams.Density; }
+	FORCEINLINE int GetBackwardRaindropResolution() const { return BackwardRaindropsParams.Radius *2 / BackwardRaindropsParams.Density; }
+
 };

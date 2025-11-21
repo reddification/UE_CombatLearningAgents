@@ -43,7 +43,8 @@ public class NPC_ML : ModuleRules
 				"LearningAgentsTraining",
 				"DeveloperSettings",
 				"GameplayTags",
-				"NavigationSystem"
+				"NavigationSystem",
+				"Nav3D"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

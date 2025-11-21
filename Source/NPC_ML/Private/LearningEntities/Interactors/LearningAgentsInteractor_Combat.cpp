@@ -6,7 +6,6 @@
 #include "Components/LearningAgentCombatObservationComponent.h"
 #include "Data/LearningAgentsDataTypes.h"
 #include "Data/LearningAgentsTags_Combat.h"
-#include "Interfaces/LearningAgentObservation.h"
 #include "Settings/CombatLearningSettings.h"
 
 FName Key_Observation_Health = FName("Observation.Status.Self.Health");
@@ -15,15 +14,16 @@ FName Key_Observation_Self = FName("Observation.Self");
 
 FName Key_Observation_Surrounding = FName("Observation.Surrounding");
 FName Key_Observation_Surrounding_LIDAR = FName("Observation.Surrounding.LIDAR");
-FName Key_Observation_Surrounding_LIDAR_WalkablePath = FName("Observation.Surrounding.LIDAR.WalkablePath.Item");
-FName Key_Observation_Surrounding_LIDAR_WalkablePath_Array = FName("Observation.Surrounding.LIDAR.WalkablePath.Array");
-FName Key_Observation_Surrounding_LIDAR_WalkablePath_Array_Emplaced = FName("Observation.Surrounding.LIDAR.WalkablePath.Array.Emplaced");
-
-FName Key_Observation_Surrounding_Spatial = FName("Observation.Surrounding.Spatial");
-FName Key_Observation_Surrounding_Spatial_CanSee = FName("Observation.Surrounding.Spatial.AgentCanSee");
-FName Key_Observation_Surrounding_Spatial_IsObstructed = FName("Observation.Surrounding.Spatial.IsObstructed");
-FName Key_Observation_Surrounding_Spatial_Array = FName("Observation.Surrounding.Spatial.Array");
-FName Key_Observation_Surrounding_Spatial_Array_Emplaced = FName("Observation.Surrounding.Spatial.Array.Emplaced");
+FName Key_Observation_Surrounding_LIDAR_Ceiling = FName("Observation.Surrounding.LIDAR.Ceiling");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Downward.Item");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Downward.Array");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Downward.Convolved");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Forward.Item");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Forward.Array");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Forward.Convolved");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Item");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Array");
+FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Convolved");
 
 FName Key_Observation_Allies = FName("Observation.Allies");
 FName Key_Observation_Environment = FName("Observation.Environment");
@@ -114,11 +114,10 @@ FName Key_Observation_Ally_Static_ArmorRate = FName("Observation.Ally.Static.Arm
  *				fSurviveDesire
  *			
  *		LIDAR
- *			Walkable surfaces
- *			Walls
- *			Ceilings
- *			Vault points
- *			Climb points
+ *			Raindrops (heightmaps in several planes. alternative would be having a tensor with a fragment of octree surrounding an agent, but there's no conv3d yet)
+ *				Downward
+ *				Forward
+*				Backward
  *			
  *		Enemies
  *			Dynamic
@@ -401,27 +400,44 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
 {
 	TMap<FName, FLearningAgentsObservationSchemaElement> Result;
-
-	// TODO 12.11.2025 (aki):
-	/* 
-	 * replace these lidar observations with voxel octree observations of surrounding space
-	 * because just "can walk left right forward but not backward" won't cut it. there are too many specific cases
-	 * like walls, ceilings, windows, doorways, places to jump over, jump down, vault, climb, edges and whatnot
-	 * and these all carry semantical meaning which, AFAIU, LA must deduce itself
-	 * the way I assume it could work out is:
-	 * 1. have pre-cached octree of the whole level with some sensible resolution. I also think the octree should be of fixed size, so not a sparse one
-	 *		because this octree will be fed into convolution layers eventually.
-	 *		The octree can (and should) be dynamic i guess, so that it updates when environment changes (e.g. physics objects moved, door closes, etc)
-	 *		but this is just an implementation detail
-	 *	2. For observations, get local octree around agent, and make a conv2d observation of it
-	 *		optionally - make a custom conv3d observation, but I would need to sell my soul and somebody elses to devil to figure out how to do that one
-	*/
 	
-	auto LidarObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema, Key_Observation_Surrounding_LIDAR_WalkablePath);
-	auto WalkablePathsObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema, LidarObservation,
-		360 / Settings->WalkablePathsDirectionsAngleDelta, Key_Observation_Surrounding_LIDAR_WalkablePath_Array);
+	// welp, until there's no conv3d, LAs will observe convolved "heightmaps" in different plains 
+	
+	auto CeilingObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxCeilingHeight,
+		Key_Observation_Surrounding_LIDAR_Ceiling);
+	
+	auto RaindropDownwardObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema,
+		Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Item);
+	int RaindropDownwardResolution = Settings->GetDownwardRaindropResolution();
+	auto RaindropDownwardObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
+		RaindropDownwardObservation, RaindropDownwardResolution * RaindropDownwardResolution, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Array);
+	auto RaindropDownwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
+		RaindropDownwardObservations, Settings->LidarRaindropDownwardConv2dParams, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved);
+	
+	auto RaindropForwardObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema,
+		Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Item);
+	int RaindropForwardResolution = Settings->GetForwardRaindropResolution();
+	auto RaindropForwardObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
+		RaindropForwardObservation, RaindropForwardResolution * RaindropForwardResolution, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Array);
+	auto RaindropForwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
+		RaindropForwardObservations, Settings->LidarRaindropForwardConv2dParams, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved);
+	
+	auto RaindropBackwardObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema,
+		Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Item);
+	int RaindropBackwardResolution = Settings->GetBackwardRaindropResolution();
+	auto RaindropBackwardObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
+		RaindropBackwardObservation, RaindropBackwardResolution * RaindropBackwardResolution, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Array);
+	auto RaindropBackwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
+		RaindropBackwardObservations, Settings->LidarRaindropBackwardConv2dParams, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved);
 
-	Result.Add(Key_Observation_Surrounding_LIDAR_WalkablePath_Array_Emplaced, WalkablePathsObservations);
+	Result = 
+	{
+		{ Key_Observation_Surrounding_LIDAR_Ceiling, CeilingObservation },
+		{ Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved, RaindropDownwardObservationsConvolved },
+		{ Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved, RaindropForwardObservationsConvolved },
+		{ Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved, RaindropBackwardObservationsConvolved },
+	};
+	
 	return Result;
 }
 
@@ -636,25 +652,65 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject,
 	int32 AgentId, ULearningAgentCombatObservationComponent* LAObservationComponent)
 {
-
-	auto WalkablePaths = LAObservationComponent->GetWalkablePaths();
-	auto SpatialData = LAObservationComponent->GetSpatialData();
-	// TODO navlinks
+	// welp, until there's no conv3d, LAs will observe convolved "heightmaps" in different plains 
+	TMap<FName, FLearningAgentsObservationObjectElement> ResultMap;
 	
-	TArray<FLearningAgentsObservationObjectElement> WalkablePathsObservations;
+	const FLidarObservationCache& LidarData = LAObservationComponent->GetLidarData();
+	auto CeilingObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, LidarData.AverageCeilingHeight,
+		Key_Observation_Surrounding_LIDAR_Ceiling);
 	
-	auto WalkablePathsObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject,
-		WalkablePathsObservations, Key_Observation_Surrounding_LIDAR_WalkablePath_Array);
-
-	auto SpatialAwarenessObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject,
-			WalkablePathsObservations, Key_Observation_Surrounding_Spatial_Array);
-	
-	TMap<FName, FLearningAgentsObservationObjectElement> ResultMap =
+	TArray<FLearningAgentsObservationObjectElement> RaindropDownwardObservations;
+	RaindropDownwardObservations.SetNum(LidarData.DownwardRaindrops.Num());
+	for (int i = 0; i < LidarData.DownwardRaindrops.Num(); i++)
 	{
-		{ Key_Observation_Surrounding_LIDAR_WalkablePath_Array_Emplaced, WalkablePathsObservationsObservation }	
+		auto RaindropDownHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
+			LidarData.DownwardRaindrops[i], Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Item);
+		RaindropDownwardObservations[i] = RaindropDownHeightmapItemObservation;
+	}
+	
+	auto RaindropDownwardObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
+		RaindropDownwardObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Array);
+	auto RaindropDownwardObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
+		RaindropDownwardObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved);
+	
+	TArray<FLearningAgentsObservationObjectElement> RaindropForwardObservations;
+	RaindropForwardObservations.SetNum(LidarData.ForwardRaindrops.Num());
+	for (int i = 0; i < LidarData.ForwardRaindrops.Num(); i++)
+	{
+		auto RaindropForwardHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
+			LidarData.ForwardRaindrops[i], Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Item);
+		RaindropForwardObservations[i] = RaindropForwardHeightmapItemObservation;
+	}
+	
+	auto RaindropForwardObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
+		RaindropForwardObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Array);
+	auto RaindropForwardObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
+		RaindropForwardObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved);
+	
+	TArray<FLearningAgentsObservationObjectElement> RaindropBackwardObservations;
+	RaindropBackwardObservations.SetNum(LidarData.BackwardRaindrops.Num());
+	for (int i = 0; i < LidarData.BackwardRaindrops.Num(); i++)
+	{
+		auto RaindropBackwardHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
+			LidarData.BackwardRaindrops[i], Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Item);
+		RaindropBackwardObservations[i] = RaindropBackwardHeightmapItemObservation;
+	}
+	
+	auto RaindropBackwardObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
+		RaindropBackwardObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Array);
+	auto RaindropBackwardObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
+		RaindropBackwardObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved);
+	
+	ResultMap = 
+	{
+		{ Key_Observation_Surrounding_LIDAR_Ceiling, CeilingObservation },
+		{ Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved, RaindropDownwardObservationsConvolved },
+		{ Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved, RaindropForwardObservationsConvolved },
+		{ Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved, RaindropBackwardObservationsConvolved },
 	};
 	
-	return ULearningAgentsObservations::MakeStructObservation(InObservationObject, ResultMap, Key_Observation_Surrounding);
+	auto Result = ULearningAgentsObservations::MakeStructObservation(InObservationObject, ResultMap, Key_Observation_Surrounding_LIDAR);
+	return Result;
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherCombatStateObservation(ULearningAgentsObservationObject* InObservationObject,

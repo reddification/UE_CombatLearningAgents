@@ -57,20 +57,28 @@ enum class ELAGesture : uint8
 	GoAway
 };
 
-
-struct FWalkablePath
+USTRUCT(BlueprintType)
+struct FLidarRaindropParams
 {
-	FVector EndLocation;
+	GENERATED_BODY()
+
+	FLidarRaindropParams() : Radius(1000.f), Density(15.f) { }
+	FLidarRaindropParams(float InRadius, float InDensity) : Radius(InRadius), Density(InDensity) {  }
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int Radius = 1000;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int Density = 15;
 };
 
-struct FLAWalkablePath
+struct FLidarObservationCache
 {
-	FVector EndLocation;
+	float AverageCeilingHeight = 500.f;
+	// essentially, matrices, but since I'm going to shove them into conv2d observations as static arrays,
+	// it's more conventient to store them as 1d array from the get-go
+	TArray<float> DownwardRaindrops; 
+	TArray<float> ForwardRaindrops;
+	TArray<float> BackwardRaindrops;
 };
-
-struct FLASpatialObservation
-{
-	FVector Location;
-	bool bAgentCanSee;
-	bool bObstructed;
-};
+	
