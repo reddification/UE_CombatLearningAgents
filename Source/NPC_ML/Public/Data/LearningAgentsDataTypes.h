@@ -4,17 +4,29 @@
 
 // will be used as bitflag so can't be uint8
 UENUM()
-enum class ELACombatState
+enum ELACharacterStates
 {
-	None,
-	Attacking,
-	Dodging,
-	InStagger,
-	Blocking,
-	Sprinting,
-	Sneaking,
-	WeaponSheathed,
-	WeaponUnsheathed
+	None = 0,
+	Attacking = 1,
+	Dodging = Attacking << 1,
+	Parrying = Dodging << 1,
+	Blocking = Parrying << 1,
+	Covering = Blocking << 1,
+	ReactingToDamage = Covering << 1,
+	InStagger = ReactingToDamage << 1,
+	Sprinting = InStagger << 1,
+	Sneaking = Sprinting << 1,
+	WeaponSheathed = Sneaking << 1,
+	WeaponUnsheathed = WeaponSheathed << 1,
+	Falling = WeaponUnsheathed << 1,
+	Swimming = Falling << 1,
+	WalkingOnGround = Swimming << 1,
+	Dying = WalkingOnGround << 1,
+	Gesturing = Dying << 1,
+	HasActiveRootMotionAnimation = Gesturing << 1,
+	Speaking = HasActiveRootMotionAnimation << 1,
+	UsingConsumableItem = Speaking << 1,
+	InteractingWithObject = UsingConsumableItem << 1,
 };
 
 UENUM()
@@ -38,23 +50,6 @@ enum class ELAActiveWeaponType : uint8
 	Unarmed = 0,
 	Melee,
 	Ranged,
-};
-
-UENUM()
-enum class ELAGesture : uint8
-{
-	None = 0,
-	Taunt,
-	ShowOff,
-	Provoke,
-	PointAt,
-	ShowRespect,
-	Frightened,
-	BegMercy,
-	CallForHelp,
-	DontDoIt,
-	PutYourWeaponAway,
-	GoAway
 };
 
 USTRUCT(BlueprintType)
@@ -81,4 +76,3 @@ struct FLidarObservationCache
 	TArray<float> ForwardRaindrops;
 	TArray<float> BackwardRaindrops;
 };
-	

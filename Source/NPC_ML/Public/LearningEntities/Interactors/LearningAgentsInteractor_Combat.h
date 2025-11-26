@@ -17,10 +17,18 @@ class NPC_ML_API ULearningAgentsInteractor_Combat : public ULearningAgentsIntera
 	GENERATED_BODY()
 
 public:
-	virtual void SpecifyAgentObservation_Implementation(FLearningAgentsObservationSchemaElement& OutObservationSchemaElement, ULearningAgentsObservationSchema* InObservationSchema) override;
-	virtual void SpecifyAgentAction_Implementation(FLearningAgentsActionSchemaElement& OutActionSchemaElement, ULearningAgentsActionSchema* InActionSchema) override;
-	virtual void GatherAgentObservation_Implementation(FLearningAgentsObservationObjectElement& OutObservationObjectElement, ULearningAgentsObservationObject* InObservationObject, const int32 AgentId) override;
-	virtual void PerformAgentAction_Implementation(const ULearningAgentsActionObject* InActionObject, const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
+	virtual void SpecifyAgentObservation_Implementation(FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
+		ULearningAgentsObservationSchema* InObservationSchema) override;
+	virtual void GatherAgentObservation_Implementation(FLearningAgentsObservationObjectElement& OutObservationObjectElement, 
+	                                                   ULearningAgentsObservationObject* InObservationObject, const int32 AgentId) override;
+	
+	virtual void SpecifyAgentAction_Implementation(FLearningAgentsActionSchemaElement& OutActionSchemaElement,
+		ULearningAgentsActionSchema* InActionSchema) override;
+	virtual void MakeAgentActionModifier_Implementation(FLearningAgentsActionModifierElement& OutActionModifierElement, 
+	                                                    ULearningAgentsActionModifier* InActionModifier, const ULearningAgentsObservationObject* InObservationObject,
+	                                                    const FLearningAgentsObservationObjectElement& InObservationObjectElement, const int32 AgentId) override;
+	virtual void PerformAgentAction_Implementation(const ULearningAgentsActionObject* InActionObject,
+		const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
 	
 protected:
 	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetSelfObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
@@ -41,4 +49,10 @@ private:
 	FLearningAgentsObservationSchemaElement GetWeaponObservationSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* LearningSettings) const;
 	FLearningAgentsObservationObjectElement GetWeaponObservation(ULearningAgentsObservationObject* AgentObject, int
 	                                                             AgentId, const FWeaponData& WeaponData, const UCombatLearningSettings* Settings, const FVector& AgentLocation) const;
+	bool GetSelfStates(const ULearningAgentsObservationObject* InObservationObject,
+					   const FLearningAgentsObservationObjectElement& InObservationObjectElement, ELACharacterStates& OutSelfStates) const;
+	
+	TSet<FName> GetMaskedActions(ELACharacterStates SelfStates) const;
+	FLearningAgentsActionSchemaElement GetNamedOptionsAction(ULearningAgentsActionSchema* InActionSchema,
+															 const FGameplayTagContainer& OptionTags, const FName& ActionTag) const;
 };

@@ -56,11 +56,11 @@ protected:
 	virtual float GetNormalizedStamina() const { return 1.f; }
 	virtual float GetNormalizedHealth() const { return 1.f; }
 	virtual float GetArmorRate() const { return 0.f; }
-	virtual ELACombatState GetCombatStates() const { return ELACombatState::None; }
+	virtual ELACharacterStates GetCombatStates() const { return ELACharacterStates::None; }
 	virtual int GetLevel() const { return 1; }
 	virtual float GetSurvivalDesire() const { return 0.75f; }
 	virtual FWeaponData GetWeaponData() const { return {}; }
-	virtual ELAGesture GetActiveGesture(AActor* Target) const { return ELAGesture::None; }
+	virtual FGameplayTag GetActiveGesture(AActor* Target) const { return FGameplayTag::EmptyTag; }
 
 	std::atomic<bool> LidarCancellationToken = false;
 	

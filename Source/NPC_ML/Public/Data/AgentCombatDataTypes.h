@@ -1,10 +1,10 @@
 ﻿#pragma once
 
+#include "GameplayTagContainer.h"
 #include "LearningAgentsDataTypes.h"
 
-enum class ELAGesture : uint8;
 enum class ELAActiveWeaponType : uint8;
-enum class ELACombatState;
+enum ELACharacterStates;
 
 namespace CombatLearning
 {
@@ -20,11 +20,11 @@ namespace CombatLearning
 	{
 		float NormalizedHealth = 1.f;
 		FVector WorldVelocity = FVector::ZeroVector;
-		ELACombatState CombatStates;
+		ELACharacterStates CombatStates;
 		FWeaponData WeaponData;
 		int Level = 0;
 		float ArmorRate;
-		ELAGesture ActiveGesture = ELAGesture::None;
+		FGameplayTag ActiveGesture;
 	};
 
 	struct FOtherCharacterData : public FCharacterBaseData
