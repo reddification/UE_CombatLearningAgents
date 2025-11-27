@@ -1,7 +1,9 @@
 ﻿// 
 #include "LearningEntities/Interactors/LearningAgentsInteractor_Combat.h"
 
+#include "Components/LearningAgentCombatActionsComponent.h"
 #include "Components/LearningAgentCombatObservationComponent.h"
+#include "Components/LearningAgentLocomotionActionsComponent.h"
 #include "Data/LearningAgentsDataTypes.h"
 #include "Data/LearningAgentsTags_Combat.h"
 #include "Settings/CombatLearningSettings.h"
@@ -637,7 +639,33 @@ void ULearningAgentsInteractor_Combat::PerformAgentAction_Implementation(
 	const int32 AgentId)
 {
 	Super::PerformAgentAction_Implementation(InActionObject, InActionObjectElement, AgentId);
-	// auto WalkOrSprintAction = ULearningAgentsActions::GetExc
+	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
+	
+	auto CombatActionsComponent = AgentActor->FindComponentByClass<ULearningAgentCombatActionsComponent>();
+	auto LocomotionActionsComponent = AgentActor->FindComponentByClass<ULearningAgentLocomotionActionsComponent>();
+	
+	CombatActionsComponent->Reset();
+	LocomotionActionsComponent->Reset();
+	
+	FName RootActionName;
+	FLearningAgentsActionObjectElement RootActionObjectElement;
+	bool bGotRootAction = ULearningAgentsActions::GetExclusiveUnionAction(RootActionName, RootActionObjectElement, 
+		InActionObject, InActionObjectElement, Key_Action_All);
+	if (!ensure(bGotRootAction))
+		return;
+	
+	if (RootActionName == Key_Action_Combat)
+	{
+		SampleCombatAction(InActionObject, AgentId, AgentActor, CombatActionsComponent, RootActionObjectElement);
+	}	
+	else if (RootActionName == Key_Actions_Locomotion)
+	{
+		SampleLocomotionAction(InActionObject, AgentId, AgentActor, LocomotionActionsComponent, RootActionObjectElement);			
+	}
+	else
+	{
+		ensure(RootActionName == Key_Action_Null);
+	}
 }
 
 FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetWeaponObservationSchema(
@@ -1495,4 +1523,164 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	}
 	
 	return Result;
+}
+
+void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsActionObject* InActionObject,
+	const int32 AgentId, const AActor* AgentActor, ULearningAgentCombatActionsComponent* CombatActionsComponent,
+	const FLearningAgentsActionObjectElement& RootActionObjectElement)
+{
+	auto AgentLocation = AgentActor->GetActorLocation();
+	auto AgentTransform  = AgentActor->GetTransform();
+	auto Settings = GetDefault<UCombatLearningSettings>();
+	
+	FName CombatActionName;
+	FLearningAgentsActionObjectElement CombatActionObjectElement;
+	bool bGetActionSuccess = ULearningAgentsActions::GetExclusiveUnionAction(CombatActionName, CombatActionObjectElement, InActionObject, 
+	RootActionObjectElement, Key_Action_Combat);
+	if (!ensure(bGetActionSuccess))
+		return;
+	
+	if (CombatActionName == Key_Action_Combat_Attack)
+	{
+		int32 AttackIndex = 0;
+		bool bSuccess = ULearningAgentsActions::GetExclusiveDiscreteAction(AttackIndex, 
+			InActionObject, CombatActionObjectElement, Key_Action_Combat_Attack,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+			CombatActionsComponent->Attack(AttackIndex);
+	}
+	else if (CombatActionName == Key_Action_Combat_Parry)
+	{
+		FVector ParryDirection = FVector::ZeroVector;
+		bool bSuccess = ULearningAgentsActions::GetDirectionAction(ParryDirection, 
+           InActionObject, CombatActionObjectElement, AgentTransform, Key_Action_Combat_Parry,
+           Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+			CombatActionsComponent->Parry(ParryDirection);
+	}
+	else if (CombatActionName == Key_Action_Combat_Dodge)
+	{
+		FVector DodgeDirection = FVector::ZeroVector;
+		bool bSuccess = ULearningAgentsActions::GetDirectionAction(DodgeDirection, 
+           InActionObject, CombatActionObjectElement, AgentTransform, Key_Action_Combat_Dodge,
+           Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+			CombatActionsComponent->Dodge(DodgeDirection);
+	}
+	else
+	{
+		ensure(CombatActionName == Key_Action_Combat_Null);
+	}
+}
+
+void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAgentsActionObject* InActionObject,
+	int32 AgentId, AActor* AgentActor, ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent,
+	const FLearningAgentsActionObjectElement& RootActionObjectElement)
+{
+	auto AgentLocation = AgentActor->GetActorLocation();
+	auto AgentTransform  = AgentActor->GetTransform();
+	auto Settings = GetDefault<UCombatLearningSettings>();
+	
+	FName LocomotionActionName;
+	FLearningAgentsActionObjectElement RootLocomotionActionObjectElement;
+	bool bGetActionSuccess = ULearningAgentsActions::GetExclusiveUnionAction(LocomotionActionName, RootLocomotionActionObjectElement,
+		InActionObject,  RootActionObjectElement, Key_Actions_Locomotion);
+	if (!ensure(bGetActionSuccess))
+		return;
+	
+	if (LocomotionActionName == Key_Action_Locomotion_Jump)
+	{
+		FVector JumpDestination = FVector::ZeroVector;
+		bool bSuccess = ULearningAgentsActions::GetLocationAction(JumpDestination,
+			InActionObject, RootLocomotionActionObjectElement, AgentTransform, Key_Action_Locomotion_Jump,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+			LocomotionActionsComponent->Jump(JumpDestination);
+	}
+	else if (LocomotionActionName == Key_Action_Locomotion_Climb)
+	{
+		FVector ClimbDirection = FVector::ZeroVector;
+		bool bSuccess = ULearningAgentsActions::GetDirectionAction(ClimbDirection,
+			InActionObject, RootLocomotionActionObjectElement, AgentTransform, Key_Action_Locomotion_Climb,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+			LocomotionActionsComponent->Climb(ClimbDirection);
+	}
+	else if (LocomotionActionName == Key_Action_Locomotion_NonBlocking)
+	{
+		TMap<FName, FLearningAgentsActionObjectElement> NonBlockingLocomotionActionObjectElements;
+		bool bGotNonBlockingActions = ULearningAgentsActions::GetInclusiveUnionAction(NonBlockingLocomotionActionObjectElements, InActionObject,
+			RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
+		if (ensure(bGotNonBlockingActions))
+		{
+			ensure(!NonBlockingLocomotionActionObjectElements.IsEmpty());
+			if (auto SetSpeedAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_SetSpeed))
+			{
+				float SpeedNormalized = 0.f;
+				bool bSuccess = ULearningAgentsActions::GetFloatAction(SpeedNormalized, InActionObject, *SetSpeedAction, Key_Action_Locomotion_SetSpeed,
+					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+				// TODO consider clamping low values of sampled value
+				if (ensure(bSuccess))
+					LocomotionActionsComponent->SetSpeed(SpeedNormalized * Settings->MaxSpeed);
+			}
+			
+			if (auto MoveAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Move))
+			{
+				FVector MoveDirection = FVector::ZeroVector;
+				bool bSuccess = ULearningAgentsActions::GetDirectionAction(MoveDirection, 
+					InActionObject, *MoveAction, AgentTransform, Key_Action_Locomotion_Move, 
+					Settings->bVisLogEnabled, this, AgentId);
+				if (ensure(bSuccess))
+					LocomotionActionsComponent->SetMoveDirection(MoveDirection);
+			}
+			
+			if (auto RotateAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Rotate))
+			{
+				FRotator Rotator;
+				bool bSuccess = ULearningAgentsActions::GetRotationAction(Rotator,
+					InActionObject, *RotateAction,AgentTransform.GetRotation().Rotator(), Key_Action_Locomotion_Rotate,
+					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+				if (ensure(bSuccess))
+					LocomotionActionsComponent->SetRotator(Rotator);
+			}
+			
+			if (auto GestureAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Gesture))
+			{
+				FName GestureName;
+				bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(GestureName, InActionObject, *GestureAction, Key_Action_Gesture,
+					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+				if (ensure(bSuccess))
+				{
+					FGameplayTag GestureTag = FGameplayTag::RequestGameplayTag(GestureName);
+					LocomotionActionsComponent->Gesture(GestureTag);
+				}
+			}
+			
+			if (auto SayPhraseAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_SayPhrase))
+			{
+				FName PhraseName;
+				bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(PhraseName, InActionObject, *SayPhraseAction, Key_Action_SayPhrase,
+					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+				if (ensure(bSuccess))
+				{
+					FGameplayTag PhraseTag = FGameplayTag::RequestGameplayTag(PhraseName);
+					LocomotionActionsComponent->SayPhrase(PhraseTag);
+				}
+			}
+			
+			if (auto UseConsumableItemAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_UseConsumableItem))
+			{
+				int32 ItemId = 0;
+				bool bSuccess = ULearningAgentsActions::GetExclusiveDiscreteAction(ItemId,
+					InActionObject, *UseConsumableItemAction, Key_Action_UseConsumableItem,
+					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+				if (ensure(bSuccess))
+					LocomotionActionsComponent->UseItem(ItemId);
+			}
+		}
+	}
+	else
+	{
+		ensure(LocomotionActionName == Key_Action_Locomotion_Null);
+	}
 }

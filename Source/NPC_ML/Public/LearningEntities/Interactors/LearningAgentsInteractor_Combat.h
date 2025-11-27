@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "LearningAgentsInteractor.h"
+#include "Components/LearningAgentCombatActionsComponent.h"
 #include "Components/LearningAgentCombatObservationComponent.h"
+#include "Components/LearningAgentLocomotionActionsComponent.h"
 #include "Settings/CombatLearningSettings.h"
 #include "LearningAgentsInteractor_Combat.generated.h"
 
@@ -21,14 +23,13 @@ public:
 		ULearningAgentsObservationSchema* InObservationSchema) override;
 	virtual void GatherAgentObservation_Implementation(FLearningAgentsObservationObjectElement& OutObservationObjectElement, 
 	                                                   ULearningAgentsObservationObject* InObservationObject, const int32 AgentId) override;
-	
 	virtual void SpecifyAgentAction_Implementation(FLearningAgentsActionSchemaElement& OutActionSchemaElement,
-		ULearningAgentsActionSchema* InActionSchema) override;
+	                                               ULearningAgentsActionSchema* InActionSchema) override;
 	virtual void MakeAgentActionModifier_Implementation(FLearningAgentsActionModifierElement& OutActionModifierElement, 
 	                                                    ULearningAgentsActionModifier* InActionModifier, const ULearningAgentsObservationObject* InObservationObject,
 	                                                    const FLearningAgentsObservationObjectElement& InObservationObjectElement, const int32 AgentId) override;
 	virtual void PerformAgentAction_Implementation(const ULearningAgentsActionObject* InActionObject,
-		const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
+	                                               const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
 	
 protected:
 	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetSelfObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
@@ -55,4 +56,10 @@ private:
 	TSet<FName> GetMaskedActions(ELACharacterStates SelfStates) const;
 	FLearningAgentsActionSchemaElement GetNamedOptionsAction(ULearningAgentsActionSchema* InActionSchema,
 															 const FGameplayTagContainer& OptionTags, const FName& ActionTag) const;
+	void SampleLocomotionAction(const ULearningAgentsActionObject* InActionObject, int32 AgentId, AActor* AgentActor,
+		ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, const FLearningAgentsActionObjectElement& RootActionObjectElement);
+	void SampleCombatAction(const ULearningAgentsActionObject* InActionObject, int32 AgentId, const AActor* AgentActor,
+							ULearningAgentCombatActionsComponent* CombatActionsComponent,
+							const FLearningAgentsActionObjectElement& RootActionObjectElement);
+
 };
