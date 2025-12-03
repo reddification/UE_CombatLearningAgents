@@ -29,19 +29,17 @@ enum ELACharacterStates
 	InteractingWithObject = UsingConsumableItem << 1,
 };
 
+
 UENUM()
-enum class ECombatEvents : uint8
+enum class ECombatEvent : uint8
 {
 	None = 0,
-	Staggered,
-	ParriedAttack,
-	WasParried,
-	Died,
-	StartedSprinting,
-	StoppedSprinting,
-	SheathedWeapon,
-	UnsheatheWeapon,
-	Gesture
+	Approach,
+	Combat,
+	Disengage,
+	Retreat,
+	ProcessVictory,
+	Stop
 };
 
 UENUM()

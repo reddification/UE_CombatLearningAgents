@@ -127,8 +127,8 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_CombatState))
 	{
 		auto EnvironmentObservations = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-			GetCombatStateObservationSchema(InObservationSchema), Key_Observation_Environment);
-		Observations.Add(Key_Observation_Environment, EnvironmentObservations);
+			GetCombatStateObservationSchema(InObservationSchema), Key_Observation_Combat_State);
+		Observations.Add(Key_Observation_Combat_State, EnvironmentObservations);
 	}
 	
 	OutObservationSchemaElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, Observations, Key_CombatObservations);
@@ -163,7 +163,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	auto SetSpeedAction = ULearningAgentsActions::SpecifyFloatAction(InActionSchema, Settings->MaxSpeed, Key_Action_Locomotion_SetSpeed);
 	auto MoveAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Move);
 	auto RotateAction = ULearningAgentsActions::SpecifyRotationAction(InActionSchema, Settings->RotationScale, Key_Action_Locomotion_Rotate);
-	auto JumpAction = ULearningAgentsActions::SpecifyLocationAction(InActionSchema, Settings->MaxJumpDistance, Key_Action_Locomotion_Jump);
+	auto JumpAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Jump);
 	// auto JumpActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, JumpAction, 0.2f, Key_Action_Jump_Optional);
 	
 	auto ClimbAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Climb);
@@ -182,9 +182,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	FLearningAgentsActionSchemaElement UseConsumableItemAction;
 	if (!Settings->ConsumablesProbabilities.IsEmpty())
 	{
-		UseConsumableItemAction = ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 
-			Settings->ConsumablesProbabilities.Num(), Settings->ConsumablesProbabilities, 
-			Key_Action_UseConsumableItem);
+		UseConsumableItemAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->ConsumablesProbabilities, Key_Action_UseConsumableItem);
 		bUseConsumableItemActionValid = true;
 	}
 	
@@ -192,7 +190,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	bool bGestureActionValid = false;
 	if (!Settings->Gestures.IsEmpty())
 	{
-		GestureAction = GetNamedOptionsAction(InActionSchema, Settings->Gestures, Key_Action_Gesture);
+		GestureAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Gestures, Key_Action_Gesture);
 		bGestureActionValid = true;
 	}
 	
@@ -200,17 +198,15 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	bool bSayPhraseActionValid = false;
 	if (!Settings->Phrases.IsEmpty())
 	{
-		SayPhraseAction = GetNamedOptionsAction(InActionSchema, Settings->Phrases, Key_Action_SayPhrase);
+		SayPhraseAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Phrases, Key_Action_SayPhrase);
 		bSayPhraseActionValid = true;
 	}
 	
-	auto NullLocomotionAction = ULearningAgentsActions::SpecifyNullAction(InActionSchema, Key_Action_Locomotion_Null);
 	TMap<FName, FLearningAgentsActionSchemaElement> NonBlockingLocomotionActions = 
 	{
 		{ Key_Action_Locomotion_SetSpeed, SetSpeedAction },
 		{ Key_Action_Locomotion_Move, MoveAction },
 		{ Key_Action_Locomotion_Rotate, RotateAction },
-		{ Key_Action_Locomotion_Null, NullLocomotionAction }
 	};
 	
 	// i'm not sure if probabilities should sum up to exactly 1 or not 
@@ -219,9 +215,8 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 		{ Key_Action_Locomotion_SetSpeed, 0.2f },
 		{ Key_Action_Locomotion_Move, 0.6f, },
 		{ Key_Action_Locomotion_Rotate, 0.4f },
-		{ Key_Action_Locomotion_Null, 0.5f }
 	};
-	
+
 	// idk, i should either come up with a proper name for inclusive actions when just walking
 	// or make a separate inclusive action for actions while walking and have true locomotion actions be their own inclusive action
 	// TODO think about it
@@ -252,7 +247,6 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 		{ Key_Action_Locomotion_Jump, JumpAction },
 		{ Key_Action_Locomotion_Climb, ClimbAction },
 		{ Key_Action_Locomotion_NonBlocking, NonBlockingLocomotionActionsUnion },
-		{ Key_Action_Locomotion_Null, NullLocomotionAction }
 	};
 	
 	TMap<FName, float> ExclusiveLocomotionActionsProbabilities = 
@@ -260,19 +254,16 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 		{ Key_Action_Locomotion_Jump, 0.1f, },
 		{ Key_Action_Locomotion_Climb, 0.1f, },
 		{ Key_Action_Locomotion_NonBlocking, 0.6f },
-		{ Key_Action_Locomotion_Null, 0.2f }
 	};
 	
 	auto ExclusiveLocomotionActionsUnion = ULearningAgentsActions::SpecifyExclusiveUnionAction(InActionSchema,
 		ExclusiveLocomotionActionsMap, ExclusiveLocomotionActionsProbabilities, Key_Actions_Locomotion);
 	
-	auto CombatNullAction = ULearningAgentsActions::SpecifyNullAction(InActionSchema, Key_Action_Combat_Null);
 	TMap<FName, FLearningAgentsActionSchemaElement> CombatActions = 
 	{
 		{ Key_Action_Combat_Attack, AttackAction },
 		{ Key_Action_Combat_Parry, ParryAction },
 		{ Key_Action_Combat_Dodge, DodgeAction },
-		{ Key_Action_Combat_Null, CombatNullAction }
 	};
 	
 	TMap<FName, float> CombatActionsProbabilities = 
@@ -280,7 +271,6 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 		{ Key_Action_Combat_Attack, 0.6f },
 		{ Key_Action_Combat_Parry, 0.3f },
 		{ Key_Action_Combat_Dodge, 0.2f },
-		{ Key_Action_Combat_Null, 0.2f }
 	};
 	
 	auto CombatActionsExclusiveUnion = ULearningAgentsActions::SpecifyExclusiveUnionAction(InActionSchema, CombatActions, CombatActionsProbabilities,
@@ -304,22 +294,20 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	OutActionSchemaElement = ULearningAgentsActions::SpecifyExclusiveUnionAction(InActionSchema, AllActions, AllActionsProbabilities, Key_Action_All);
 }
 
-FLearningAgentsActionSchemaElement ULearningAgentsInteractor_Combat::GetNamedOptionsAction(ULearningAgentsActionSchema* InActionSchema,
-	const FGameplayTagContainer& OptionTags, const FName& ActionTag) const
+FLearningAgentsActionSchemaElement ULearningAgentsInteractor_Combat::GetNamedOptionsActionSchemaElement(ULearningAgentsActionSchema* InActionSchema,
+	const TMap<FGameplayTag, float>& Options, const FName& ActionTag) const
 {
 	TArray<FName> OptionNames;
 	TMap<FName, float> OptionProbabilities;
-	OptionNames.Reserve(OptionTags.Num());
-	OptionProbabilities.Reserve(OptionTags.Num());
+	OptionNames.Reserve(Options.Num());
+	OptionProbabilities.Reserve(Options.Num());
 		
-	// idk, maybe users should be able to provide their own base probabilities
-	const float UniformProbability = 1.f / OptionTags.Num();
-	for (const auto& Option : OptionTags)
+	for (const auto& Option : Options)
 	{
-		auto OptionName = Option.GetTagName();
+		auto OptionName = Option.Key.GetTagName();
 			
 		OptionNames.Emplace(OptionName);
-		OptionProbabilities.Emplace(OptionName, UniformProbability);
+		OptionProbabilities.Emplace(OptionName, Option.Value);
 	}
 		
 	return ULearningAgentsActions::SpecifyNamedExclusiveDiscreteAction(InActionSchema, OptionNames, OptionProbabilities, ActionTag);
@@ -371,7 +359,6 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 		{ Key_Action_Combat_Attack, AttackActionModifier },
 		{ Key_Action_Combat_Parry, ParryActionModifier },
 		{ Key_Action_Combat_Dodge, DodgeActionModifier },
-		{ Key_Action_Combat_Null, ULearningAgentsActions::MakeNullActionModifier(InActionModifier, Key_Action_Combat_Null) }
 	};
 	
 	TSet<FName> AllCombatActions = { Key_Action_Combat_Attack, Key_Action_Combat_Parry, Key_Action_Combat_Dodge };
@@ -412,7 +399,6 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 		{ Key_Action_Locomotion_SetSpeed, SetSpeedActionModifier },
 		{ Key_Action_Locomotion_Move, MoveActionModifier },
 		{ Key_Action_Locomotion_Rotate, RotateActionModifier },
-		{ Key_Action_Locomotion_Null, ULearningAgentsActions::MakeNullActionModifier(InActionModifier, Key_Action_Locomotion_Null) }
 	};
 	
 	if (bHasGestureAction)
@@ -429,7 +415,7 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	
 	if (bHasUseConsumableItemAction)
 	{
-		auto UseConsumableItemModifier = ULearningAgentsActions::MakeExclusiveDiscreteActionModifier(InActionModifier, {}, Key_Action_UseConsumableItem);
+		auto UseConsumableItemModifier = ULearningAgentsActions::MakeNamedExclusiveDiscreteActionModifier(InActionModifier, {}, Key_Action_UseConsumableItem);
 		NonBlockingLocomotionActionModifiersMap.Emplace(Key_Action_UseConsumableItem, UseConsumableItemModifier);
 	}
 	
@@ -437,7 +423,7 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 		NonBlockingLocomotionActionModifiersMap, MaskedNonBlockingLocomotionActions, Key_Action_Locomotion_NonBlocking);
 	
 	// ===================================
-	auto JumpActionModifier = ULearningAgentsActions::MakeLocationActionModifier(InActionModifier, 
+	auto JumpActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
 		FVector::ZeroVector, false, false, false, FTransform::Identity,
 		Key_Action_Locomotion_Jump);
 	auto ClimbActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
@@ -449,7 +435,6 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 		{ Key_Action_Locomotion_Jump, JumpActionModifier },
 		{ Key_Action_Locomotion_Climb, ClimbActionModifier },
 		{ Key_Action_Locomotion_NonBlocking, NonBlockingLocomotionUnionActionModifier },
-		{ Key_Action_Locomotion_Null, ULearningAgentsActions::MakeNullActionModifier(InActionModifier, Key_Action_Locomotion_Null ) }
 	};
 	
 	TSet<FName> AllLocomotionActions = { Key_Action_Locomotion_Jump, Key_Action_Locomotion_Climb, Key_Action_Locomotion_NonBlocking };
@@ -500,7 +485,7 @@ void ULearningAgentsInteractor_Combat::GatherAgentObservation_Implementation(
 	{
 		auto CombatStateData = CombatObservationComponent->GetCombatStateData();
 		auto CombatStateObservation = GatherCombatStateObservation(InObservationObject, AgentId, CombatStateData);
-		Observations.Add(Key_Observation_Environment, CombatStateObservation);
+		Observations.Add(Key_Observation_Combat_State, CombatStateObservation);
 	}
 	
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Enemy))
@@ -525,6 +510,7 @@ void ULearningAgentsInteractor_Combat::PerformAgentAction_Implementation(
 	const int32 AgentId)
 {
 	Super::PerformAgentAction_Implementation(InActionObject, InActionObjectElement, AgentId);
+	
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
 	
 	auto CombatActionsComponent = AgentActor->FindComponentByClass<ULearningAgentCombatActionsComponent>();
@@ -645,7 +631,7 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	auto StaminaObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Self_Dynamic_Stamina);
 	auto VelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_Self_Dynamic_Velocity);
 	auto StatesObservation = ULearningAgentsObservations::SpecifyBitmaskObservation(InObservationSchema, StaticEnum<ELACharacterStates>(), Key_Observation_Self_Dynamic_CombatStates);
-
+	
 	auto WeaponObservation = GetWeaponObservationSchema(InObservationSchema, Settings);
 	
 	TMap<FName, FLearningAgentsObservationSchemaElement> DynamicSelfObservations =
@@ -661,16 +647,14 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	// 	StaticEnum<ELAGesture>(), Key_Observation_Self_Dynamic_Gesture);
 	if (!Settings->Gestures.IsEmpty())
 	{
-		TArray<FName> GestureNames;
-		GestureNames.Reserve(Settings->Gestures.Num());
-		for (const auto& Gesture : Settings->Gestures)
-			GestureNames.Emplace(Gesture.GetTagName());
-		
-		auto GestureObservation = ULearningAgentsObservations::SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, 
-			GestureNames, Key_Observation_Self_Dynamic_Gesture);
-		auto GestureOptionalObservation = ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, GestureObservation, 32, Key_Observation_Self_Dynamic_Gesture_Optional);
-		
+		auto GestureOptionalObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures, Key_Observation_Self_Dynamic_Gesture, Key_Observation_Self_Dynamic_Gesture_Optional);
 		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Gesture_Optional, GestureOptionalObservation);
+	}
+	
+	if (!Settings->Phrases.IsEmpty())
+	{
+		auto PhrasesOptionalObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases, Key_Observation_Self_Dynamic_Phrase, Key_Observation_Self_Dynamic_Phrase_Optional);
+		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Phrase_Optional, PhrasesOptionalObservation);
 	}
 	
 	auto DynamicSelfObservationsStruct = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
@@ -727,6 +711,8 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	auto RaindropBackwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
 		RaindropBackwardObservations, Settings->LidarRaindropBackwardConv2dParams, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved);
 
+	// TODO primary target observation. perhaps with lesser density
+	
 	TMap<FName, FLearningAgentsObservationSchemaElement> Result = {
 		{Key_Observation_Surrounding_LIDAR_Ceiling, CeilingObservation},
 		{Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved, RaindropDownwardObservationsConvolved},
@@ -770,19 +756,17 @@ FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetEne
 	
 	if (!Settings->Gestures.IsEmpty())
 	{
-		TArray<FName> GestureNames;
-		GestureNames.Reserve(Settings->Gestures.Num());
-		for (const auto& Gesture : Settings->Gestures)
-			GestureNames.Emplace(Gesture.GetTagName());
-		
-		auto EnemyGestureObservation = ULearningAgentsObservations::SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, 
-			GestureNames, Key_Observation_Enemy_Dynamic_Gesture);
-		auto GestureOptionalObservation = ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, EnemyGestureObservation, 
-			32, Key_Observation_Enemy_Dynamic_Gesture_Optional);
-	
-		DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Gesture_Optional, GestureOptionalObservation);
+		auto GesturesObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures,
+			Key_Observation_Enemy_Dynamic_Gesture, Key_Observation_Enemy_Dynamic_Gesture_Optional);
+		DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Gesture_Optional, GesturesObservation);
 	}
 	
+	if (!Settings->Phrases.IsEmpty())
+	{
+		auto PhrasesObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases,
+			Key_Observation_Enemy_Dynamic_Phrase, Key_Observation_Enemy_Dynamic_Phrase_Optional);
+		DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Phrase_Optional, PhrasesObservation);
+	}
 	
 	auto DynamicObservationsObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, DynamicObservations,
 		Key_Observation_Enemy_Dynamic_Observations);
@@ -839,15 +823,16 @@ FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetAll
 	
 	if (!Settings->Gestures.IsEmpty())
 	{
-		TArray<FName> GestureNames;
-		GestureNames.Reserve(Settings->Gestures.Num());
-		for (const auto& Gesture : Settings->Gestures)
-			GestureNames.Emplace(Gesture.GetTagName());
-		
-		auto AllyGestureObservation = ULearningAgentsObservations::SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, GestureNames,
-			Key_Observation_Ally_Dynamic_Gesture);
-		auto GestureOptionalObservation = ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, AllyGestureObservation, 32, Key_Observation_Ally_Dynamic_Gesture_Optional);
-		DynamicObservations.Add(Key_Observation_Ally_Dynamic_Gesture_Optional, GestureOptionalObservation);
+		auto GestureObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures,
+			Key_Observation_Ally_Dynamic_Gesture, Key_Observation_Ally_Dynamic_Gesture_Optional);
+		DynamicObservations.Add(Key_Observation_Ally_Dynamic_Gesture_Optional, GestureObservation);
+	}
+	
+	if (!Settings->Phrases.IsEmpty())
+	{
+		auto PhraseObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases,
+			Key_Observation_Ally_Dynamic_Phrase, Key_Observation_Ally_Dynamic_Phrase_Optional);
+		DynamicObservations.Add(Key_Observation_Ally_Dynamic_Phrase_Optional, PhraseObservation);
 	}
 	
 	auto DynamicObservationsObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, DynamicObservations,
@@ -877,14 +862,40 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	ULearningAgentsObservationSchema* InObservationSchema) const
 {
 	auto Settings = GetDefault<UCombatLearningSettings>();
-	auto CombatTotalDurationObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxExpectedCombatDuration, Key_Observation_Environment_TotalCombatDuration);
+	auto CombatTotalDurationObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,
+		Settings->MaxExpectedCombatDuration, Key_Observation_Combat_State_Duration);
+	auto EnemiesCountObservation = ULearningAgentsObservations::SpecifyCountObservation(InObservationSchema, Key_Observation_Combat_State_EnemiesCount);
+	auto AlliesCountObservation = ULearningAgentsObservations::SpecifyCountObservation(InObservationSchema, Key_Observation_Combat_State_AlliesCount);
 	
 	TMap<FName, FLearningAgentsObservationSchemaElement> Result =
 	{
-		{ Key_Observation_Environment_TotalCombatDuration, CombatTotalDurationObservation },
+		{ Key_Observation_Combat_State_Duration, CombatTotalDurationObservation },
+		{ Key_Observation_Combat_State_EnemiesCount, EnemiesCountObservation },
+		{ Key_Observation_Combat_State_AlliesCount, AlliesCountObservation },
 	};
 	
 	return Result;
+}
+
+FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherOptionalNamedExclusiveObservation(ULearningAgentsObservationObject* InObservationObject, const FName& ObservationName,
+	const FName& ObservationOptionalWrapperName, const FGameplayTag& OptionTag,
+	const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, int AgentId) const
+{
+	ULearningAgentsInteractor_Combat* MutableThis = const_cast<ULearningAgentsInteractor_Combat*>(this);
+	FLearningAgentsObservationObjectElement Observation;
+	if (OptionTag.IsValid())
+	{
+		Observation = ULearningAgentsObservations::MakeNamedExclusiveDiscreteObservation(InObservationObject,
+			OptionTag.GetTagName(), ObservationName,
+			Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
+	}
+	
+	ELearningAgentsOptionalObservation OptionalObservationStatus = OptionTag.IsValid()
+       ? ELearningAgentsOptionalObservation::Valid
+       : ELearningAgentsOptionalObservation::Null;
+	
+	auto OptionalObservation = ULearningAgentsObservations::MakeOptionalObservation(InObservationObject, Observation, OptionalObservationStatus, ObservationOptionalWrapperName);
+	return OptionalObservation;
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherSelfObservations(
@@ -929,20 +940,6 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 		Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
 
 	auto WeaponObservation = GetWeaponObservation(InObservationObject, AgentId, SelfData.WeaponData, Settings, AgentWorldLocation);
-
-	FLearningAgentsObservationObjectElement EnemyGestureObservation;
-	if (SelfData.ActiveGesture.IsValid())
-	{
-		EnemyGestureObservation = ULearningAgentsObservations::MakeNamedExclusiveDiscreteObservation(InObservationObject,
-			SelfData.ActiveGesture.GetTagName(), Key_Observation_Self_Dynamic_Gesture,
-			Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
-	}
-		
-	ELearningAgentsOptionalObservation GestureOptionalObservationStatus = SelfData.ActiveGesture.IsValid()
-		? ELearningAgentsOptionalObservation::Valid
-		: ELearningAgentsOptionalObservation::Null;
-	auto GestureOptionalObservation = ULearningAgentsObservations::MakeOptionalObservation(InObservationObject, EnemyGestureObservation,
-		GestureOptionalObservationStatus, Key_Observation_Self_Dynamic_Gesture_Optional);
 	
 	TMap<FName, FLearningAgentsObservationObjectElement> DynamicSelfObservations =
 	{
@@ -951,8 +948,25 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 		{ Key_Observation_Self_Dynamic_Velocity, VelocityObservation },
 		{ Key_Observation_Self_Dynamic_CombatStates, StatesObservation },
 		{ Key_Observation_Self_Dynamic_ActiveWeapon, WeaponObservation },
-		{ Key_Observation_Self_Dynamic_Gesture_Optional, GestureOptionalObservation }
 	};
+	
+	if (!Settings->Gestures.IsEmpty())
+	{
+		FLearningAgentsObservationObjectElement OptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
+			Key_Observation_Self_Dynamic_Gesture, Key_Observation_Self_Dynamic_Gesture_Optional, SelfData.ActiveGesture, 
+			Settings, AgentWorldLocation, AgentId);
+		
+		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Gesture_Optional, OptionalObservation);
+	}
+	
+	if (!Settings->Phrases.IsEmpty())
+	{
+		FLearningAgentsObservationObjectElement OptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
+			Key_Observation_Self_Dynamic_Phrase, Key_Observation_Self_Dynamic_Phrase_Optional, SelfData.ActivePhrase, 
+			Settings, AgentWorldLocation, AgentId);
+		
+		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Phrase_Optional, OptionalObservation);
+	}
 	
 // ====================== combine static and dynamic observations
 	
@@ -1041,14 +1055,22 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	auto AgentWorldLocation = AgentActor->GetActorLocation();
 	
 	auto CombatTotalDurationObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, CombatStateData.CombatTotalDuration,
-		Key_Observation_Environment_TotalCombatDuration,
+		Key_Observation_Combat_State_Duration,
+		Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
+	auto EnemiesCountObservation = ULearningAgentsObservations::MakeCountObservation(InObservationObject, 
+		CombatStateData.EnemiesCount, Settings->MaxEnemiesObservedAtOnce, Key_Observation_Combat_State_EnemiesCount,
+		Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
+	auto AlliesCountObservation = ULearningAgentsObservations::MakeCountObservation(InObservationObject, 
+		CombatStateData.AlliesCount, Settings->MaxAlliesObservedAtOnce, Key_Observation_Combat_State_AlliesCount,
 		Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
 	TMap<FName, FLearningAgentsObservationObjectElement> Observations =
 	{
-		{ Key_Observation_Environment_TotalCombatDuration, CombatTotalDurationObservation }	
+		{ Key_Observation_Combat_State_Duration, CombatTotalDurationObservation },
+		{ Key_Observation_Combat_State_EnemiesCount, EnemiesCountObservation },
+		{ Key_Observation_Combat_State_AlliesCount, AlliesCountObservation }
 	};
 	
-	return ULearningAgentsObservations::MakeStructObservation(InObservationObject, Observations, Key_Observation_Environment);
+	return ULearningAgentsObservations::MakeStructObservation(InObservationObject, Observations, Key_Observation_Combat_State);
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject,
@@ -1095,20 +1117,6 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 			Key_Observation_Enemy_Dynamic_KillDesire,
 			Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
 		
-		FLearningAgentsObservationObjectElement EnemyGestureObservation;
-		if (EnemyData.ActiveGesture.IsValid())
-		{
-			EnemyGestureObservation = ULearningAgentsObservations::MakeNamedExclusiveDiscreteObservation(InObservationObject,
-				EnemyData.ActiveGesture.GetTagName() , Key_Observation_Enemy_Dynamic_Gesture,
-				Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
-		}
-		
-		ELearningAgentsOptionalObservation GestureOptionalObservationStatus = EnemyData.ActiveGesture.IsValid()
-			? ELearningAgentsOptionalObservation::Valid
-			: ELearningAgentsOptionalObservation::Null;
-		auto GestureOptionalObservation = ULearningAgentsObservations::MakeOptionalObservation(InObservationObject, EnemyGestureObservation,
-			GestureOptionalObservationStatus, Key_Observation_Enemy_Dynamic_Gesture_Optional);
-		
 		auto EnemyCombatStatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(InObservationObject,
 			StaticEnum<ELACharacterStates>(),static_cast<int32>(EnemyData.CombatStates),
 			Key_Observation_Enemy_Dynamic_CombatState,
@@ -1125,11 +1133,26 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 			{ Key_Observation_Enemy_Dynamic_AgentCanSeeEnemy, AgentCanSeeEnemyObservation },
 			{ Key_Observation_Enemy_Dynamic_EnemyCanSeeAgent, EnemyCanSeeAgentObservation },
 			{ Key_Observation_Enemy_Dynamic_KillDesire, KillDesireObservation },
-			{ Key_Observation_Enemy_Dynamic_Gesture_Optional, GestureOptionalObservation },
 			{ Key_Observation_Enemy_Dynamic_CombatState, EnemyCombatStatesObservation },
 			{ Key_Observation_Enemy_Dynamic_Weapon, WeaponObservation }
 		};
 		
+		if (!Settings->Gestures.IsEmpty())
+		{
+			auto GestureOptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
+				Key_Observation_Enemy_Dynamic_Gesture, Key_Observation_Enemy_Dynamic_Gesture_Optional, EnemyData.ActiveGesture, 
+				Settings, AgentWorldLocation, AgentId);
+			DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Gesture_Optional, GestureOptionalObservation);
+		}
+		
+		if (!Settings->Phrases.IsEmpty())
+		{
+			auto PhraseOptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
+				Key_Observation_Enemy_Dynamic_Phrase, Key_Observation_Enemy_Dynamic_Phrase_Optional, EnemyData.ActivePhrase, 
+				Settings, AgentWorldLocation, AgentId);
+			DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Phrase_Optional, PhraseOptionalObservation);
+		}
+
 		auto DynamicObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, DynamicObservations,
 			Key_Observation_Enemy_Dynamic_Observations);
 
@@ -1201,20 +1224,6 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 			Key_Observation_Ally_Dynamic_AgentCanSeeAlly,
 			Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
 		
-		FLearningAgentsObservationObjectElement GestureObservation;
-		if (AllyData.ActiveGesture.IsValid())
-		{
-			GestureObservation = ULearningAgentsObservations::MakeNamedExclusiveDiscreteObservation(InObservationObject,
-				AllyData.ActiveGesture.GetTagName(), Key_Observation_Ally_Dynamic_Gesture,
-				Settings->bVisLogEnabled, MutableThis, AgentId, AgentWorldLocation);
-		}
-		
-		ELearningAgentsOptionalObservation GestureOptionalObservationStatus = AllyData.ActiveGesture.IsValid()
-			? ELearningAgentsOptionalObservation::Valid
-			: ELearningAgentsOptionalObservation::Null;
-		auto GestureOptionalObservation = ULearningAgentsObservations::MakeOptionalObservation(InObservationObject, GestureObservation,
-			GestureOptionalObservationStatus, Key_Observation_Ally_Dynamic_Gesture_Optional);
-		
 		auto AllyCombatStatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(InObservationObject,
 			StaticEnum<ELACharacterStates>(), static_cast<int32>(AllyData.CombatStates),
 			Key_Observation_Ally_Dynamic_CombatState,
@@ -1229,11 +1238,26 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 			{ Key_Observation_Ally_Dynamic_Location, AllyLocationObservation },
 			{ Key_Observation_Ally_Dynamic_Orientation, AllyOrientationObservation },
 			{ Key_Observation_Ally_Dynamic_AgentCanSeeAlly, AgentCanSeeAllyObservation },
-			{ Key_Observation_Ally_Dynamic_Gesture_Optional, GestureOptionalObservation },
 			{ Key_Observation_Ally_Dynamic_CombatState, AllyCombatStatesObservation },
 			{ Key_Observation_Ally_Dynamic_Weapon, WeaponObservation }
 		};
 	
+		if (!Settings->Gestures.IsEmpty())
+		{
+			auto GestureObservation = GatherOptionalNamedExclusiveObservation(InObservationObject,
+				Key_Observation_Ally_Dynamic_Gesture, Key_Observation_Ally_Dynamic_Gesture_Optional, AllyData.ActiveGesture,
+				Settings, AgentWorldLocation, AgentId);
+			DynamicObservations.Add(Key_Observation_Ally_Dynamic_Gesture_Optional, GestureObservation);	
+		}
+		
+		if (!Settings->Phrases.IsEmpty())
+		{
+			auto PhraseObservation = GatherOptionalNamedExclusiveObservation(InObservationObject,
+				Key_Observation_Ally_Dynamic_Phrase, Key_Observation_Ally_Dynamic_Phrase_Optional, AllyData.ActivePhrase,
+				Settings, AgentWorldLocation, AgentId);
+			DynamicObservations.Add(Key_Observation_Ally_Dynamic_Phrase_Optional, PhraseObservation);	
+		}
+		
 		auto DynamicObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, DynamicObservations,
 			Key_Observation_Ally_Dynamic_Observations);
 
@@ -1262,8 +1286,22 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	return ULearningAgentsObservations::MakeArrayObservation(InObservationObject, AlliesObservations, Settings->MaxAlliesObservedAtOnce, Key_Observation_Allies);
 }
 
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyNamedExclusiveDiscreteObservation(
+	ULearningAgentsObservationSchema* InObservationSchema, const TMap<FGameplayTag, float>& ObservationOptions,
+	const FName& ObservationName, const FName& ObservationOptionalWrapperName) const
+{
+	TArray<FName> OptionNames;
+	OptionNames.Reserve(ObservationOptions.Num());
+	for (const auto& Options : ObservationOptions)
+		OptionNames.Emplace(Options.Key.GetTagName());
+		
+	auto Observation = ULearningAgentsObservations::SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, OptionNames, ObservationName);
+	
+	return ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, Observation, 32, ObservationOptionalWrapperName);
+}
+
 bool ULearningAgentsInteractor_Combat::GetSelfStates(const ULearningAgentsObservationObject* InObservationObject, const FLearningAgentsObservationObjectElement& InObservationObjectElement,
-	ELACharacterStates& OutSelfStates) const
+                                                     ELACharacterStates& OutSelfStates) const
 {
 	TMap<FName, FLearningAgentsObservationObjectElement> ObservationsRootMap;
 	bool bFoundObservationRoot = ULearningAgentsObservations::GetStructObservation(ObservationsRootMap, InObservationObject,
@@ -1455,7 +1493,7 @@ void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsA
 	}
 	else
 	{
-		ensure(CombatActionName == Key_Action_Combat_Null);
+		ensure(false);
 	}
 }
 
@@ -1476,12 +1514,12 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAge
 	
 	if (LocomotionActionName == Key_Action_Locomotion_Jump)
 	{
-		FVector JumpDestination = FVector::ZeroVector;
-		bool bSuccess = ULearningAgentsActions::GetLocationAction(JumpDestination,
+		FVector JumpDirection = FVector::ZeroVector;
+		bool bSuccess = ULearningAgentsActions::GetDirectionAction(JumpDirection,
 			InActionObject, RootLocomotionActionObjectElement, AgentTransform, Key_Action_Locomotion_Jump,
 			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		if (ensure(bSuccess))
-			LocomotionActionsComponent->Jump(JumpDestination);
+			LocomotionActionsComponent->Jump(JumpDirection);
 	}
 	else if (LocomotionActionName == Key_Action_Locomotion_Climb)
 	{
@@ -1556,17 +1594,20 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAge
 			
 			if (auto UseConsumableItemAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_UseConsumableItem))
 			{
-				int32 ItemId = 0;
-				bool bSuccess = ULearningAgentsActions::GetExclusiveDiscreteAction(ItemId,
+				FName ItemIdName;
+				bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(ItemIdName,
 					InActionObject, *UseConsumableItemAction, Key_Action_UseConsumableItem,
 					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 				if (ensure(bSuccess))
+				{
+					FGameplayTag ItemId = FGameplayTag::RequestGameplayTag(ItemIdName);
 					LocomotionActionsComponent->UseItem(ItemId);
+				}
 			}
 		}
 	}
 	else
 	{
-		ensure(LocomotionActionName == Key_Action_Locomotion_Null);
+		ensure(false);
 	}
 }

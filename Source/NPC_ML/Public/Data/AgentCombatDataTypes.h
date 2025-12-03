@@ -25,6 +25,7 @@ namespace CombatLearning
 		int Level = 0;
 		float ArmorRate;
 		FGameplayTag ActiveGesture;
+		FGameplayTag ActivePhrase;
 	};
 
 	struct FOtherCharacterData : public FCharacterBaseData
@@ -54,5 +55,7 @@ namespace CombatLearning
 	struct FCombatStateData
 	{
 		float CombatTotalDuration = 0.f;
+		int EnemiesCount = 1;
+		int AlliesCount = 0;
 	};
 }

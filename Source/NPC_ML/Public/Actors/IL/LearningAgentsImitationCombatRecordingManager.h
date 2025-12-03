@@ -1,10 +1,18 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "LearningAgentsController.h"
 #include "LearningAgentsRecorder.h"
 #include "GameFramework/Actor.h"
 #include "LearningAgentsImitationCombatRecordingManager.generated.h"
+
+class ULearningAgentsCombatController;
+
+namespace LearningAgentsImitationActions
+{
+	struct FAgentPendingActions;
+}
 
 class ULearningAgentsInteractor;
 class ULearningAgentsManager;
@@ -18,6 +26,18 @@ public:
 	// Sets default values for this actor's properties
 	ALearningAgentsImitationCombatRecordingManager();
 
+private:
+	struct FAgentPendingAction
+	{
+		FVector MoveDirection;
+		FRotator Rotation;
+		float MoveSpeed = 0.f;
+		
+		FVector JumpDirection;
+		FVector ClimbDirection;
+		int AttackAction = -1;
+	};
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -30,7 +50,7 @@ protected:
 	TSubclassOf<ULearningAgentsInteractor> InteractorClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsController> ILControllerClass;
+	TSubclassOf<ULearningAgentsCombatController> ILControllerClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ULearningAgentsRecorder> ILRecorderClass;
@@ -44,21 +64,43 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float LearningTime = 120.f;
 
-public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float RecordInterval = 0.1f;
 
+public:
+	void RegisterMove(AActor* Agent, const FVector& Direction);
+	void RegisterMoveSpeed(AActor* Agent, float MoveSpeed);
+	void RegisterRotate(AActor* Agent, const FRotator& NewRotator);
+	void RegisterJump(AActor* Agent, const FVector& LaunchVector);
+	void RegisterClimb(AActor* Agent, const FVector& ClimbDirection);
+	void RegisterAttack(AActor* Agent, int AttackIndex);
+	void RegisterParry(AActor* Agent, const FVector& ParryDirection);
+	void RegisterDodge(AActor* Agent, const FVector& DodgeDirection);
+	void RegisterGesture(AActor* Agent, const FGameplayTag& GestureTag);
+	void RegisterPhrase(AActor* Agent, const FGameplayTag& PhraseTag);
+	void RegisterUseConsumableItem(AActor* Agent, const FGameplayTag& ItemId);
+	
+protected:
+	virtual void ResetLearningAgents();
+	
 private:
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsInteractor> Interactor;
 
 	UPROPERTY()
-	TObjectPtr<ULearningAgentsController> ILController;
+	TObjectPtr<ULearningAgentsCombatController> ILController;
 
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsRecorder> ILRecorder;
+	
+	FTimerHandle RecordTimer;
+	FTimerHandle RestartTimer;
 
-	float AccumulatedTime = 0.f;
-
-	void ResetLearningAgents();
+	void RecordImitations();
+	void RestartLearning();
+	
+	LearningAgentsImitationActions::FAgentPendingActions& GetAgentActionsQueue(AActor* Agent);
+	LearningAgentsImitationActions::FAgentPendingActions& GetAgentActionsQueue(int AgentId);
+	
+	void OnActionAccumulated(int AgentId);
 };

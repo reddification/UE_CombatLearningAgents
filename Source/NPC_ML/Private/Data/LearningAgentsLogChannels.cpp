@@ -1,0 +1,3 @@
+﻿#include "Data/LearningAgentsLogChannels.h"
+
+DEFINE_LOG_CATEGORY(LogLA_Combat_Observations_Raindrop)

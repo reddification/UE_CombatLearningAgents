@@ -27,14 +27,14 @@ public:
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 	
 	virtual void Reset() { CurrentMoveInput = FVector::ZeroVector; }
-	virtual void Jump(const FVector& Destination) {}
+	virtual void Jump(const FVector& Direction) {}
 	virtual void Climb(const FVector& Direction) {}
 	virtual void SetSpeed(float NewSpeed) {}
 	virtual void SetMoveDirection(const FVector& MoveDirection) { CurrentMoveInput = MoveDirection; }
 	virtual void SetRotator(const FRotator& Rotator) {}
 	virtual void Gesture(const FGameplayTag& GestureTag) {}
 	virtual void SayPhrase(const FGameplayTag& PhraseTag) {}
-	virtual void UseItem(int32 ItemId) {};
+	virtual void UseItem(const FGameplayTag& ItemId) {};
 
 private:
 	FVector CurrentMoveInput = FVector::ZeroVector;

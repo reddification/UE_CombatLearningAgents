@@ -20,16 +20,19 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Convolved");
 
 	inline const FName Key_Observation_Allies = FName("Observation.Allies");
-	inline const FName Key_Observation_Environment = FName("Observation.Environment");
+	inline const FName Key_Observation_Combat_State = FName("Observation.Combat.State");
 
 	inline const FName Key_Observation_Self_Dynamic = FName("Observation.Self.Dynamic");
 	inline const FName Key_Observation_Self_Dynamic_Health = FName("Observation.Self.Dynamic.Health");
 	inline const FName Key_Observation_Self_Dynamic_Stamina = FName("Observation.Self.Dynamic.Stamina");
 	inline const FName Key_Observation_Self_Dynamic_Velocity = FName("Observation.Self.Dynamic.Velocity");
 	inline const FName Key_Observation_Self_Dynamic_CombatStates = FName("Observation.Self.Dynamic.CombatStates");
+	
 	inline const FName Key_Observation_Self_Dynamic_Gesture = FName("Observation.Self.Dynamic.Gesture.");
 	inline const FName Key_Observation_Self_Dynamic_Gesture_Optional = FName("Observation.Self.Dynamic.Gesture.Optional");
-
+	inline const FName Key_Observation_Self_Dynamic_Phrase = FName("Observation.Self.Dynamic.Phrase");
+	inline const FName Key_Observation_Self_Dynamic_Phrase_Optional = FName("Observation.Self.Dynamic.Phrase.Optional");
+	
 	inline const FName Key_Observation_Self_Dynamic_ActiveWeapon = FName("Observation.Self.Dynamic.ActiveWeapon.Range");
 	inline const FName Key_Observation_Self_Dynamic_ActiveWeapon_Range = FName("Observation.Self.Dynamic.ActiveWeapon.Range");
 	inline const FName Key_Observation_Self_Dynamic_ActiveWeapon_Range_Melee = FName("Observation.Self.Dynamic.ActiveWeapon.Range.Melee");
@@ -60,14 +63,17 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Enemy_Dynamic_KillDesire = FName("Observation.Enemy.Dynamic.KillDesire");
 	inline const FName Key_Observation_Enemy_Dynamic_Gesture = FName("Observation.Enemy.Dynamic.Gesture");
 	inline const FName Key_Observation_Enemy_Dynamic_Gesture_Optional = FName("Observation.Enemy.Dynamic.Gesture.Optional");
+	inline const FName Key_Observation_Enemy_Dynamic_Phrase = FName("Observation.Enemy.Dynamic.Phrase");
+	inline const FName Key_Observation_Enemy_Dynamic_Phrase_Optional = FName("Observation.Enemy.Dynamic.Phrase.Optional");
 	inline const FName Key_Observation_Enemy_Dynamic_CombatState = FName("Observation.Enemy.Dynamic.CombatState");
 	inline const FName Key_Observation_Enemy_Dynamic_Weapon = FName("Observation.Enemy.Dynamic.Weapon");
 
 	inline const FName Key_Observation_Enemy_Static_ArmorRate = FName("Observation.Enemy.Static.ArmorRate");
 	inline const FName Key_Observation_Enemy_Static_Level = FName("Observation.Enemy.Static.Level");
 
-	inline const FName Key_Observation_Environment_TotalCombatDuration = FName("Observation.Environment.TotalCombatDuration");
-
+	inline const FName Key_Observation_Combat_State_Duration = FName("Observation.Combat.State.Duration");
+	inline const FName Key_Observation_Combat_State_EnemiesCount = FName("Observation.Combat.State.EnemiesCount");
+	inline const FName Key_Observation_Combat_State_AlliesCount = FName("Observation.Combat.State.AlliesCount");
 	inline const FName Key_Observation_Ally = FName("Observation.Ally");
 	inline const FName Key_Observation_Ally_Dynamic = FName("Observation.Ally.Dynamic");
 	inline const FName Key_Observation_Ally_Dynamic_IsAlive = FName("Observation.Ally.Dynamic.IsAlive");
@@ -76,7 +82,9 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Ally_Dynamic_Location = FName("Observation.Ally.Dynamic.Location");
 	inline const FName Key_Observation_Ally_Dynamic_Orientation = FName("Observation.Ally.Dynamic.Orientation");
 	inline const FName Key_Observation_Ally_Dynamic_Gesture = FName("Observation.Ally.Dynamic.Gesture");
-	inline const FName Key_Observation_Ally_Dynamic_Gesture_Optional = FName("Observation.Ally.Dynamic.Optional");
+	inline const FName Key_Observation_Ally_Dynamic_Gesture_Optional = FName("Observation.Ally.Dynamic.Gesture.Optional");
+	inline const FName Key_Observation_Ally_Dynamic_Phrase = FName("Observation.Ally.Dynamic.Phrase");
+	inline const FName Key_Observation_Ally_Dynamic_Phrase_Optional = FName("Observation.Ally.Dynamic.Phrase.Optional");
 	inline const FName Key_Observation_Ally_Dynamic_CombatState = FName("Observation.Ally.Dynamic.CombatState");
 	inline const FName Key_Observation_Ally_Dynamic_AgentCanSeeAlly = FName("Observation.Ally.Dynamic.AgentCanSeeAlly");
 	inline const FName Key_Observation_Ally_Dynamic_Weapon = FName("Observation.Ally.Dynamic.Weapon");
@@ -96,7 +104,6 @@ namespace LAActionKeys
 	inline const FName Key_Action_Locomotion_Rotate = FName("Action.Locomotion.Rotate");
 	inline const FName Key_Action_Locomotion_Jump = FName("Action.Locomotion.Jump");
 	inline const FName Key_Action_Locomotion_Climb = FName("Action.Locomotion.Climb");
-	inline const FName Key_Action_Locomotion_Null = FName("Action.Locomotion.Null");
 	inline const FName Key_Action_Locomotion_NonBlocking = FName("Action.Locomotion.NonBlocking");
 	inline const FName Key_Actions_Locomotion = FName("Action.Locomotion");
 	
@@ -109,7 +116,6 @@ namespace LAActionKeys
 	inline const FName Key_Action_Combat_Attack = FName("Action.Combat.Attack");
 	inline const FName Key_Action_Combat_Parry = FName("Action.Combat.Parry");
 	inline const FName Key_Action_Combat_Dodge = FName("Action.Combat.Dodge");
-	inline const FName Key_Action_Combat_Null = FName("Action.Combat.Null");
 	
 	inline const FName Key_Action_Null = FName("Action.Null");
 }

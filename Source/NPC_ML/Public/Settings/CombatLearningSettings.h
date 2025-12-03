@@ -82,14 +82,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	float MaxCeilingHeight = 1500.f;
 	
+	// values - probabilities
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Actions")
-	FGameplayTagContainer Gestures;
+	TMap<FGameplayTag, float> Gestures;
 	
+	// values - probabilities
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Actions")
-	FGameplayTagContainer Phrases;
+	TMap<FGameplayTag, float> Phrases;
 
+	// values - probabilities
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Actions")
-	TArray<float> ConsumablesProbabilities;
+	TMap<FGameplayTag, float> ConsumablesProbabilities;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Actions")
 	TArray<float> AttackActionsProbabilities;
