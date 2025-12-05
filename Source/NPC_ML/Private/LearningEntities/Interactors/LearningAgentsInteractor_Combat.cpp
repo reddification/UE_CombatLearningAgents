@@ -160,14 +160,59 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	
+	TMap<uint8, float> ChangeWeaponStateChance = 
+	{
+		{ static_cast<uint8>(ELAWeaponStateChange::Unready), 0.05f },
+		{ static_cast<uint8>(ELAWeaponStateChange::Ready), 0.95f }
+	};
+	
+	auto ChangeWeaponStateAction = ULearningAgentsActions::SpecifyEnumAction(InActionSchema, StaticEnum<ELAWeaponStateChange>(), 
+		ChangeWeaponStateChance, Key_Action_ChangeWeaponState);
+	
+	TMap<FName, FLearningAgentsActionSchemaElement> ExclusiveAnimationLocomotionActions = 
+	{
+		{ Key_Action_ChangeWeaponState, ChangeWeaponStateAction }
+	};
+	
+	TMap<FName, float> ExclusiveAnimationLocomotionActionsProbabilities = 
+	{
+		{ Key_Action_ChangeWeaponState, 0.5f }
+	};
+	
+	if (!Settings->ConsumablesProbabilities.IsEmpty())
+	{
+		FLearningAgentsActionSchemaElement UseConsumableItemAction = GetNamedOptionsActionSchemaElement(InActionSchema,
+			Settings->ConsumablesProbabilities, Key_Action_UseConsumableItem);
+		ExclusiveAnimationLocomotionActions.Emplace(Key_Action_UseConsumableItem, UseConsumableItemAction);
+		ExclusiveAnimationLocomotionActionsProbabilities.Emplace(Key_Action_UseConsumableItem, 0.15f);
+	}
+	
+	if (!Settings->Gestures.IsEmpty())
+	{
+		FLearningAgentsActionSchemaElement GestureAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Gestures,
+			Key_Action_Gesture);
+		ExclusiveAnimationLocomotionActions.Emplace(Key_Action_Gesture, GestureAction);
+		ExclusiveAnimationLocomotionActionsProbabilities.Emplace(Key_Action_Gesture, 0.2f);
+	}
+	
+	auto AnimationNonBlockingAction = ULearningAgentsActions::SpecifyExclusiveUnionAction(InActionSchema, ExclusiveAnimationLocomotionActions,
+		ExclusiveAnimationLocomotionActionsProbabilities, Key_Action_Locomotion_NonBlocking_Animation);
+	
 	auto SetSpeedAction = ULearningAgentsActions::SpecifyFloatAction(InActionSchema, Settings->MaxSpeed, Key_Action_Locomotion_SetSpeed);
 	auto MoveAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Move);
 	auto RotateAction = ULearningAgentsActions::SpecifyRotationAction(InActionSchema, Settings->RotationScale, Key_Action_Locomotion_Rotate);
-	auto JumpAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Jump);
+	
 	// auto JumpActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, JumpAction, 0.2f, Key_Action_Jump_Optional);
 	
-	auto ClimbAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Climb);
-
+	TMap<uint8, float> LocomotionActionsProbabilities = 
+	{
+		{ static_cast<uint8>(ELALocomotionAction::Jump), 0.25f, },
+		{ static_cast<uint8>(ELALocomotionAction::Mantle), 0.25f, },
+	};
+	
+	auto BlockingLocomotionAction = ULearningAgentsActions::SpecifyEnumAction(InActionSchema, StaticEnum<ELALocomotionAction>(), 
+		LocomotionActionsProbabilities, Key_Action_Locomotion_Blocking);
+	
 	auto DodgeAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Combat_Dodge);
 	// auto DodgeActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, DodgeAction, 0.1f, Key_Action_Dodge_Optional);
 	
@@ -177,65 +222,30 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	auto AttackAction = ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 
 		Settings->AttackActionsProbabilities.Num(), Settings->AttackActionsProbabilities,
 		Key_Action_Combat_Attack);
-
-	bool bUseConsumableItemActionValid = false;
-	FLearningAgentsActionSchemaElement UseConsumableItemAction;
-	if (!Settings->ConsumablesProbabilities.IsEmpty())
-	{
-		UseConsumableItemAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->ConsumablesProbabilities, Key_Action_UseConsumableItem);
-		bUseConsumableItemActionValid = true;
-	}
-	
-	FLearningAgentsActionSchemaElement GestureAction;
-	bool bGestureActionValid = false;
-	if (!Settings->Gestures.IsEmpty())
-	{
-		GestureAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Gestures, Key_Action_Gesture);
-		bGestureActionValid = true;
-	}
-	
-	FLearningAgentsActionSchemaElement SayPhraseAction;
-	bool bSayPhraseActionValid = false;
-	if (!Settings->Phrases.IsEmpty())
-	{
-		SayPhraseAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Phrases, Key_Action_SayPhrase);
-		bSayPhraseActionValid = true;
-	}
 	
 	TMap<FName, FLearningAgentsActionSchemaElement> NonBlockingLocomotionActions = 
 	{
 		{ Key_Action_Locomotion_SetSpeed, SetSpeedAction },
 		{ Key_Action_Locomotion_Move, MoveAction },
 		{ Key_Action_Locomotion_Rotate, RotateAction },
+		{ Key_Action_Locomotion_NonBlocking_Animation, AnimationNonBlockingAction }
 	};
 	
 	// i'm not sure if probabilities should sum up to exactly 1 or not 
 	TMap<FName, float> NonBlockingLocomotionActionsProbabilities = 
 	{
 		{ Key_Action_Locomotion_SetSpeed, 0.2f },
-		{ Key_Action_Locomotion_Move, 0.6f, },
+		{ Key_Action_Locomotion_Move, 0.7f, },
 		{ Key_Action_Locomotion_Rotate, 0.4f },
+		{ Key_Action_Locomotion_NonBlocking_Animation, 0.2f }
 	};
-
-	// idk, i should either come up with a proper name for inclusive actions when just walking
-	// or make a separate inclusive action for actions while walking and have true locomotion actions be their own inclusive action
-	// TODO think about it
-	if (bGestureActionValid)
+	
+	if (!Settings->Phrases.IsEmpty())
 	{
-		NonBlockingLocomotionActions.Emplace(Key_Action_Gesture, GestureAction);
-		NonBlockingLocomotionActionsProbabilities.Emplace(Key_Action_Gesture, 0.2f);
-	}
-
-	if (bSayPhraseActionValid)
-	{
+		FLearningAgentsActionSchemaElement SayPhraseAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Phrases,
+			Key_Action_SayPhrase);
 		NonBlockingLocomotionActions.Emplace(Key_Action_SayPhrase, SayPhraseAction);
 		NonBlockingLocomotionActionsProbabilities.Emplace(Key_Action_SayPhrase, 0.2f);
-	}
-	
-	if (bUseConsumableItemActionValid)
-	{
-		NonBlockingLocomotionActions.Emplace(Key_Action_UseConsumableItem, UseConsumableItemAction);
-		NonBlockingLocomotionActionsProbabilities.Emplace(Key_Action_UseConsumableItem, 0.15f);
 	}
 	
 	auto NonBlockingLocomotionActionsUnion = ULearningAgentsActions::SpecifyInclusiveUnionAction(InActionSchema, 
@@ -244,20 +254,18 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	
 	TMap<FName, FLearningAgentsActionSchemaElement> ExclusiveLocomotionActionsMap = 
 	{
-		{ Key_Action_Locomotion_Jump, JumpAction },
-		{ Key_Action_Locomotion_Climb, ClimbAction },
+		{ Key_Action_Locomotion_Blocking, BlockingLocomotionAction },
 		{ Key_Action_Locomotion_NonBlocking, NonBlockingLocomotionActionsUnion },
 	};
 	
 	TMap<FName, float> ExclusiveLocomotionActionsProbabilities = 
 	{
-		{ Key_Action_Locomotion_Jump, 0.1f, },
-		{ Key_Action_Locomotion_Climb, 0.1f, },
-		{ Key_Action_Locomotion_NonBlocking, 0.6f },
+		{ Key_Action_Locomotion_Blocking, 0.15, },
+		{ Key_Action_Locomotion_NonBlocking, 0.85f },
 	};
 	
 	auto ExclusiveLocomotionActionsUnion = ULearningAgentsActions::SpecifyExclusiveUnionAction(InActionSchema,
-		ExclusiveLocomotionActionsMap, ExclusiveLocomotionActionsProbabilities, Key_Actions_Locomotion);
+		ExclusiveLocomotionActionsMap, ExclusiveLocomotionActionsProbabilities, Key_Action_Locomotion);
 	
 	TMap<FName, FLearningAgentsActionSchemaElement> CombatActions = 
 	{
@@ -279,14 +287,14 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	auto NullAction = ULearningAgentsActions::SpecifyNullAction(InActionSchema, Key_Action_Null);
 	TMap<FName, FLearningAgentsActionSchemaElement> AllActions = 
 	{
-		{ Key_Actions_Locomotion, ExclusiveLocomotionActionsUnion },
+		{ Key_Action_Locomotion, ExclusiveLocomotionActionsUnion },
 		{ Key_Action_Combat, CombatActionsExclusiveUnion },
 		{ Key_Action_Null, NullAction }
 	};
 	
 	TMap<FName, float> AllActionsProbabilities = 
 	{
-		{ Key_Actions_Locomotion, 0.6f },
+		{ Key_Action_Locomotion, 0.6f },
 		{ Key_Action_Combat, 0.3f },
 		{ Key_Action_Null, 0.1f }
 	};
@@ -336,8 +344,8 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	// 2. Maybe instead of having separate masked action arrays for each element of action schema hierarchy just use single AllMaskedActions from GetMaskedActions ? 
 	//		I need to understand the source code better to answer this
 	TArray<FName> MaskedTopLevelActions;
-	if (AllMaskedActions.Contains(Key_Actions_Locomotion))
-		MaskedTopLevelActions.Emplace(Key_Actions_Locomotion);
+	if (AllMaskedActions.Contains(Key_Action_Locomotion))
+		MaskedTopLevelActions.Emplace(Key_Action_Locomotion);
 	
 	if (AllMaskedActions.Contains(Key_Action_Combat))
 		MaskedTopLevelActions.Emplace(Key_Action_Combat);
@@ -363,7 +371,8 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	
 	TSet<FName> AllCombatActions = { Key_Action_Combat_Attack, Key_Action_Combat_Parry, Key_Action_Combat_Dodge };
 	TArray<FName> MaskedCombatActions = AllMaskedActions.Intersect(AllCombatActions).Array();
-	auto CombatActionsModifier = ULearningAgentsActions::MakeExclusiveUnionActionModifier(InActionModifier, CombatActionModifiersMap, MaskedCombatActions);
+	auto CombatActionsModifier = ULearningAgentsActions::MakeExclusiveUnionActionModifier(InActionModifier, CombatActionModifiersMap, 
+		MaskedCombatActions);
 
 	// =================================== non blocking locomotion actions modifiers
 	
@@ -371,17 +380,24 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	const bool bHasSayPhraseAction = !Settings->Phrases.IsEmpty();
 	const bool bHasUseConsumableItemAction = !Settings->ConsumablesProbabilities.IsEmpty();
 	
-	TSet<FName> AllNonBlockingLocomotionActions = { Key_Action_Locomotion_SetSpeed, Key_Action_Locomotion_Move, Key_Action_Locomotion_Rotate };
-	if (bHasGestureAction)
-		AllNonBlockingLocomotionActions.Emplace(Key_Action_Gesture);
+	TSet<FName> AllNonBlockingLocomotionActions = 
+	{
+		Key_Action_Locomotion_SetSpeed, Key_Action_Locomotion_Move,
+		Key_Action_Locomotion_Rotate, Key_Action_Locomotion_NonBlocking_Animation
+	};
 	
 	if (bHasSayPhraseAction)
 		AllNonBlockingLocomotionActions.Emplace(Key_Action_SayPhrase);
+
+	TSet<FName> AllLocomotionNonBlockingAnimationActions = { Key_Action_ChangeWeaponState };
 	
+	if (bHasGestureAction)
+		AllLocomotionNonBlockingAnimationActions.Emplace(Key_Action_Gesture);
 	if (bHasUseConsumableItemAction)
-		AllNonBlockingLocomotionActions.Emplace(Key_Action_UseConsumableItem);
+		AllLocomotionNonBlockingAnimationActions.Emplace(Key_Action_UseConsumableItem);
 	
 	TArray<FName> MaskedNonBlockingLocomotionActions = AllMaskedActions.Intersect(AllNonBlockingLocomotionActions).Array();
+	TArray<FName> MaskedAnimationActions = AllMaskedActions.Intersect(AllLocomotionNonBlockingAnimationActions).Array();
 	
 	bool bSetSpeedActionMasked = MaskedNonBlockingLocomotionActions.Contains(Key_Action_Locomotion_SetSpeed);
 	auto SetSpeedActionModifier = ULearningAgentsActions::MakeFloatActionModifier(InActionModifier,
@@ -394,18 +410,38 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	auto RotateActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
 		FVector::ZeroVector, false, false, false, FTransform::Identity, 
 		Key_Action_Locomotion_Rotate);
-	TMap<FName, FLearningAgentsActionModifierElement> NonBlockingLocomotionActionModifiersMap = 
+	
+	auto ChangeWeaponStateActionModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, StaticEnum<ELAWeaponStateChange>(), 
+	GetWeaponStateChangeMask(SelfStates), Key_Action_ChangeWeaponState);
+	
+	TMap<FName, FLearningAgentsActionModifierElement> AnimationActionModifiersMap = 
 	{
-		{ Key_Action_Locomotion_SetSpeed, SetSpeedActionModifier },
-		{ Key_Action_Locomotion_Move, MoveActionModifier },
-		{ Key_Action_Locomotion_Rotate, RotateActionModifier },
+		{ Key_Action_ChangeWeaponState, ChangeWeaponStateActionModifier }
 	};
 	
 	if (bHasGestureAction)
 	{
 		auto GestureActionModifier = ULearningAgentsActions::MakeNamedExclusiveDiscreteActionModifier(InActionModifier, {}, Key_Action_Gesture);
-		NonBlockingLocomotionActionModifiersMap.Emplace(Key_Action_Gesture, GestureActionModifier);
+		AnimationActionModifiersMap.Emplace(Key_Action_Gesture, GestureActionModifier);
 	}
+	
+	if (bHasUseConsumableItemAction)
+	{
+		auto UseConsumableItemModifier = ULearningAgentsActions::MakeNamedExclusiveDiscreteActionModifier(InActionModifier, {}, Key_Action_UseConsumableItem);
+		AnimationActionModifiersMap.Emplace(Key_Action_UseConsumableItem, UseConsumableItemModifier);
+	}
+
+	auto AnimationActionsUnionModifier = ULearningAgentsActions::MakeExclusiveUnionActionModifier(InActionModifier, 
+		AnimationActionModifiersMap, MaskedAnimationActions, Key_Action_Locomotion_NonBlocking_Animation);
+
+	
+	TMap<FName, FLearningAgentsActionModifierElement> NonBlockingLocomotionActionModifiersMap = 
+	{
+		{ Key_Action_Locomotion_SetSpeed, SetSpeedActionModifier },
+		{ Key_Action_Locomotion_Move, MoveActionModifier },
+		{ Key_Action_Locomotion_Rotate, RotateActionModifier },
+		{ Key_Action_Locomotion_NonBlocking_Animation, AnimationActionsUnionModifier }
+	};
 	
 	if (bHasSayPhraseAction)
 	{
@@ -413,31 +449,22 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 		NonBlockingLocomotionActionModifiersMap.Emplace(Key_Action_SayPhrase, SayPhraseActionModifier);
 	}
 	
-	if (bHasUseConsumableItemAction)
-	{
-		auto UseConsumableItemModifier = ULearningAgentsActions::MakeNamedExclusiveDiscreteActionModifier(InActionModifier, {}, Key_Action_UseConsumableItem);
-		NonBlockingLocomotionActionModifiersMap.Emplace(Key_Action_UseConsumableItem, UseConsumableItemModifier);
-	}
-	
 	auto NonBlockingLocomotionUnionActionModifier = ULearningAgentsActions::MakeInclusiveUnionActionModifier(InActionModifier, 
 		NonBlockingLocomotionActionModifiersMap, MaskedNonBlockingLocomotionActions, Key_Action_Locomotion_NonBlocking);
 	
 	// ===================================
-	auto JumpActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
-		FVector::ZeroVector, false, false, false, FTransform::Identity,
-		Key_Action_Locomotion_Jump);
-	auto ClimbActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
-		FVector::ZeroVector, false, false, false, FTransform::Identity,
-		Key_Action_Locomotion_Climb);
+	
+	auto BlockingLocomotionActionsModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, 
+		StaticEnum<ELALocomotionAction>(), GetBlockingLocomotionActionsMask(SelfStates),
+		Key_Action_Locomotion_Blocking);
 	
 	TMap<FName, FLearningAgentsActionModifierElement> LocomotionActionModifiersMap = 
 	{
-		{ Key_Action_Locomotion_Jump, JumpActionModifier },
-		{ Key_Action_Locomotion_Climb, ClimbActionModifier },
+		{ Key_Action_Locomotion_Blocking, BlockingLocomotionActionsModifier },
 		{ Key_Action_Locomotion_NonBlocking, NonBlockingLocomotionUnionActionModifier },
 	};
 	
-	TSet<FName> AllLocomotionActions = { Key_Action_Locomotion_Jump, Key_Action_Locomotion_Climb, Key_Action_Locomotion_NonBlocking };
+	TSet<FName> AllLocomotionActions = { Key_Action_Locomotion_Blocking, Key_Action_Locomotion_NonBlocking };
 	TArray<FName> MaskedLocomotionActions = AllMaskedActions.Intersect(AllLocomotionActions).Array();
 	
 	auto LocomotionActionsModifier = ULearningAgentsActions::MakeExclusiveUnionActionModifier(InActionModifier, LocomotionActionModifiersMap,
@@ -446,7 +473,7 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	auto RootLevelNullActionModifier = ULearningAgentsActions::MakeNullActionModifier(InActionModifier, Key_Action_Null);
 	TMap<FName, FLearningAgentsActionModifierElement> RootActionModifiers = 
 	{
-		{ Key_Actions_Locomotion, LocomotionActionsModifier },
+		{ Key_Action_Locomotion, LocomotionActionsModifier },
 		{ Key_Action_Combat, CombatActionsModifier },
 		{ Key_Action_Null, RootLevelNullActionModifier }
 	};
@@ -530,7 +557,7 @@ void ULearningAgentsInteractor_Combat::PerformAgentAction_Implementation(
 	{
 		SampleCombatAction(InActionObject, AgentId, AgentActor, CombatActionsComponent, RootActionObjectElement);
 	}	
-	else if (RootActionName == Key_Actions_Locomotion)
+	else if (RootActionName == Key_Action_Locomotion)
 	{
 		SampleLocomotionAction(InActionObject, AgentId, AgentActor, LocomotionActionsComponent, RootActionObjectElement);			
 	}
@@ -1357,12 +1384,12 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	{
 		// idk, it can actually depend on the archetype 
 		Result.Emplace(Key_Action_Combat_Dodge);
-		Result.Emplace(Key_Actions_Locomotion);
+		Result.Emplace(Key_Action_Locomotion);
 	}
 	
 	if ((SelfStates & ELACharacterStates::InStagger) != 0)
 	{
-		Result.Emplace(Key_Actions_Locomotion);
+		Result.Emplace(Key_Action_Locomotion);
 		Result.Emplace(Key_Action_Combat);
 	}
 	
@@ -1372,26 +1399,28 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 		Result.Emplace(Key_Action_Combat_Dodge);
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_UseConsumableItem);
-		Result.Emplace(Key_Action_Locomotion_Climb);
+		Result.Emplace(Key_Action_Locomotion_Blocking);
+		Result.Emplace(Key_Action_ChangeWeaponState);
+		
 	}
 	
 	if ((SelfStates & ELACharacterStates::Blocking) != 0)
 	{
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_UseConsumableItem);
-		Result.Emplace(Key_Action_Locomotion_Climb);
+		Result.Emplace(Key_Action_Locomotion_Blocking);
+		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
 	if ((SelfStates & ELACharacterStates::Dodging) != 0)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);
-		Result.Emplace(Key_Actions_Locomotion);
+		Result.Emplace(Key_Action_Locomotion);
 	}
 	
 	if ((SelfStates & ELACharacterStates::Dying) != 0)
 	{
-		Result.Emplace(Key_Action_Locomotion_Climb);
-		Result.Emplace(Key_Action_Locomotion_Jump);
+		Result.Emplace(Key_Action_Locomotion_Blocking);
 		Result.Emplace(Key_Action_Combat_Parry);
 		Result.Emplace(Key_Action_Combat_Dodge);
 	}
@@ -1405,12 +1434,12 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	
 	if ((SelfStates & ELACharacterStates::Swimming) != 0)
 	{
-		Result.Emplace(Key_Action_Locomotion_Jump);
 		Result.Emplace(Key_Action_Combat);
 		Result.Emplace(Key_Action_Gesture);
+		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::WeaponSheathed) != 0)
+	if ((SelfStates & ELACharacterStates::WeaponNotReady) != 0)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);	
 		Result.Emplace(Key_Action_Combat_Parry);	
@@ -1430,28 +1459,64 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	{
 		Result.Emplace(Key_Action_SayPhrase);
 		Result.Emplace(Key_Action_Gesture);
-		Result.Emplace(Key_Action_Locomotion_Climb);
+		Result.Emplace(Key_Action_Locomotion_Blocking);
+		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
 	if ((SelfStates & ELACharacterStates::HasActiveRootMotionAnimation) != 0)
 	{
 		Result.Emplace(Key_Action_Locomotion_Move);
 		Result.Emplace(Key_Action_Locomotion_SetSpeed);
+		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
 	
 	if ((SelfStates & ELACharacterStates::InteractingWithObject) != 0)
 	{
-		Result.Emplace(Key_Actions_Locomotion);
-		Result.Emplace(Key_Action_Gesture);
-		Result.Emplace(Key_Action_UseConsumableItem);
+		Result.Emplace(Key_Action_Locomotion);
+		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
+	}
+	
+	if (SelfStates & ELACharacterStates::ChangingWeaponState)
+	{
+		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
 	
 	return Result;
 }
 
+TArray<uint8> ULearningAgentsInteractor_Combat::GetBlockingLocomotionActionsMask(ELACharacterStates SelfStates) const
+{
+	TSet<uint8> Result;
+	if ((SelfStates & ELACharacterStates::Swimming) != 0)
+		Result.Add(static_cast<uint8>(ELALocomotionAction::Jump));	
+	
+	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != 0)
+		Result.Add(static_cast<uint8>(ELALocomotionAction::Mantle));
+	
+	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != 0)
+		Result.Add(static_cast<uint8>(ELALocomotionAction::Mantle));
+	
+	return Result.Array();
+}
+
+TArray<uint8> ULearningAgentsInteractor_Combat::GetWeaponStateChangeMask(ELACharacterStates SelfStates) const
+{
+	TSet<uint8> Result;
+	if ((SelfStates & ELACharacterStates::Swimming) != 0)
+		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Ready));	
+	
+	if ((SelfStates & ELACharacterStates::WeaponReady) != 0)
+		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Ready));
+	
+	if ((SelfStates & ELACharacterStates::WeaponNotReady) != 0)
+		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Unready));
+	
+	return Result.Array();
+}
+
 void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsActionObject* InActionObject,
-	const int32 AgentId, const AActor* AgentActor, ULearningAgentCombatActionsComponent* CombatActionsComponent,
-	const FLearningAgentsActionObjectElement& RootActionObjectElement)
+                                                          const int32 AgentId, const AActor* AgentActor, ULearningAgentCombatActionsComponent* CombatActionsComponent,
+                                                          const FLearningAgentsActionObjectElement& RootActionObjectElement)
 {
 	auto AgentLocation = AgentActor->GetActorLocation();
 	auto AgentTransform  = AgentActor->GetTransform();
@@ -1498,8 +1563,8 @@ void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsA
 }
 
 void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAgentsActionObject* InActionObject,
-	int32 AgentId, AActor* AgentActor, ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent,
-	const FLearningAgentsActionObjectElement& RootActionObjectElement)
+                                                              int32 AgentId, AActor* AgentActor, ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent,
+                                                              const FLearningAgentsActionObjectElement& RootActionObjectElement)
 {
 	auto AgentLocation = AgentActor->GetActorLocation();
 	auto AgentTransform  = AgentActor->GetTransform();
@@ -1508,102 +1573,152 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAge
 	FName LocomotionActionName;
 	FLearningAgentsActionObjectElement RootLocomotionActionObjectElement;
 	bool bGetActionSuccess = ULearningAgentsActions::GetExclusiveUnionAction(LocomotionActionName, RootLocomotionActionObjectElement,
-		InActionObject,  RootActionObjectElement, Key_Actions_Locomotion);
+		InActionObject,  RootActionObjectElement, Key_Action_Locomotion);
 	if (!ensure(bGetActionSuccess))
 		return;
 	
-	if (LocomotionActionName == Key_Action_Locomotion_Jump)
+	if (LocomotionActionName == Key_Action_Locomotion_Blocking)
 	{
-		FVector JumpDirection = FVector::ZeroVector;
-		bool bSuccess = ULearningAgentsActions::GetDirectionAction(JumpDirection,
-			InActionObject, RootLocomotionActionObjectElement, AgentTransform, Key_Action_Locomotion_Jump,
+		uint8 LocomotionActionRaw = 0;
+		bool bSuccess = ULearningAgentsActions::GetEnumAction(LocomotionActionRaw,
+			InActionObject, RootLocomotionActionObjectElement, StaticEnum<ELALocomotionAction>(), Key_Action_Locomotion_Blocking,
 			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		if (ensure(bSuccess))
-			LocomotionActionsComponent->Jump(JumpDirection);
-	}
-	else if (LocomotionActionName == Key_Action_Locomotion_Climb)
-	{
-		FVector ClimbDirection = FVector::ZeroVector;
-		bool bSuccess = ULearningAgentsActions::GetDirectionAction(ClimbDirection,
-			InActionObject, RootLocomotionActionObjectElement, AgentTransform, Key_Action_Locomotion_Climb,
-			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
-		if (ensure(bSuccess))
-			LocomotionActionsComponent->Climb(ClimbDirection);
+		{
+			auto LocomotionAction = static_cast<ELALocomotionAction>(LocomotionActionRaw);
+			switch (LocomotionAction)
+			{
+				case ELALocomotionAction::Jump:
+					LocomotionActionsComponent->Jump();
+					break;
+				case ELALocomotionAction::Mantle:
+					LocomotionActionsComponent->Mantle();
+					break;
+				default:
+					ensure(false);
+					break;
+			}
+		}
 	}
 	else if (LocomotionActionName == Key_Action_Locomotion_NonBlocking)
 	{
 		TMap<FName, FLearningAgentsActionObjectElement> NonBlockingLocomotionActionObjectElements;
 		bool bGotNonBlockingActions = ULearningAgentsActions::GetInclusiveUnionAction(NonBlockingLocomotionActionObjectElements, InActionObject,
 			RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
-		if (ensure(bGotNonBlockingActions))
+		if (ensure(bGotNonBlockingActions && !NonBlockingLocomotionActionObjectElements.IsEmpty()))
 		{
-			ensure(!NonBlockingLocomotionActionObjectElements.IsEmpty());
-			if (auto SetSpeedAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_SetSpeed))
-			{
-				float SpeedNormalized = 0.f;
-				bool bSuccess = ULearningAgentsActions::GetFloatAction(SpeedNormalized, InActionObject, *SetSpeedAction, Key_Action_Locomotion_SetSpeed,
-					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
-				// TODO consider clamping low values of sampled value
-				if (ensure(bSuccess))
-					LocomotionActionsComponent->SetSpeed(SpeedNormalized * Settings->MaxSpeed);
-			}
+			SampleNonBlockingLocomotionActions(InActionObject, NonBlockingLocomotionActionObjectElements, LocomotionActionsComponent,
+				AgentId, AgentLocation, AgentTransform, Settings);
+		}
+	}
+	else
+	{
+		ensure(false);
+	}
+}
+
+void ULearningAgentsInteractor_Combat::SampleNonBlockingLocomotionActions(const ULearningAgentsActionObject* InActionObject,
+	const TMap<FName, FLearningAgentsActionObjectElement>& NonBlockingLocomotionActionObjectElements,
+	ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId,
+	const FVector& AgentLocation, const FTransform& AgentTransform,
+	const UCombatLearningSettings* Settings)
+{
+	if (auto SetSpeedAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_SetSpeed))
+	{
+		float SpeedNormalized = 0.f;
+		bool bSuccess = ULearningAgentsActions::GetFloatAction(SpeedNormalized, InActionObject, *SetSpeedAction, Key_Action_Locomotion_SetSpeed,
+		                                                       Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		// TODO consider clamping low values of sampled value
+		if (ensure(bSuccess))
+			LocomotionActionsComponent->SetSpeed(SpeedNormalized * Settings->MaxSpeed);
+	}
 			
-			if (auto MoveAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Move))
-			{
-				FVector MoveDirection = FVector::ZeroVector;
-				bool bSuccess = ULearningAgentsActions::GetDirectionAction(MoveDirection, 
-					InActionObject, *MoveAction, AgentTransform, Key_Action_Locomotion_Move, 
-					Settings->bVisLogEnabled, this, AgentId);
-				if (ensure(bSuccess))
-					LocomotionActionsComponent->SetMoveDirection(MoveDirection);
-			}
+	if (auto MoveAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Move))
+	{
+		FVector MoveDirection = FVector::ZeroVector;
+		bool bSuccess = ULearningAgentsActions::GetDirectionAction(MoveDirection,  InActionObject, *MoveAction, AgentTransform, 
+			Key_Action_Locomotion_Move, 
+           Settings->bVisLogEnabled, this, AgentId);
+		if (ensure(bSuccess))
+			LocomotionActionsComponent->SetMoveDirection(MoveDirection);
+	}
 			
-			if (auto RotateAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Rotate))
-			{
-				FRotator Rotator;
-				bool bSuccess = ULearningAgentsActions::GetRotationAction(Rotator,
-					InActionObject, *RotateAction,AgentTransform.GetRotation().Rotator(), Key_Action_Locomotion_Rotate,
-					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
-				if (ensure(bSuccess))
-					LocomotionActionsComponent->SetRotator(Rotator);
-			}
+	if (auto RotateAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Rotate))
+	{
+		FRotator Rotator;
+		bool bSuccess = ULearningAgentsActions::GetRotationAction(Rotator, 
+			InActionObject, *RotateAction,AgentTransform.GetRotation().Rotator(), Key_Action_Locomotion_Rotate,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+			LocomotionActionsComponent->SetRotator(Rotator);
+	}
 			
-			if (auto GestureAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Gesture))
-			{
-				FName GestureName;
-				bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(GestureName, InActionObject, *GestureAction, Key_Action_Gesture,
-					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
-				if (ensure(bSuccess))
-				{
-					FGameplayTag GestureTag = FGameplayTag::RequestGameplayTag(GestureName);
-					LocomotionActionsComponent->Gesture(GestureTag);
-				}
-			}
+	if (auto SayPhraseAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_SayPhrase))
+	{
+		FName PhraseName;
+		bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(PhraseName, InActionObject, *SayPhraseAction, Key_Action_SayPhrase,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+		{
+			FGameplayTag PhraseTag = FGameplayTag::RequestGameplayTag(PhraseName);
+			LocomotionActionsComponent->SayPhrase(PhraseTag);
+		}
+	}
 			
-			if (auto SayPhraseAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_SayPhrase))
-			{
-				FName PhraseName;
-				bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(PhraseName, InActionObject, *SayPhraseAction, Key_Action_SayPhrase,
-					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
-				if (ensure(bSuccess))
-				{
-					FGameplayTag PhraseTag = FGameplayTag::RequestGameplayTag(PhraseName);
-					LocomotionActionsComponent->SayPhrase(PhraseTag);
-				}
-			}
-			
-			if (auto UseConsumableItemAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_UseConsumableItem))
-			{
-				FName ItemIdName;
-				bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(ItemIdName,
-					InActionObject, *UseConsumableItemAction, Key_Action_UseConsumableItem,
-					Settings->bVisLogEnabled, this, AgentId, AgentLocation);
-				if (ensure(bSuccess))
-				{
-					FGameplayTag ItemId = FGameplayTag::RequestGameplayTag(ItemIdName);
-					LocomotionActionsComponent->UseItem(ItemId);
-				}
-			}
+	if (auto AnimationAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_NonBlocking_Animation))
+	{
+		FName AnimationActionName; 
+		FLearningAgentsActionObjectElement AnimationActionObjectElement;
+		bool bGotAnimationAction = ULearningAgentsActions::GetExclusiveUnionAction(AnimationActionName, AnimationActionObjectElement,
+			InActionObject,*AnimationAction, Key_Action_Locomotion_NonBlocking_Animation);
+				
+		if (ensure(bGotAnimationAction))
+		{
+			SampleLocomotionAnimationAction(InActionObject, AnimationActionName, AnimationActionObjectElement,
+			                                LocomotionActionsComponent, AgentId, AgentLocation, Settings);	
+		}
+	}
+}
+
+void ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const ULearningAgentsActionObject* InActionObject,
+   const FName& AnimationActionName, const FLearningAgentsActionObjectElement& AnimationActionObjectElement,
+   ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId,
+   const FVector& AgentLocation, const UCombatLearningSettings* Settings)
+{
+	if (AnimationActionName == Key_Action_Gesture)
+	{
+		FName GestureName;
+		bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(GestureName, InActionObject,
+			AnimationActionObjectElement, Key_Action_Gesture,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+		{
+			FGameplayTag GestureTag = FGameplayTag::RequestGameplayTag(GestureName);
+			LocomotionActionsComponent->Gesture(GestureTag);
+		}
+	}
+	else if (AnimationActionName == Key_Action_UseConsumableItem)
+	{
+		FName ItemIdName;
+		bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(ItemIdName,
+			InActionObject, AnimationActionObjectElement, Key_Action_UseConsumableItem,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+		{
+			FGameplayTag ItemId = FGameplayTag::RequestGameplayTag(ItemIdName);
+			LocomotionActionsComponent->UseItem(ItemId);
+		}
+	}
+	else if (AnimationActionName == Key_Action_ChangeWeaponState)
+	{
+		uint8 WeaponStateChangeRaw = 0;
+		bool bSuccess = ULearningAgentsActions::GetEnumAction(WeaponStateChangeRaw,
+			InActionObject, AnimationActionObjectElement, StaticEnum<ELAWeaponStateChange>(), Key_Action_ChangeWeaponState,
+			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
+		if (ensure(bSuccess))
+		{
+			ELAWeaponStateChange WeaponStateChange = static_cast<ELAWeaponStateChange>(WeaponStateChangeRaw);
+			LocomotionActionsComponent->SetWeaponReady(WeaponStateChange == ELAWeaponStateChange::Ready);
 		}
 	}
 	else

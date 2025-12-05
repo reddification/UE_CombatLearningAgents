@@ -99,7 +99,6 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;
-	
 
 	FORCEINLINE int GetDownwardRaindropResolution() const { return DownwardRaindropsParams.Radius * 2 / DownwardRaindropsParams.Density; }
 	FORCEINLINE int GetForwardRaindropResolution() const { return ForwardRaindropsParams.Radius * 2 / ForwardRaindropsParams.Density; }

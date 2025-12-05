@@ -67,3 +67,12 @@ void ULearningAgentSubsystem::UnregisterLearningAgent(APawn* Pawn)
 	else if (PendingAgents.Contains(Pawn))
 		PendingAgents.Remove(Pawn);
 }
+
+void ULearningAgentSubsystem::UnregisterImitationLearningRecordingManager(
+	ALearningAgentsImitationCombatRecordingManager* LearningAgentsImitationCombatRecordingManager)
+{
+	if (LearningAgentsImitationCombatRecordingManager == ILRecordingManager)
+	{
+		ILRecordingManager.Reset();
+	}
+}

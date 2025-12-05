@@ -4,6 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "LearningAgentsController.h"
 #include "LearningAgentsRecorder.h"
+#include "Data/LearningAgentsDataTypes.h"
 #include "GameFramework/Actor.h"
 #include "LearningAgentsImitationCombatRecordingManager.generated.h"
 
@@ -71,15 +72,16 @@ public:
 	void RegisterMove(AActor* Agent, const FVector& Direction);
 	void RegisterMoveSpeed(AActor* Agent, float MoveSpeed);
 	void RegisterRotate(AActor* Agent, const FRotator& NewRotator);
-	void RegisterJump(AActor* Agent, const FVector& LaunchVector);
-	void RegisterClimb(AActor* Agent, const FVector& ClimbDirection);
+	void RegisterJump(AActor* Agent);
+	void RegisterMantle(AActor* Agent);
 	void RegisterAttack(AActor* Agent, int AttackIndex);
 	void RegisterParry(AActor* Agent, const FVector& ParryDirection);
 	void RegisterDodge(AActor* Agent, const FVector& DodgeDirection);
 	void RegisterGesture(AActor* Agent, const FGameplayTag& GestureTag);
 	void RegisterPhrase(AActor* Agent, const FGameplayTag& PhraseTag);
 	void RegisterUseConsumableItem(AActor* Agent, const FGameplayTag& ItemId);
-	
+	void RegisterWeaponStateChange(AActor* Agent, ELAWeaponStateChange NewState);
+
 protected:
 	virtual void ResetLearningAgents();
 	

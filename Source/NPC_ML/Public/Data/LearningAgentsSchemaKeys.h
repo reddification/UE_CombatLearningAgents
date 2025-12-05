@@ -102,15 +102,16 @@ namespace LAActionKeys
 	inline const FName Key_Action_Locomotion_SetSpeed = FName("Action.Locomotion.SetSpeed");
 	inline const FName Key_Action_Locomotion_Move = FName("Action.Locomotion.Move");
 	inline const FName Key_Action_Locomotion_Rotate = FName("Action.Locomotion.Rotate");
-	inline const FName Key_Action_Locomotion_Jump = FName("Action.Locomotion.Jump");
-	inline const FName Key_Action_Locomotion_Climb = FName("Action.Locomotion.Climb");
+	inline const FName Key_Action_Locomotion_Blocking = FName("Action.Locomotion.Blocking");
 	inline const FName Key_Action_Locomotion_NonBlocking = FName("Action.Locomotion.NonBlocking");
-	inline const FName Key_Actions_Locomotion = FName("Action.Locomotion");
+	inline const FName Key_Action_Locomotion_NonBlocking_Animation = FName("Action.Locomotion.NonBlocking.Animation");
+	inline const FName Key_Action_Locomotion = FName("Action.Locomotion");
 	
 	// these are like "actions that can be done inclusively with locomotion, but not locomotion themselves"
 	inline const FName Key_Action_Gesture = FName("Action.Gesture");
 	inline const FName Key_Action_SayPhrase = FName("Action.SayPhrase");
 	inline const FName Key_Action_UseConsumableItem = FName("Action.UseConsumableItem");
+	inline const FName Key_Action_ChangeWeaponState = FName("Action.ChangeWeaponState");
 	
 	inline const FName Key_Action_Combat = FName("Action.Combat");
 	inline const FName Key_Action_Combat_Attack = FName("Action.Combat.Attack");

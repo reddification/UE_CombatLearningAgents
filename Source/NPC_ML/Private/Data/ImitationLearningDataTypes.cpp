@@ -34,10 +34,10 @@ namespace LearningAgentsImitationActions
 			Map, Key_Action_Locomotion_NonBlocking);
 		auto LocomotionActions = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject,
 			Key_Action_Locomotion_NonBlocking, InclusiveLocomotionActions);
-		auto LocomotionExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Actions_Locomotion, 
-			LocomotionActions, Key_Actions_Locomotion);
+		auto LocomotionExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Action_Locomotion, 
+			LocomotionActions, Key_Action_Locomotion);
 		
-		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Actions_Locomotion, LocomotionExclusiveUnionAction,
+		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Action_Locomotion, LocomotionExclusiveUnionAction,
 			Key_Action_All);
 	}
 
@@ -60,6 +60,8 @@ namespace LearningAgentsImitationActions
 			Key_Action_Locomotion_Move,
 			Key_Action_Locomotion_Rotate,
 			Key_Action_Locomotion_SetSpeed,
+			Key_Action_Locomotion_NonBlocking_Animation,
+			Key_Action_SayPhrase
 		};
 		
 		if (!ValidActions.Contains(OtherAction->GetActionName()))
@@ -154,48 +156,66 @@ namespace LearningAgentsImitationActions
 		return ULearningAgentsActions::MakeRotationAction(InActionObject, Rotator, FRotator::ZeroRotator, GetActionName());
 	}
 
-	FLearningAgentsActionObjectElement FAction_Locomotion_Jump::GetAction(
+	FLearningAgentsActionObjectElement FAction_Locomotion_BlockingLocomotion::GetAction(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, Direction, FTransform::Identity, GetActionName());
+		auto Action = ULearningAgentsActions::MakeEnumAction(InActionObject, StaticEnum<ELALocomotionAction>(),
+			static_cast<uint8>(LocomotionAction), GetActionName());
 		auto LocomotionExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 
-			Action, Key_Actions_Locomotion);
+			Action, Key_Action_Locomotion);
 		
-		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Actions_Locomotion, LocomotionExclusiveUnionAction,
+		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Action_Locomotion, LocomotionExclusiveUnionAction,
 			Key_Action_All);
 	}
 
-	FLearningAgentsActionObjectElement FAction_Locomotion_Climb::GetAction(
+	FLearningAgentsActionObjectElement FAction_Locomotion_Gesture::GetAnimationAction(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, Direction, FTransform::Identity, GetActionName());
-		auto LocomotionExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 
-			Action, Key_Actions_Locomotion);
-		
-		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, Key_Actions_Locomotion, LocomotionExclusiveUnionAction,
-			Key_Action_All);
-	}
-
-	FLearningAgentsActionObjectElement FAction_Locomotion_Gesture::GetActionInternal(
-		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
-	{
-		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, GestureTag.GetTagName(), GetActionName());
+		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, GestureTag.GetTagName(), Key_Action_Gesture);
 	}
 
 	FLearningAgentsActionObjectElement FAction_Locomotion_Phrase::GetActionInternal(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, PhraseTag.GetTagName(), GetActionName());
+		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, PhraseTag.GetTagName(), Key_Action_SayPhrase);
 	}
 
-	FLearningAgentsActionObjectElement FAction_Locomotion_UseConsumableItem::GetActionInternal(
+	bool FAction_Locomotion_Animation::CanCombine(FAction* OtherAction) const
+	{
+		bool Base = FAction_Locomotion_NonBlocking::CanCombine(OtherAction);
+		if (!Base)
+			return false;
+		
+		const TSet<FName> CannotCombineWith = 
+		{
+			Key_Action_Locomotion_NonBlocking_Animation 
+		};
+		
+		return !CannotCombineWith.Contains(OtherAction->GetActionName());
+	}
+
+	FLearningAgentsActionObjectElement FAction_Locomotion_Animation::GetActionInternal(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, ItemTag.GetTagName(), GetActionName());
+		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetAnimationActionName(),
+			GetAnimationAction(InActionObject, AgentActor), Key_Action_Locomotion_NonBlocking_Animation);
+	}
+	
+	FLearningAgentsActionObjectElement FAction_Locomotion_UseConsumableItem::GetAnimationAction(
+		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
+	{
+		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, ItemTag.GetTagName(), Key_Action_UseConsumableItem);
+	}
+
+	FLearningAgentsActionObjectElement FAction_ChangeWeaponState::GetAnimationAction(
+		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
+	{
+		return ULearningAgentsActions::MakeEnumAction(InActionObject, StaticEnum<ELAWeaponStateChange>(), static_cast<uint8>(WeaponState),
+			Key_Action_ChangeWeaponState);
 	}
 
 	FLearningAgentsActionObjectElement FAction_Attack::GetAction(ULearningAgentsActionObject* InActionObject,
-		AActor* AgentActor) const
+	                                                             AActor* AgentActor) const
 	{
 		auto Action = ULearningAgentsActions::MakeExclusiveDiscreteAction(InActionObject, AttackIndex, GetActionName());
 		auto CombatExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 

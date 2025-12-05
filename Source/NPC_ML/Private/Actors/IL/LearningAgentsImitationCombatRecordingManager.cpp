@@ -7,7 +7,6 @@
 #include "LearningAgentsInteractor.h"
 #include "LearningAgentsManager.h"
 #include "LearningAgentsRecorder.h"
-#include "LearningLog.h"
 #include "Controllers/LearningAgentsCombatController.h"
 #include "Data/ImitationLearningDataTypes.h"
 #include "Data/LogChannels.h"
@@ -28,6 +27,7 @@ void ALearningAgentsImitationCombatRecordingManager::BeginPlay()
 	Super::BeginPlay();
 	auto LAS = GetWorld()->GetSubsystem<ULearningAgentSubsystem>();
 	LAS->RegisterLearningAgentsManager(LearningAgentsManager);
+	LAS->RegisterImitationLearningRecordingManager(this);
 
 	Interactor = ULearningAgentsInteractor::MakeInteractor(LearningAgentsManager, InteractorClass, FName("RecorderCombatInteractor"));
 	auto InteractorPtr = Interactor.Get();
@@ -48,9 +48,14 @@ void ALearningAgentsImitationCombatRecordingManager::BeginPlay()
 void ALearningAgentsImitationCombatRecordingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (auto World = GetWorld())
+	{
 		if (auto LAS = World->GetSubsystem<ULearningAgentSubsystem>())
+		{
 			LAS->UnregisterLearningAgentsManager(LearningAgentsManager);
-
+			LAS->UnregisterImitationLearningRecordingManager(this);
+		}
+	}
+	
 	if (ILRecorder != nullptr)
 		ILRecorder->EndRecording();
 	
@@ -110,17 +115,17 @@ void ALearningAgentsImitationCombatRecordingManager::RegisterRotate(AActor* Agen
 	Queue.AddAction(NewAction);
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RegisterJump(AActor* Agent, const FVector& LaunchVector)
+void ALearningAgentsImitationCombatRecordingManager::RegisterJump(AActor* Agent)
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
-	TSharedPtr<FAction_Locomotion_Jump> NewAction = MakeShared<FAction_Locomotion_Jump>(GetWorld()->GetTimeSeconds(), LaunchVector);
+	TSharedPtr<FAction_Locomotion_BlockingLocomotion> NewAction = MakeShared<FAction_Locomotion_BlockingLocomotion>(GetWorld()->GetTimeSeconds(), ELALocomotionAction::Jump);
 	Queue.AddAction(NewAction);
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RegisterClimb(AActor* Agent, const FVector& ClimbDirection)
+void ALearningAgentsImitationCombatRecordingManager::RegisterMantle(AActor* Agent)
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
-	TSharedPtr<FAction_Locomotion_Climb> NewAction = MakeShared<FAction_Locomotion_Climb>(GetWorld()->GetTimeSeconds(), ClimbDirection);
+	TSharedPtr<FAction_Locomotion_BlockingLocomotion> NewAction = MakeShared<FAction_Locomotion_BlockingLocomotion>(GetWorld()->GetTimeSeconds(), ELALocomotionAction::Mantle);
 	Queue.AddAction(NewAction);
 }
 
@@ -163,6 +168,14 @@ void ALearningAgentsImitationCombatRecordingManager::RegisterUseConsumableItem(A
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
 	TSharedPtr<FAction_Locomotion_UseConsumableItem> NewAction = MakeShared<FAction_Locomotion_UseConsumableItem>(GetWorld()->GetTimeSeconds(), ItemId);
+	Queue.AddAction(NewAction);
+}
+
+void ALearningAgentsImitationCombatRecordingManager::RegisterWeaponStateChange(AActor* Agent,
+	ELAWeaponStateChange NewState)
+{
+	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
+	TSharedPtr<FAction_ChangeWeaponState> NewAction = MakeShared<FAction_ChangeWeaponState>(GetWorld()->GetTimeSeconds(), NewState);
 	Queue.AddAction(NewAction);
 }
 

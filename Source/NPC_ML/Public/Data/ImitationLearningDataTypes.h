@@ -2,6 +2,7 @@
 
 #include "GameplayTagContainer.h"
 #include "LearningAgentsActions.h"
+#include "LearningAgentsDataTypes.h"
 #include "LearningAgentsSchemaKeys.h"
 
 namespace LearningAgentsImitationActions
@@ -22,6 +23,7 @@ namespace LearningAgentsImitationActions
 		
 		protected:
 			float Timestamp = 0.f;
+			// TArray<FName> Hierarchy; // not sure if it worth the effort
 	};
 
 	class FAction_Locomotion_NonBlocking : public FAction
@@ -88,58 +90,14 @@ namespace LearningAgentsImitationActions
 		private:
 			FRotator Rotator = FRotator::ZeroRotator;
 	};
-
-	class FAction_Locomotion_Jump : public FAction
-	{
-		public:
-			FAction_Locomotion_Jump(float Timestamp, const FVector& Direction) 
-				: FAction(Timestamp), Direction(Direction) { }
-			
-			virtual bool IsImmediate() const override { return true; }
-			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
-			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Locomotion_Jump; };
-			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
-			
-		private:
-			FVector Direction = FVector::ZeroVector;
-	};
-
-	class FAction_Locomotion_Climb : public FAction
-	{
-		public:
-			FAction_Locomotion_Climb(float Timestamp, const FVector& Direction) 
-				: FAction(Timestamp), Direction(Direction) { }
-				
-			virtual bool IsImmediate() const override { return true; }
-			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Locomotion_Climb; }
-			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
-			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
-				
-		private:
-			FVector Direction = FVector::ZeroVector;
-	};
-
-	class FAction_Locomotion_Gesture : public FAction_Locomotion_NonBlocking
-	{
-		public:
-			FAction_Locomotion_Gesture(float Timestamp, const FGameplayTag& InGestureTag) 
-				: FAction_Locomotion_NonBlocking(Timestamp), GestureTag(InGestureTag) { }
-					
-			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
-			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Gesture; };
-			virtual FLearningAgentsActionObjectElement GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
-					
-		private:
-			FGameplayTag GestureTag;
-	};
-
+	
 	class FAction_Locomotion_Phrase : public FAction_Locomotion_NonBlocking
 	{
 		public:
 			FAction_Locomotion_Phrase(float Timestamp, const FGameplayTag& InPhraseTag)
 				: FAction_Locomotion_NonBlocking(Timestamp), PhraseTag(InPhraseTag) { }
 					
-			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
+			// virtual bool CanCombine(FAction* OtherAction) const override { return false; }
 			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_SayPhrase; };
 			virtual FLearningAgentsActionObjectElement GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
 					
@@ -147,18 +105,70 @@ namespace LearningAgentsImitationActions
 			FGameplayTag PhraseTag;
 	};
 
-	class FAction_Locomotion_UseConsumableItem : public FAction_Locomotion_NonBlocking
+	class FAction_Locomotion_Animation : public FAction_Locomotion_NonBlocking
+	{
+		public:
+			FAction_Locomotion_Animation(float Timestamp) : FAction_Locomotion_NonBlocking(Timestamp) { }
+		
+			virtual bool CanCombine(FAction* OtherAction) const override;
+			virtual FName GetActionName() const override final { return LAActionKeys::Key_Action_Locomotion_NonBlocking_Animation; };
+			virtual FName GetAnimationActionName() const = 0;
+			virtual FLearningAgentsActionObjectElement GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+			virtual FLearningAgentsActionObjectElement GetAnimationAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const = 0;
+	};
+	
+	class FAction_Locomotion_Gesture : public FAction_Locomotion_Animation
+	{
+		public:
+			FAction_Locomotion_Gesture(float Timestamp, const FGameplayTag& InGestureTag) 
+				: FAction_Locomotion_Animation(Timestamp), GestureTag(InGestureTag) { }
+						
+			virtual FName GetAnimationActionName() const override { return LAActionKeys::Key_Action_Gesture; }
+			virtual FLearningAgentsActionObjectElement GetAnimationAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+						
+		private:
+			FGameplayTag GestureTag;
+	};
+	
+	class FAction_Locomotion_UseConsumableItem : public FAction_Locomotion_Animation
 	{
 		public:
 			FAction_Locomotion_UseConsumableItem(float Timestamp, const FGameplayTag& ItemTag)
-				: FAction_Locomotion_NonBlocking(Timestamp), ItemTag(ItemTag) { }
+				: FAction_Locomotion_Animation(Timestamp), ItemTag(ItemTag) { }
 					
-			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
-			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_UseConsumableItem; }
-			virtual FLearningAgentsActionObjectElement GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+			virtual FName GetAnimationActionName() const override { return LAActionKeys::Key_Action_UseConsumableItem; }
+			virtual FLearningAgentsActionObjectElement GetAnimationAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
 					
 		private:
 			FGameplayTag ItemTag;
+	};
+	
+	class FAction_ChangeWeaponState : public FAction_Locomotion_Animation
+	{
+		public:
+			FAction_ChangeWeaponState(float Timestamp, ELAWeaponStateChange NewWeaponState)
+				: FAction_Locomotion_Animation(Timestamp), WeaponState(NewWeaponState) { }
+						
+			virtual FName GetAnimationActionName() const override { return LAActionKeys::Key_Action_ChangeWeaponState; }
+			virtual FLearningAgentsActionObjectElement GetAnimationAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+						
+		private:
+			ELAWeaponStateChange WeaponState;
+	};
+	
+	class FAction_Locomotion_BlockingLocomotion : public FAction
+	{
+		public:
+			FAction_Locomotion_BlockingLocomotion(float Timestamp, ELALocomotionAction LocomotionAction) 
+				: FAction(Timestamp), LocomotionAction(LocomotionAction) { }
+					
+			virtual bool IsImmediate() const override { return true; }
+			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Locomotion_Blocking; }
+			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
+			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+					
+		private:
+			ELALocomotionAction LocomotionAction;
 	};
 	
 	class FAction_Attack : public FAction

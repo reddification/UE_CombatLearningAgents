@@ -16,9 +16,10 @@ enum ELACharacterStates
 	InStagger = ReactingToDamage << 1,
 	Sprinting = InStagger << 1,
 	Sneaking = Sprinting << 1,
-	WeaponSheathed = Sneaking << 1,
-	WeaponUnsheathed = WeaponSheathed << 1,
-	Falling = WeaponUnsheathed << 1,
+	WeaponNotReady = Sneaking << 1,
+	WeaponReady = WeaponNotReady << 1,
+	ChangingWeaponState = WeaponReady << 1,
+	Falling = ChangingWeaponState << 1,
 	Swimming = Falling << 1,
 	WalkingOnGround = Swimming << 1,
 	Dying = WalkingOnGround << 1,
@@ -48,6 +49,20 @@ enum class ELAActiveWeaponType : uint8
 	Unarmed = 0,
 	Melee,
 	Ranged,
+};
+
+UENUM()
+enum class ELAWeaponStateChange : uint8
+{
+	Unready = 0,
+	Ready = 1
+};
+
+UENUM()
+enum class ELALocomotionAction : uint8
+{
+	Jump = 0,
+	Mantle = 1
 };
 
 USTRUCT(BlueprintType)

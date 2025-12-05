@@ -25,7 +25,8 @@ public class NPC_ML : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Core", "GameplayTags",
+				"Core", "GameplayTags", "LearningAgents", "LearningTraining",
+				"LearningAgentsTraining",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -38,9 +39,6 @@ public class NPC_ML : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"LearningAgents",
-				"LearningTraining",
-				"LearningAgentsTraining",
 				"DeveloperSettings",
 				"GameplayTags",
 				"NavigationSystem",
