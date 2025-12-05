@@ -35,14 +35,7 @@ void ALearningAgentsImitationCombatRecordingManager::BeginPlay()
 	ILController = Cast<ULearningAgentsCombatController>(ULearningAgentsController::MakeController(LearningAgentsManager, InteractorPtr, ILControllerClass));
 	bool bReinitializeRecording = true;
 	ILRecorder = ULearningAgentsRecorder::MakeRecorder(LearningAgentsManager, InteractorPtr, ILRecorderClass, FName("ILCombatRecorder"),
-	                                                   RecorderPathSettings, RecordingAsset, bReinitializeRecording);
-
-	ResetLearningAgents();
-	ILRecorder->BeginRecording();
-	
-	auto& TimerManager = GetWorld()->GetTimerManager();
-	TimerManager.SetTimer(RecordTimer, this, &ALearningAgentsImitationCombatRecordingManager::RecordImitations, RecordInterval);
-	TimerManager.SetTimer(RestartTimer, this, &ALearningAgentsImitationCombatRecordingManager::RestartLearning, LearningTime);
+		RecorderPathSettings, RecordingAsset, bReinitializeRecording);
 }
 
 void ALearningAgentsImitationCombatRecordingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -54,12 +47,42 @@ void ALearningAgentsImitationCombatRecordingManager::EndPlay(const EEndPlayReaso
 			LAS->UnregisterLearningAgentsManager(LearningAgentsManager);
 			LAS->UnregisterImitationLearningRecordingManager(this);
 		}
+		
+		auto& TimerManager = World->GetTimerManager();
+		TimerManager.ClearAllTimersForObject(this);
 	}
 	
 	if (ILRecorder != nullptr)
 		ILRecorder->EndRecording();
 	
 	Super::EndPlay(EndPlayReason);
+}
+
+void ALearningAgentsImitationCombatRecordingManager::StartRecording()
+{
+	auto& TimerManager = GetWorld()->GetTimerManager();
+	ILRecorder->BeginRecording();
+	TimerManager.SetTimer(RecordTimer, this, &ALearningAgentsImitationCombatRecordingManager::RecordImitations, RecordInterval);
+	TimerManager.SetTimer(RestartTimer, this, &ALearningAgentsImitationCombatRecordingManager::RestartLearning, LearningTime);
+}
+
+void ALearningAgentsImitationCombatRecordingManager::SetImitationRecordingActive(bool bImitationRecordingActive)
+{
+	auto& TimerManager = GetWorld()->GetTimerManager();
+	if (bImitationRecordingActive)
+	{
+		ResetLearningAgents();
+		if (StartRecordingDelay > 0.f)
+			TimerManager.SetTimer(StartRecordingDelayTimer, this, &ALearningAgentsImitationCombatRecordingManager::StartRecording, StartRecordingDelay);
+		else
+			StartRecording();
+	}
+	else
+	{
+		ILRecorder->EndRecording();
+		TimerManager.ClearTimer(RecordTimer);
+		TimerManager.ClearTimer(RestartTimer);
+	}
 }
 
 void ALearningAgentsImitationCombatRecordingManager::RecordImitations()
