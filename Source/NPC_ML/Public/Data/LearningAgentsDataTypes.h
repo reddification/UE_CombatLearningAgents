@@ -65,6 +65,12 @@ enum class ELALocomotionAction : uint8
 	Mantle = 1
 };
 
+UENUM()
+enum class ELAAttackType : uint8
+{
+	Default = 0
+};
+
 USTRUCT(BlueprintType)
 struct FLidarRaindropParams
 {

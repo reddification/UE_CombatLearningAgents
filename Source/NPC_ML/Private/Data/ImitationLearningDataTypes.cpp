@@ -217,7 +217,7 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_Attack::GetAction(ULearningAgentsActionObject* InActionObject,
 	                                                             AActor* AgentActor) const
 	{
-		auto Action = ULearningAgentsActions::MakeExclusiveDiscreteAction(InActionObject, AttackIndex, GetActionName());
+		auto Action = ULearningAgentsActions::MakeEnumAction(InActionObject, AttackEnum.Get(), AttackIndex, GetActionName());
 		auto CombatExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 
 			Action, Key_Action_Combat);
 		

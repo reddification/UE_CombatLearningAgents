@@ -219,8 +219,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	auto ParryAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Combat_Parry);
 	// auto ParryActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, ParryAction, 0.2f, Key_Action_Parry_Optional);
 	
-	auto AttackAction = ULearningAgentsActions::SpecifyExclusiveDiscreteAction(InActionSchema, 
-		Settings->AttackActionsProbabilities.Num(), Settings->AttackActionsProbabilities,
+	auto AttackAction = ULearningAgentsActions::SpecifyEnumAction(InActionSchema, GetAttackEnum(), GetAttackEnumBaseProbabilities(),
 		Key_Action_Combat_Attack);
 	
 	TMap<FName, FLearningAgentsActionSchemaElement> NonBlockingLocomotionActions = 
@@ -354,7 +353,7 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	
 	// i don't really know if I should provide any modifiers for attack, parry and dodge actions. 
 	// it's like there isn't anything meaningful I could specify for them
-	auto AttackActionModifier = ULearningAgentsActions::MakeExclusiveDiscreteActionModifier(InActionModifier, {}, Key_Action_Combat_Attack);
+	auto AttackActionModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, GetAttackEnum(), GetMaskedAttackValues(), Key_Action_Combat_Attack);
 	auto ParryActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier,
 		FVector::ZeroVector, false, false, true, FTransform::Identity,
 		Key_Action_Combat_Parry);
@@ -1531,9 +1530,9 @@ void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsA
 	
 	if (CombatActionName == Key_Action_Combat_Attack)
 	{
-		int32 AttackIndex = 0;
-		bool bSuccess = ULearningAgentsActions::GetExclusiveDiscreteAction(AttackIndex, 
-			InActionObject, CombatActionObjectElement, Key_Action_Combat_Attack,
+		uint8 AttackIndex = 0;
+		bool bSuccess = ULearningAgentsActions::GetEnumAction(AttackIndex, 
+			InActionObject, CombatActionObjectElement, GetAttackEnum(), Key_Action_Combat_Attack,
 			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		if (ensure(bSuccess))
 			CombatActionsComponent->Attack(AttackIndex);

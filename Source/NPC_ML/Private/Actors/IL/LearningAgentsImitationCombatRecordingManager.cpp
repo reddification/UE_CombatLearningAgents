@@ -152,10 +152,10 @@ void ALearningAgentsImitationCombatRecordingManager::RegisterMantle(AActor* Agen
 	Queue.AddAction(NewAction);
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RegisterAttack(AActor* Agent, int AttackIndex)
+void ALearningAgentsImitationCombatRecordingManager::RegisterAttack(AActor* Agent, uint8 AttackType, UEnum* AttackEnum)
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
-	TSharedPtr<FAction_Attack> NewAction = MakeShared<FAction_Attack>(GetWorld()->GetTimeSeconds(), AttackIndex);
+	TSharedPtr<FAction_Attack> NewAction = MakeShared<FAction_Attack>(GetWorld()->GetTimeSeconds(), AttackType, AttackEnum);
 	Queue.AddAction(NewAction);
 }
 

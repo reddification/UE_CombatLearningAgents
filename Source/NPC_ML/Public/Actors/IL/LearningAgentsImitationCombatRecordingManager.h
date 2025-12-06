@@ -33,7 +33,7 @@ public:
 	void RegisterRotate(AActor* Agent, const FRotator& NewRotator);
 	void RegisterJump(AActor* Agent);
 	void RegisterMantle(AActor* Agent);
-	void RegisterAttack(AActor* Agent, int AttackIndex);
+	void RegisterAttack(AActor* Agent, uint8 AttackType, UEnum* AttackEnum);
 	void RegisterParry(AActor* Agent, const FVector& ParryDirection);
 	void RegisterDodge(AActor* Agent, const FVector& DodgeDirection);
 	void RegisterGesture(AActor* Agent, const FGameplayTag& GestureTag);

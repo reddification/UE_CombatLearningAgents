@@ -174,8 +174,8 @@ namespace LearningAgentsImitationActions
 	class FAction_Attack : public FAction
 	{
 		public:
-			FAction_Attack(float Timestamp, int InAttackIndex)
-				: FAction(Timestamp), AttackIndex(InAttackIndex) { }
+			FAction_Attack(float Timestamp, uint8 InAttackIndex, const UEnum* InAttackEnum)
+				: FAction(Timestamp), AttackIndex(InAttackIndex), AttackEnum(InAttackEnum) { }
 						
 			virtual bool IsImmediate() const override { return true; }
 			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
@@ -183,7 +183,8 @@ namespace LearningAgentsImitationActions
 			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
 						
 		private:
-			int AttackIndex = 0;
+			uint8 AttackIndex = 0;
+			TStrongObjectPtr<const UEnum> AttackEnum = nullptr;
 	};
 	
 	class FAction_Parry : public FAction

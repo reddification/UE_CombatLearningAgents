@@ -48,7 +48,11 @@ protected:
 		int32 AgentId, const TArray<FEnemyData>& EnemiesData);
 	virtual FLearningAgentsObservationObjectElement GatherAlliesObservations(ULearningAgentsObservationObject* InObservationObject, 
 		int32 AgentId, const TArray<FAllyData>& AlliesData);
-
+	
+	virtual const UEnum* GetAttackEnum() { return StaticEnum<ELAAttackType>(); }
+	virtual TMap<uint8, float> GetAttackEnumBaseProbabilities() const { return {{0, 1.f }}; }
+	virtual TArray<uint8> GetMaskedAttackValues() const { return { }; }
+	
 private:
 	FLearningAgentsObservationSchemaElement SpecifyNamedExclusiveDiscreteObservation(ULearningAgentsObservationSchema* InObservationSchema,
 		const TMap<FGameplayTag, float>& ObservationOptions, const FName& ObservationName, const FName& ObservationOptionalWrapperName) const;
