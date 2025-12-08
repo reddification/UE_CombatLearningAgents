@@ -28,6 +28,7 @@ public:
 	virtual void Reset() {  }
 	
 	virtual void Attack(int32 AttackIndex) {}
-	virtual void Parry(const FVector& ParryDirection) {}
+	// Convention: parry angle is an angle 0->360 on a unit circle starting with 0 (and 360) at XY: (1, 0)
+	virtual void Parry(float ParryAngle) {}
 	virtual void Dodge(const FVector& DodgeDirection) {}
 };

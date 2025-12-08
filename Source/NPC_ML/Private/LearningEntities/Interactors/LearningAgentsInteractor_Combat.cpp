@@ -216,7 +216,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	auto DodgeAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Combat_Dodge);
 	// auto DodgeActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, DodgeAction, 0.1f, Key_Action_Dodge_Optional);
 	
-	auto ParryAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Combat_Parry);
+	auto ParryAction = ULearningAgentsActions::SpecifyFloatAction(InActionSchema, 360.f, Key_Action_Combat_Parry);
 	// auto ParryActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, ParryAction, 0.2f, Key_Action_Parry_Optional);
 	
 	auto AttackAction = ULearningAgentsActions::SpecifyEnumAction(InActionSchema, GetAttackEnum(), GetAttackEnumBaseProbabilities(),
@@ -353,10 +353,10 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	
 	// i don't really know if I should provide any modifiers for attack, parry and dodge actions. 
 	// it's like there isn't anything meaningful I could specify for them
-	auto AttackActionModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, GetAttackEnum(), GetMaskedAttackValues(), Key_Action_Combat_Attack);
-	auto ParryActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier,
-		FVector::ZeroVector, false, false, true, FTransform::Identity,
-		Key_Action_Combat_Parry);
+	auto AttackActionModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, GetAttackEnum(),
+		GetMaskedAttackValues(), Key_Action_Combat_Attack);
+	auto ParryActionModifier = ULearningAgentsActions::MakeFloatActionModifier(InActionModifier,
+		0.f, AllMaskedActions.Contains(Key_Action_Combat_Parry), Key_Action_Combat_Parry);
 	auto DodgeActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
 		FVector::ZeroVector, false, false, true, FTransform::Identity,
 		Key_Action_Combat_Dodge);
@@ -1539,12 +1539,12 @@ void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsA
 	}
 	else if (CombatActionName == Key_Action_Combat_Parry)
 	{
-		FVector ParryDirection = FVector::ZeroVector;
-		bool bSuccess = ULearningAgentsActions::GetDirectionAction(ParryDirection, 
-           InActionObject, CombatActionObjectElement, AgentTransform, Key_Action_Combat_Parry,
+		float ParryAngle = 0.f;
+		bool bSuccess = ULearningAgentsActions::GetFloatAction(ParryAngle, 
+           InActionObject, CombatActionObjectElement, Key_Action_Combat_Parry,
            Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		if (ensure(bSuccess))
-			CombatActionsComponent->Parry(ParryDirection);
+			CombatActionsComponent->Parry(ParryAngle);
 	}
 	else if (CombatActionName == Key_Action_Combat_Dodge)
 	{

@@ -88,9 +88,10 @@ namespace LearningAgentsImitationActions
 
 	FLearningAgentsActionObjectElement FAction_Locomotion_Move::GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		auto Transform = FTransform::Identity; // AgentActor->GetActorTransform()
+		// auto Transform = FTransform::Identity; 
+		auto Transform = AgentActor->GetActorTransform();
 		// i think it should be identity and not agent's transform, because direction here is an input and input is already relative to the agent
-		return ULearningAgentsActions::MakeDirectionAction(InActionObject, Direction, Transform, GetActionName());
+		return ULearningAgentsActions::MakeDirectionAction(InActionObject, DirectionWorld, Transform, GetActionName());
 	}
 
 	bool FAction_Locomotion_Move::CanCombine(FAction* OtherAction) const
@@ -104,7 +105,7 @@ namespace LearningAgentsImitationActions
 		
 		auto OtherActionMove = static_cast<FAction_Locomotion_Move*>(OtherAction);
 		constexpr float MergeDotProductThreshold = 0.98f;
-		return (Direction | OtherActionMove->Direction) > MergeDotProductThreshold;
+		return (DirectionWorld | OtherActionMove->DirectionWorld) > MergeDotProductThreshold;
 	}
 
 	void FAction_Locomotion_Move::Combine(const TSharedPtr<FAction>& OtherAction)
@@ -117,7 +118,7 @@ namespace LearningAgentsImitationActions
 		}
 		
 		auto OtherActionMove = static_cast<FAction_Locomotion_Move*>(OtherAction.Get());
-		Direction = (Direction + OtherActionMove->Direction).GetSafeNormal();
+		DirectionWorld = (DirectionWorld + OtherActionMove->DirectionWorld).GetSafeNormal();
 	}
 
 	FLearningAgentsActionObjectElement FAction_Locomotion_SetSpeed::GetActionInternal(
@@ -228,7 +229,7 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_Parry::GetAction(ULearningAgentsActionObject* InActionObject,
 		AActor* AgentActor) const
 	{
-		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, ParryDirection, FTransform::Identity, GetActionName());
+		auto Action = ULearningAgentsActions::MakeFloatAction(InActionObject, ParryAngle, GetActionName());
 		auto CombatExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 
 			Action, Key_Action_Combat);
 		
@@ -239,7 +240,7 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_Dodge::GetAction(ULearningAgentsActionObject* InActionObject,
 		AActor* AgentActor) const
 	{
-		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, DodgeDirection, FTransform::Identity, GetActionName());
+		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, DodgeDirectionWorld.GetSafeNormal2D(), AgentActor->GetActorTransform(), GetActionName());
 		auto CombatExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 
 			Action, Key_Action_Combat);
 		

@@ -45,7 +45,7 @@ namespace LearningAgentsImitationActions
 	{
 		public:
 			FAction_Locomotion_Move(float Timestamp, const FVector& InDirection) 
-				: FAction_Locomotion_NonBlocking(Timestamp), Direction(InDirection)
+				: FAction_Locomotion_NonBlocking(Timestamp), DirectionWorld(InDirection)
 			{
 			}
 			
@@ -55,7 +55,7 @@ namespace LearningAgentsImitationActions
 			virtual void Combine(const TSharedPtr<FAction>& OtherAction) override;
 		
 		private:
-			FVector Direction = FVector::ZeroVector;
+			FVector DirectionWorld = FVector::ZeroVector;
 	};
 	
 	class FAction_Locomotion_SetSpeed : public FAction_Locomotion_NonBlocking
@@ -190,8 +190,8 @@ namespace LearningAgentsImitationActions
 	class FAction_Parry : public FAction
 	{
 		public:
-			FAction_Parry(float Timestamp, const FVector& InParryDirection)
-				: FAction(Timestamp), ParryDirection(InParryDirection) { }
+			FAction_Parry(float Timestamp, float InParryAngle)
+				: FAction(Timestamp), ParryAngle(InParryAngle) { }
 							
 			virtual bool IsImmediate() const override { return true; }
 			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
@@ -199,14 +199,14 @@ namespace LearningAgentsImitationActions
 			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
 							
 		private:
-			FVector ParryDirection = FVector::ZeroVector;
+			float ParryAngle = 0.f;
 	};
 	
 	class FAction_Dodge : public FAction
 	{
 		public:
-			FAction_Dodge(float Timestamp, const FVector& InDodgeDirection)
-				: FAction(Timestamp), DodgeDirection(InDodgeDirection) { }
+			FAction_Dodge(float Timestamp, const FVector& InDodgeDirectionWorld)
+				: FAction(Timestamp), DodgeDirectionWorld(InDodgeDirectionWorld) { }
 								
 			virtual bool IsImmediate() const override { return true; }
 			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
@@ -214,7 +214,7 @@ namespace LearningAgentsImitationActions
 			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
 								
 		private:
-			FVector DodgeDirection = FVector::ZeroVector;
+			FVector DodgeDirectionWorld = FVector::ZeroVector;
 	};
 
 	struct FAgentPendingActions

@@ -117,10 +117,10 @@ FAgentPendingActions& ALearningAgentsImitationCombatRecordingManager::GetAgentAc
 	return PendingActionQueues[AgentId];
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RegisterMove(AActor* Agent, const FVector& Direction)
+void ALearningAgentsImitationCombatRecordingManager::RegisterMove(AActor* Agent, const FVector& WorldDirection)
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
-	TSharedPtr<FAction_Locomotion_Move> NewAction = MakeShared<FAction_Locomotion_Move>(GetWorld()->GetTimeSeconds(), Direction);
+	TSharedPtr<FAction_Locomotion_Move> NewAction = MakeShared<FAction_Locomotion_Move>(GetWorld()->GetTimeSeconds(), WorldDirection);
 	Queue.AddAction(NewAction);
 }
 
@@ -159,17 +159,17 @@ void ALearningAgentsImitationCombatRecordingManager::RegisterAttack(AActor* Agen
 	Queue.AddAction(NewAction);
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RegisterParry(AActor* Agent, const FVector& ParryDirection)
+void ALearningAgentsImitationCombatRecordingManager::RegisterParry(AActor* Agent, float ParryAngle)
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
-	TSharedPtr<FAction_Parry> NewAction = MakeShared<FAction_Parry>(GetWorld()->GetTimeSeconds(), ParryDirection);
+	TSharedPtr<FAction_Parry> NewAction = MakeShared<FAction_Parry>(GetWorld()->GetTimeSeconds(), ParryAngle);
 	Queue.AddAction(NewAction);
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RegisterDodge(AActor* Agent, const FVector& DodgeDirection)
+void ALearningAgentsImitationCombatRecordingManager::RegisterDodge(AActor* Agent, const FVector& DodgeDirectionWorld)
 {
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
-	TSharedPtr<FAction_Dodge> NewAction = MakeShared<FAction_Dodge>(GetWorld()->GetTimeSeconds(), DodgeDirection);
+	TSharedPtr<FAction_Dodge> NewAction = MakeShared<FAction_Dodge>(GetWorld()->GetTimeSeconds(), DodgeDirectionWorld);
 	Queue.AddAction(NewAction);
 }
 
