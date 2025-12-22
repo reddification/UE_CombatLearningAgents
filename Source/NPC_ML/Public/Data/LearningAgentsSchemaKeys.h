@@ -68,6 +68,11 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Enemy_Dynamic_CombatState = FName("Observation.Enemy.Dynamic.CombatState");
 	inline const FName Key_Observation_Enemy_Dynamic_Weapon = FName("Observation.Enemy.Dynamic.Weapon");
 
+	inline const FName Key_Observation_Enemy_Dynamic_RaindropTo_Lidar = FName("Observation.Enemy.Dynamic.RaindropTo.Lidar");
+	inline const FName Key_Observation_Enemy_Dynamic_RaindropTo_Array = FName("Observation.Enemy.Dynamic.RaindropTo.Array");
+	inline const FName Key_Observation_Enemy_Dynamic_RaindropTo_Convolved = FName("Observation.Enemy.Dynamic.RaindropTo.Convolved");
+	inline const FName Key_Observation_Enemy_Dynamic_RaindropTo_Convolved_Optional = FName("Observation.Enemy.Dynamic.RaindropTo.Convolved.Optional");
+	
 	inline const FName Key_Observation_Enemy_Static_ArmorRate = FName("Observation.Enemy.Static.ArmorRate");
 	inline const FName Key_Observation_Enemy_Static_Level = FName("Observation.Enemy.Static.Level");
 
@@ -85,6 +90,12 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Ally_Dynamic_Gesture_Optional = FName("Observation.Ally.Dynamic.Gesture.Optional");
 	inline const FName Key_Observation_Ally_Dynamic_Phrase = FName("Observation.Ally.Dynamic.Phrase");
 	inline const FName Key_Observation_Ally_Dynamic_Phrase_Optional = FName("Observation.Ally.Dynamic.Phrase.Optional");
+	
+	inline const FName Key_Observation_Ally_Dynamic_RaindropTo_Lidar = FName("Observation.Ally.Dynamic.RaindropTo.Lidar");
+	inline const FName Key_Observation_Ally_Dynamic_RaindropTo_Array = FName("Observation.Ally.Dynamic.RaindropTo.Array");
+	inline const FName Key_Observation_Ally_Dynamic_RaindropTo_Convolved = FName("Observation.Ally.Dynamic.RaindropTo.Convolved");
+	inline const FName Key_Observation_Ally_Dynamic_RaindropTo_Convolved_Optional = FName("Observation.Ally.Dynamic.RaindropTo.Convolved.Optional");
+	
 	inline const FName Key_Observation_Ally_Dynamic_CombatState = FName("Observation.Ally.Dynamic.CombatState");
 	inline const FName Key_Observation_Ally_Dynamic_AgentCanSeeAlly = FName("Observation.Ally.Dynamic.AgentCanSeeAlly");
 	inline const FName Key_Observation_Ally_Dynamic_Weapon = FName("Observation.Ally.Dynamic.Weapon");

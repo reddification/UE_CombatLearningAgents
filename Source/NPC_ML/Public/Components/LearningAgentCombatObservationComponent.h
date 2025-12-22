@@ -5,8 +5,10 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Data/AgentCombatDataTypes.h"
+#include "Data/InternalObservationDataTypes.h"
 #include "Data/LearningAgentsDataTypes.h"
 #include "Settings/CombatLearningSettings.h"
+#include "Data/RaindropDataTypes.h"
 #include "LearningAgentCombatObservationComponent.generated.h"
 
 namespace CombatLearning
@@ -16,21 +18,15 @@ namespace CombatLearning
 
 using namespace CombatLearning;
 
+/*
+ * Put a child component of this component on your agent actor
+ */
 UCLASS(Abstract)
 class NPC_ML_API ULearningAgentCombatObservationComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-private:
-	struct FLidarRaindropVariables
-	{
-		std::atomic<bool> bActive { false };
-		mutable FCriticalSection CriticalSection;
-		FVector OriginVector;
-		FVector DirectionVectorX;
-		FVector DirectionVectorY;
-		FVector TraceDirection;
-	}; 
+	using FCharacterDataContainer = TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>;
 	
 public:
 	ULearningAgentCombatObservationComponent();
@@ -38,21 +34,23 @@ public:
 	
 	virtual FSelfData GetSelfData() const;
 	virtual FCombatStateData GetCombatStateData() const;
-	virtual TArray<FEnemyData> GetEnemies() const;
-	virtual TArray<FAllyData> GetAllies() const;
-	
-	const FLidarObservationCache& GetLidarData() const { return LidarObservationCache; }
+	bool OccupyRaindropBuffer(ELARaindropTarget RaindropTarget, FRaindropBufferHandle& Handle);
+
+	const FCharacterDataContainer& GetEnemiesObservationData();
+	const FCharacterDataContainer& GetAlliesObservationData();
 	
 	void OnCombatStarted();
 	void OnCombatEnded();
+	
+	bool HasRelevantLidarData(AActor* Actor, ELARaindropTarget TargetType) const;
+	const TArray<float>* GetLidarDataTo(AActor* ForActor, ELARaindropTarget TargetType) const;
+	FORCEINLINE int GetRaindropToTargetResolution(ELARaindropTarget Target) const { return Settings->RaindropParams[Target].GetResolution(); }
+	const FLidarSelfObservationCache& GetSelfLidarData() { return LidarSelfObservationCache; }
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TEnumAsByte<ECollisionChannel> RaindropCollisionChannel;
-
 	virtual float GetNormalizedStamina() const { return 1.f; }
 	virtual float GetNormalizedHealth() const { return 1.f; }
 	virtual float GetArmorRate() const { return 0.f; }
@@ -62,23 +60,43 @@ protected:
 	virtual FWeaponData GetWeaponData() const { return {}; }
 	virtual FGameplayTag GetActiveGesture(AActor* Target) const { return FGameplayTag::EmptyTag; }
 
-	std::atomic<bool> LidarCancellationToken = false;
+	virtual TArray<TSharedRef<FOtherCharacterState>> GetEnemies() const;
+	virtual TArray<TSharedRef<FOtherCharacterState>> GetAllies() const;
 	
 private:
 	float CombatStartTime = 0.f;
 	
+	std::atomic<bool> LidarCancellationToken = false;
+	std::atomic<int> ActiveRaindropsCount { 0 };
+	
 	void CollectSpatialObservation_Octree();
 
-	void LidarRaindropAsync(const FLidarRaindropVariables& RaindropVariables,
-	                        const FLidarRaindropParams& RaindropParams, float* RawData, std::atomic<bool>* bActiveFlag, int RaindropLogId);
-	void Raindrop(const FLidarRaindropVariables& RaindropVariables, const FLidarRaindropParams& RaindropParams, 
-		float* RawData, int RaindropResolution, int x) const;
+	void ProcessTargetObservations(TArray<TSharedRef<FOtherCharacterState>>&& Targets, ELARaindropTarget RaindropTarget);
+	void LidarRaindropAsync(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams, const
+	                        FRaindropBufferHandle* RaindropBufferHandle, ELARaindropTarget
+	                        TargetType);
+	void RaindropRow(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams,
+	              const FRaindropRowData& RowData);
+	void RaindropToArray(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams,
+		const FRaindropRowData& RowData, TArray<float>& Array) const;
 	bool IsAsyncRaindropActive() const;
+
+	bool IsCharacterRelevantForRaindrop(const FOtherCharacterState& CharacterState, const FVector& LastKnownLocation,
+	                                    const FRaindropRelevancyParams& RelevancyParams) const;
+	void UpdateRaindropsToTargets(FCharacterDataContainer& CharactersData, ELARaindropTarget TargetType);
+	void StopRaindrop(FRaindrop& RaindropData, ELARaindropTarget Attitude);
+	void ResetRaindropBuffers();
+
+	TMap<ELARaindropTarget, TArray<FRaindropBuffer>> RaindropBuffers;
+	FCharacterDataContainer CachedEnemiesData;
+	FCharacterDataContainer CachedAlliesData;
+
+	FLidarSelfObservationCache LidarSelfObservationCache;
 	
-	FLidarObservationCache LidarObservationCache;
-	FLidarRaindropVariables RaindropDownwardsVariables;
-	FLidarRaindropVariables RaindropForwardVariables;
-	FLidarRaindropVariables RaindropBackwardsVariables;
+	FRaindrop SelfDownwardRaindrop;
+	FRaindrop SelfForwardRaindrop;
+	FRaindrop SelfBackwardRaindrop;
 	
 	TWeakObjectPtr<const UCombatLearningSettings> Settings;
+	FTimerHandle ResetRaindropBuffersTimer;
 };

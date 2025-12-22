@@ -6,7 +6,7 @@
 #include "GameplayTagContainer.h"
 #include "Engine/DeveloperSettings.h"
 #include "LearningAgentsObservations.h"
-#include "Data/LearningAgentsDataTypes.h"
+#include "Data/RaindropDataTypes.h"
 #include "CombatLearningSettings.generated.h"
 
 /**
@@ -61,14 +61,23 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, meta=(ClampMin = 1.f, UIMin = 1.f), Category="Observations")
 	float MaxExpectedCombatDuration = 120.f;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
 	FLidarRaindropParams DownwardRaindropsParams;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
 	FLidarRaindropParams ForwardRaindropsParams;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
 	FLidarRaindropParams BackwardRaindropsParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	TMap<ELARaindropTarget, FLidarRaindropParams> RaindropParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	TEnumAsByte<ECollisionChannel> RaindropCollisionChannel;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	TMap<ELARaindropTarget, FRaindropRelevancyParams> RaindropRelevanceParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	FConv2dObservationParams LidarRaindropDownwardConv2dParams;
@@ -78,6 +87,12 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	FConv2dObservationParams LidarRaindropBackwardConv2dParams;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	FConv2dObservationParams LidarRaindropToEnemyConv2dParams;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	FConv2dObservationParams LidarRaindropToAllyConv2dParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	float MaxCeilingHeight = 1500.f;
@@ -96,9 +111,6 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;
-
-	FORCEINLINE int GetDownwardRaindropResolution() const { return DownwardRaindropsParams.Radius * 2 / DownwardRaindropsParams.Density; }
-	FORCEINLINE int GetForwardRaindropResolution() const { return ForwardRaindropsParams.Radius * 2 / ForwardRaindropsParams.Density; }
-	FORCEINLINE int GetBackwardRaindropResolution() const { return BackwardRaindropsParams.Radius *2 / BackwardRaindropsParams.Density; }
-
+	
+	FORCEINLINE int GetRaindropToTargetResolution(ELARaindropTarget Target) const { return RaindropParams[Target].GetResolution(); } ;
 };

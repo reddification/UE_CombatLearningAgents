@@ -1,6 +1,4 @@
-﻿// 
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "LearningAgentsInteractor.h"
@@ -39,15 +37,17 @@ protected:
 	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetCombatStateObservationSchema(ULearningAgentsObservationSchema* InObservationSchema) const;
 	
 	virtual FLearningAgentsObservationObjectElement GatherSelfObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId,
-	                                                                       const FSelfData& SelfData) const;
+	                                                                       const FSelfData& SelfData);
 	virtual FLearningAgentsObservationObjectElement GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject,
 		int32 AgentId, ULearningAgentCombatObservationComponent* LAObservationComponent);
 	virtual FLearningAgentsObservationObjectElement GatherCombatStateObservation(ULearningAgentsObservationObject* InObservationObject, 
 		int32 AgentId, const FCombatStateData& CombatStateData);
-	virtual FLearningAgentsObservationObjectElement GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject, 
-		int32 AgentId, const TArray<FEnemyData>& EnemiesData);
-	virtual FLearningAgentsObservationObjectElement GatherAlliesObservations(ULearningAgentsObservationObject* InObservationObject, 
-		int32 AgentId, const TArray<FAllyData>& AlliesData);
+	virtual FLearningAgentsObservationObjectElement GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject,
+	                                                                         ULearningAgentCombatObservationComponent*
+	                                                                         CombatObservationComponent, int32 AgentId);
+	virtual FLearningAgentsObservationObjectElement GatherAlliesObservations(ULearningAgentsObservationObject* InObservationObject,
+	                                                                         ULearningAgentCombatObservationComponent*
+	                                                                         CombatObservationComponent, int32 AgentId);
 	
 	virtual const UEnum* GetAttackEnum() { return StaticEnum<ELAAttackType>(); }
 	virtual TMap<uint8, float> GetAttackEnumBaseProbabilities() const { return {{0, 1.f }}; }
@@ -58,10 +58,10 @@ private:
 		const TMap<FGameplayTag, float>& ObservationOptions, const FName& ObservationName, const FName& ObservationOptionalWrapperName) const;
 	FLearningAgentsObservationSchemaElement GetWeaponObservationSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* LearningSettings) const;
 	FLearningAgentsObservationObjectElement GetWeaponObservation(ULearningAgentsObservationObject* AgentObject, int
-	                                                             AgentId, const FWeaponData& WeaponData, const UCombatLearningSettings* Settings, const FVector& AgentLocation) const;
+	                                                             AgentId, const FWeaponData& WeaponData, const UCombatLearningSettings* Settings, const FVector& AgentLocation);
 	FLearningAgentsObservationObjectElement GatherOptionalNamedExclusiveObservation(ULearningAgentsObservationObject* InObservationObject,
 		const FName& ObservationName, const FName& ObservationOptionalWrapperName, const FGameplayTag& OptionTag,
-		const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, int AgentId) const;
+		const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, int AgentId);
 	
 	bool GetSelfStates(const ULearningAgentsObservationObject* InObservationObject,
 					   const FLearningAgentsObservationObjectElement& InObservationObjectElement, ELACharacterStates& OutSelfStates) const;
