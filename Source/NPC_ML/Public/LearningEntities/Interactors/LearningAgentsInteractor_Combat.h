@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "LearningAgentsInteractor.h"
+#include "Components/LAObservationHistoryComponent.h"
 #include "Components/LearningAgentCombatActionsComponent.h"
 #include "Components/LearningAgentCombatObservationComponent.h"
 #include "Components/LearningAgentLocomotionActionsComponent.h"
@@ -16,6 +17,17 @@ class NPC_ML_API ULearningAgentsInteractor_Combat : public ULearningAgentsIntera
 {
 	GENERATED_BODY()
 
+private:
+	struct FLAObservationGatherParams
+	{
+		ULearningAgentsObservationObject* InObservationObject = nullptr;
+		const UCombatLearningSettings* Settings = nullptr;
+		AActor* AgentActor = nullptr;
+		FVector AgentWorldLocation = FVector::ZeroVector;
+		FTransform AgentTransform = FTransform::Identity;
+		int AgentId = 0;
+	};
+	
 public:
 	virtual void SpecifyAgentObservation_Implementation(FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
 		ULearningAgentsObservationSchema* InObservationSchema) override;
@@ -30,11 +42,15 @@ public:
 	                                               const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
 	
 protected:
-	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetSelfObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
-	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetLidarObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
-	virtual FLearningAgentsObservationSchemaElement GetEnemyObservationSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
-	virtual FLearningAgentsObservationSchemaElement GetAllyObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
-	virtual TMap<FName, FLearningAgentsObservationSchemaElement> GetCombatStateObservationSchema(ULearningAgentsObservationSchema* InObservationSchema) const;
+	virtual TMap<FName, FLearningAgentsObservationSchemaElement> SpecifySelfObservations(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual TMap<FName, FLearningAgentsObservationSchemaElement> SpecifyLidarSelfObservations(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual FLearningAgentsObservationSchemaElement SpecifyOtherCharacterDynamicObservations(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings,
+		const TMap<FName, FLearningAgentsObservationSchemaElement>& AdditionalObservations, ELARaindropTarget RaindropTarget) const;
+	virtual FLearningAgentsObservationSchemaElement SpecifyEnemyObservation(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual FLearningAgentsObservationSchemaElement SpecifyAllyObservations(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual TMap<FName, FLearningAgentsObservationSchemaElement> SpecifyCombatStateObservation(ULearningAgentsObservationSchema* InObservationSchema) const;
+	virtual FLearningAgentsObservationSchemaElement SpecifyCombatHistoryObservation(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
+	virtual FLearningAgentsObservationSchemaElement SpecifyTranslationHistoryObservation(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const;
 	
 	virtual FLearningAgentsObservationObjectElement GatherSelfObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId,
 	                                                                       const FSelfData& SelfData);
@@ -57,14 +73,33 @@ private:
 	FLearningAgentsObservationSchemaElement SpecifyNamedExclusiveDiscreteObservation(ULearningAgentsObservationSchema* InObservationSchema,
 		const TMap<FGameplayTag, float>& ObservationOptions, const FName& ObservationName, const FName& ObservationOptionalWrapperName) const;
 	FLearningAgentsObservationSchemaElement GetWeaponObservationSchema(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* LearningSettings) const;
-	FLearningAgentsObservationObjectElement GetWeaponObservation(ULearningAgentsObservationObject* AgentObject, int
-	                                                             AgentId, const FWeaponData& WeaponData, const UCombatLearningSettings* Settings, const FVector& AgentLocation);
+	FLearningAgentsObservationObjectElement GetWeaponObservation(ULearningAgentsObservationObject* AgentObject, int AgentId, const FWeaponData& WeaponData,
+		const UCombatLearningSettings* Settings, const FVector& AgentLocation);
+	FLearningAgentsObservationSchemaElement SpecifyDynamicObservations(
+		ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings,
+		const TMap<FName, FLearningAgentsObservationSchemaElement>& ExtraObservations) const;
+	FLearningAgentsObservationSchemaElement SpecifyStaticObservations(
+		ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings, const TMap<FName,
+		FLearningAgentsObservationSchemaElement>& AdditionalObservations) const;
 	FLearningAgentsObservationObjectElement GatherOptionalNamedExclusiveObservation(ULearningAgentsObservationObject* InObservationObject,
 		const FName& ObservationName, const FName& ObservationOptionalWrapperName, const FGameplayTag& OptionTag,
 		const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, int AgentId);
+	FLearningAgentsObservationObjectElement GatherStaticObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId, const FCharacterStateBase& CharacterData,
+	    const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, const TMap<FName, FLearningAgentsObservationObjectElement>& AdditionalObservations);
+	FLearningAgentsObservationObjectElement GatherDynamicObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId, const FCharacterStateBase& CharacterData,
+		const UCombatLearningSettings* Settings, const TMap<FName, FLearningAgentsObservationObjectElement>& AdditionalObservations,
+		const FVector& AgentWorldLocation, const FTransform& AgentTransform);
+	FLearningAgentsObservationObjectElement GatherCombatHistoryObservation(const FLAObservationGatherParams& GatheringParams, const ULAObservationHistoryComponent* ObservationHistoryComponent);
+	FLearningAgentsObservationObjectElement GatherTranslationHistoryObservation(
+		const FLAObservationGatherParams& GatheringParams, const ULAObservationHistoryComponent* ObservationHistoryComponent);
+	FLearningAgentsObservationObjectElement GatherOtherCharacterDynamicObservations(ULearningAgentsObservationObject* InObservationObject,
+	                                                                                int32 AgentId, const UCombatLearningSettings* Settings, const TArray<float>* RaindropsTo,
+	                                                                                const FVector& AgentWorldLocation, const FTransform& AgentTransform, const FRotator& AgentRotation,
+	                                                                                const FOtherCharacterState& ActorState, const TMap<FName, FLearningAgentsObservationObjectElement>& AdditionalObservations);
+	
 	
 	bool GetSelfStates(const ULearningAgentsObservationObject* InObservationObject,
-					   const FLearningAgentsObservationObjectElement& InObservationObjectElement, ELACharacterStates& OutSelfStates) const;
+	                   const FLearningAgentsObservationObjectElement& InObservationObjectElement, ELACharacterStates& OutSelfStates) const;
 	
 	TSet<FName> GetMaskedActions(ELACharacterStates SelfStates) const;
 	FLearningAgentsActionSchemaElement GetNamedOptionsActionSchemaElement(ULearningAgentsActionSchema* InActionSchema,

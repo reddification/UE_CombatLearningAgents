@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Actors/IL/LearningAgentsImitationCombatRecordingManager.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "LearningAgentSubsystem.generated.h"
 
-class ALearningAgentsImitationCombatRecordingManager;
 class ULearningAgentsManager;
 class UCombatLearningAgentsManagerComponent;
 /**
@@ -26,8 +26,8 @@ public:
 	void UnregisterLearningAgent(APawn* Pawn);
 
 	void RegisterImitationLearningRecordingManager(ALearningAgentsImitationCombatRecordingManager* InILRecordingManager) { ILRecordingManager = InILRecordingManager; };
-	void UnregisterImitationLearningRecordingManager(ALearningAgentsImitationCombatRecordingManager* LearningAgentsImitationCombatRecordingManager);;
-	ALearningAgentsImitationCombatRecordingManager* GetLearningAgentsImitationCombatRecordingManager() const { return ILRecordingManager.Get(); };
+	void UnregisterImitationLearningRecordingManager(ALearningAgentsImitationCombatRecordingManager* LearningAgentsImitationCombatRecordingManager);
+	ALearningAgentsImitationCombatRecordingManager* GetLearningAgentsImitationCombatRecordingManager() const { return ILRecordingManager.Get(); }
 	
 private:
 	TWeakObjectPtr<ULearningAgentsManager> LearningAgentsManager;

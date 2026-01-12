@@ -193,7 +193,9 @@ FSelfData ULearningAgentCombatObservationComponent::GetSelfData() const
 	SelfData.SurvivalDesire = GetSurvivalDesire();
 	SelfData.WeaponData = GetWeaponData();
 	SelfData.WorldVelocity = OwnerActor->GetVelocity();
-	SelfData.ActiveGesture = GetActiveGesture(OwnerActor);
+	SelfData.ActiveGesture = GetActiveGesture();
+	SelfData.ActivePhrase = GetActivePhrase();
+	SelfData.AccumulatedNormalizedDamage = GetAccumulatedNormalizedDamage();
 	
 	return SelfData;
 }

@@ -31,7 +31,7 @@ class NPC_ML_API ULearningAgentCombatObservationComponent : public UActorCompone
 public:
 	ULearningAgentCombatObservationComponent();
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	
+
 	virtual FSelfData GetSelfData() const;
 	virtual FCombatStateData GetCombatStateData() const;
 	bool OccupyRaindropBuffer(ELARaindropTarget RaindropTarget, FRaindropBufferHandle& Handle);
@@ -58,8 +58,10 @@ protected:
 	virtual int GetLevel() const { return 1; }
 	virtual float GetSurvivalDesire() const { return 0.75f; }
 	virtual FWeaponData GetWeaponData() const { return {}; }
-	virtual FGameplayTag GetActiveGesture(AActor* Target) const { return FGameplayTag::EmptyTag; }
-
+	virtual const FGameplayTag& GetActiveGesture() const { return FGameplayTag::EmptyTag; }
+	virtual const FGameplayTag& GetActivePhrase() const { return FGameplayTag::EmptyTag; }
+	virtual float GetAccumulatedNormalizedDamage() const { return 0.f; }
+	
 	virtual TArray<TSharedRef<FOtherCharacterState>> GetEnemies() const;
 	virtual TArray<TSharedRef<FOtherCharacterState>> GetAllies() const;
 	

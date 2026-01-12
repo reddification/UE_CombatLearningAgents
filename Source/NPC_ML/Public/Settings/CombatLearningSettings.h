@@ -61,6 +61,19 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, meta=(ClampMin = 1.f, UIMin = 1.f), Category="Observations")
 	float MaxExpectedCombatDuration = 120.f;
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	float TranslationHistoryUpdateInterval = 0.3f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	int TranslationHistorySize = 20;
+	
+	// used for normalization. how much time on average passes between combat encounters
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	float ExpectedCombatHistoryEventInterval = 10.f;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	int CombatHistorySize = 10;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
 	FLidarRaindropParams DownwardRaindropsParams;
 	
@@ -89,10 +102,7 @@ public:
 	FConv2dObservationParams LidarRaindropBackwardConv2dParams;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FConv2dObservationParams LidarRaindropToEnemyConv2dParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FConv2dObservationParams LidarRaindropToAllyConv2dParams;
+	TMap<ELARaindropTarget, FConv2dObservationParams> LidarRaindropToTargetConv2dParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	float MaxCeilingHeight = 1500.f;

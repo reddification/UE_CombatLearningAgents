@@ -1,6 +1,7 @@
 ﻿// 
 #include "LearningEntities/Interactors/LearningAgentsInteractor_Combat.h"
 
+#include "Components/LAObservationHistoryComponent.h"
 #include "Components/LearningAgentCombatActionsComponent.h"
 #include "Components/LearningAgentCombatObservationComponent.h"
 #include "Components/LearningAgentLocomotionActionsComponent.h"
@@ -11,80 +12,6 @@
 
 using namespace LAActionKeys;
 using namespace LAObservationKeys;
-
-/*
- * Combat observation hierarchy
- * All
- *		Self
- *			Dynamic
- *				fHealth
- *				fStamina
- *				vVelocity
- *				eCombatState (none, attacking, dodging, staggered, blocking, parried attack, sprinting, sneaking)
- *				tWeapon
- *					fAttackRange
- *					fWeaponMastery
- *					eWeaponType (unarmed, melee, ranged)
- *					fPowerRate
- *			Static	
- *				iLevel
- *				fArmorRate
- *				fSurviveDesire
- *			
- *		LIDAR
- *			Raindrops (heightmaps in several planes. alternative would be having a tensor with a fragment of octree surrounding an agent, but there's no conv3d yet)
- *				Downward
- *				Forward
-*				Backward
- *			
- *		Enemies
- *			Dynamic
- *				bAlive
- *				fHealth
- *				vVelocity
- *				vRelativeOrientation
- *				vRelativeLocation (can be both "known" and "assumed". I hope that "bCanSee" observation can help to make the difference for the LA)
- *				bAgentCanSeeEnemy
- *				bAgentCanBeSeenByEnemy
- *				fKillDesire
-*				eActiveGesture
-*				bReachable				
-*				eCombatState (none, attacking, dodging, staggered, blocking, parried attack, sprinting, sneaking)
-*				tWeapon
-*					fAttackRange
-*					fWeaponMastery
-*					eWeaponType (unarmed, melee, ranged)
-*					fPowerRate (assumed)
-*			Static
-*				fArmorRate (assumed)
-*				
- *		Allies
- *			Dynamic
- *				bAlive
- *				fHealth
- *				vRelativeVelocity
- *				vRelativeOrientation
- *				vRelativeLocation
-*				eActiveGesture
-*				eActivePhrase
-*				bInCombat
-*				eCombatState (none, attacking, dodging, staggered, blocking, parried attack)
-*				tWeapon
-*					fAttackRange
-*					fWeaponMastery
-*					eWeaponType (unarmed, melee, ranged)
-*					fPowerRate
-*			Static
-*				fArmorRate
-*		Neutrals (just neutral characters, think of citizens, non-aggressive animals, bypassers)
-*			Dynamic
-*			//... same as allies
-*			Static
-*			//... same as allies
-*			
-*		Environment
-*			fCombatTotalDuration
- */
 
 void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	FLearningAgentsObservationSchemaElement& OutObservationSchemaElement,
@@ -97,21 +24,21 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Self))
 	{
 		auto SelfObservations = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-		GetSelfObservationsSchema(InObservationSchema, Settings), Key_Observation_Self);
+		SpecifySelfObservations(InObservationSchema, Settings), Key_Observation_Self);
 		Observations.Add(Key_Observation_Self, SelfObservations);
 	}
 	
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Surrounding))
 	{
 		auto LidarObservations = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-		GetLidarObservationsSchema(InObservationSchema, Settings), Key_Observation_Surrounding_LIDAR);
+		SpecifyLidarSelfObservations(InObservationSchema, Settings), Key_Observation_Surrounding_LIDAR);
 		Observations.Add(Key_Observation_Surrounding_LIDAR, LidarObservations);
 	}
 
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Enemy))
 	{
 		auto EnemiesObservations = ULearningAgentsObservations::SpecifyArrayObservation(InObservationSchema,
-			GetEnemyObservationSchema(InObservationSchema, Settings),
+			SpecifyEnemyObservation(InObservationSchema, Settings),
 			Settings->MaxEnemiesObservedAtOnce, 128, 4, 128, Key_Observation_Enemies);
 		Observations.Add(Key_Observation_Enemies, EnemiesObservations);
 	}
@@ -119,7 +46,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Ally))
 	{
 		auto AlliesObservations = ULearningAgentsObservations::SpecifyArrayObservation(InObservationSchema,
-	   GetAllyObservationsSchema(InObservationSchema, Settings),
+	   SpecifyAllyObservations(InObservationSchema, Settings),
 			Settings->MaxAlliesObservedAtOnce, 128, 4, 128, Key_Observation_Allies);
 		Observations.Add(Key_Observation_Allies, AlliesObservations);
 	}
@@ -127,7 +54,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	if (Settings->RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_CombatState))
 	{
 		auto EnvironmentObservations = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-			GetCombatStateObservationSchema(InObservationSchema), Key_Observation_Combat_State);
+			SpecifyCombatStateObservation(InObservationSchema), Key_Observation_Combat_State);
 		Observations.Add(Key_Observation_Combat_State, EnvironmentObservations);
 	}
 	
@@ -564,8 +491,7 @@ void ULearningAgentsInteractor_Combat::PerformAgentAction_Implementation(
 	}
 }
 
-FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetWeaponObservationSchema(
-	ULearningAgentsObservationSchema* InObservationSchema,
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetWeaponObservationSchema(ULearningAgentsObservationSchema* InObservationSchema,
 	const UCombatLearningSettings* LearningSettings) const
 {
 	// TODO 11.11.2025 (aki) I'm not sure if it should be the size of float or whatever other wrapper struct that is used for float
@@ -578,27 +504,27 @@ FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetWea
 	int FloatObservationEncodingSize = 16;
 	
 	auto ActiveWeaponTypeObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema,
-		StaticEnum<ELAActiveWeaponType>(), Key_Observation_Self_Dynamic_ActiveWeapon_Type);
+		StaticEnum<ELAActiveWeaponType>(), Key_Observation_ActiveWeapon_Type);
 	auto WeaponMasteryObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,
-		1.f, Key_Observation_Self_Dynamic_ActiveWeapon_Mastery);
+		1.f, Key_Observation_ActiveWeapon_Mastery);
 	auto MeleeAttackRangeObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,
-		LearningSettings->MaxMeleeAttackRange, Key_Observation_Self_Dynamic_ActiveWeapon_Range_Melee);
+		LearningSettings->MaxMeleeAttackRange, Key_Observation_ActiveWeapon_Range_Melee);
 	auto RangedAttackRangeObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,
-		LearningSettings->MaxRangedAttackRange, Key_Observation_Self_Dynamic_ActiveWeapon_Range_Ranged);
+		LearningSettings->MaxRangedAttackRange, Key_Observation_ActiveWeapon_Range_Ranged);
 	auto AttackRangeObservation = ULearningAgentsObservations::SpecifyEitherObservation(InObservationSchema, MeleeAttackRangeObservation,
-		RangedAttackRangeObservation, FloatObservationEncodingSize, Key_Observation_Self_Dynamic_ActiveWeapon_Range);
+		RangedAttackRangeObservation, FloatObservationEncodingSize, Key_Observation_ActiveWeapon_Range);
 	auto PowerRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,
-		LearningSettings->MaxPowerRate, Key_Observation_Self_Dynamic_ActiveWeapon_PowerRate);
+		LearningSettings->MaxPowerRate, Key_Observation_ActiveWeapon_PowerRate);
 	
 	TMap<FName, FLearningAgentsObservationSchemaElement> ActiveWeaponObservations =
 	{
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_Type, ActiveWeaponTypeObservation },
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_Mastery, WeaponMasteryObservation },
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_Range, AttackRangeObservation},
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_PowerRate, PowerRateObservation }
+		{ Key_Observation_ActiveWeapon_Type, ActiveWeaponTypeObservation },
+		{ Key_Observation_ActiveWeapon_Mastery, WeaponMasteryObservation },
+		{ Key_Observation_ActiveWeapon_Range, AttackRangeObservation},
+		{ Key_Observation_ActiveWeapon_PowerRate, PowerRateObservation }
 	};
 	
-	return ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, ActiveWeaponObservations, Key_Observation_Self_Dynamic_ActiveWeapon);
+	return ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, ActiveWeaponObservations, Key_Observation_ActiveWeapon);
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GetWeaponObservation(
@@ -606,102 +532,128 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GetWea
 	const FWeaponData& WeaponData, const UCombatLearningSettings* Settings, const FVector& AgentLocation)
 {
 	auto ActiveWeaponTypeObservation = ULearningAgentsObservations::MakeEnumObservation(AgentObject, StaticEnum<ELAActiveWeaponType>(),
-		static_cast<uint8>(WeaponData.WeaponType), Key_Observation_Self_Dynamic_ActiveWeapon_Type,
+		static_cast<uint8>(WeaponData.WeaponType), Key_Observation_ActiveWeapon_Type,
 		Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 	
 	auto WeaponMasteryObservation = ULearningAgentsObservations::MakeFloatObservation(AgentObject, WeaponData.NormalizedWeaponMastery,
-		Key_Observation_Self_Dynamic_ActiveWeapon_Mastery,
+		Key_Observation_ActiveWeapon_Mastery,
 		Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 
 	FLearningAgentsObservationObjectElement AttackRangeObservation;
 	if (WeaponData.WeaponType == ELAActiveWeaponType::Ranged)
 	{
 		auto RangedAttackRangeObservation = ULearningAgentsObservations::MakeFloatObservation(AgentObject, WeaponData.AttackRange,
-			Key_Observation_Self_Dynamic_ActiveWeapon_Range_Ranged,
+			Key_Observation_ActiveWeapon_Range_Ranged,
 			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		AttackRangeObservation = ULearningAgentsObservations::MakeEitherObservation(AgentObject,
-			RangedAttackRangeObservation, ELearningAgentsEitherObservation::B, Key_Observation_Self_Dynamic_ActiveWeapon_Range);
+			RangedAttackRangeObservation, ELearningAgentsEitherObservation::B, Key_Observation_ActiveWeapon_Range);
 	}
 	else
 	{
-		auto MeleeAttackRangeObservation = ULearningAgentsObservations::MakeFloatObservation(AgentObject, WeaponData.AttackRange, Key_Observation_Self_Dynamic_ActiveWeapon_Range_Melee,
+		auto MeleeAttackRangeObservation = ULearningAgentsObservations::MakeFloatObservation(AgentObject, WeaponData.AttackRange, Key_Observation_ActiveWeapon_Range_Melee,
 			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		AttackRangeObservation = ULearningAgentsObservations::MakeEitherObservation(AgentObject,
-			MeleeAttackRangeObservation, ELearningAgentsEitherObservation::A, Key_Observation_Self_Dynamic_ActiveWeapon_Range);
+			MeleeAttackRangeObservation, ELearningAgentsEitherObservation::A, Key_Observation_ActiveWeapon_Range);
 	}
 	
-	auto PowerRate = ULearningAgentsObservations::MakeFloatObservation(AgentObject, WeaponData.PowerRate, Key_Observation_Self_Dynamic_ActiveWeapon_PowerRate);
+	auto PowerRate = ULearningAgentsObservations::MakeFloatObservation(AgentObject, WeaponData.PowerRate, Key_Observation_ActiveWeapon_PowerRate);
 	
 	TMap<FName, FLearningAgentsObservationObjectElement> ActiveWeaponObservations =
 	{
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_Type, ActiveWeaponTypeObservation },
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_Mastery, WeaponMasteryObservation },
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_Range, AttackRangeObservation},
-		{ Key_Observation_Self_Dynamic_ActiveWeapon_PowerRate, PowerRate }
+		{ Key_Observation_ActiveWeapon_Type, ActiveWeaponTypeObservation },
+		{ Key_Observation_ActiveWeapon_Mastery, WeaponMasteryObservation },
+		{ Key_Observation_ActiveWeapon_Range, AttackRangeObservation},
+		{ Key_Observation_ActiveWeapon_PowerRate, PowerRate }
 	};
 	
-	return ULearningAgentsObservations::MakeStructObservation(AgentObject, ActiveWeaponObservations, Key_Observation_Self_Dynamic_ActiveWeapon);
+	return ULearningAgentsObservations::MakeStructObservation(AgentObject, ActiveWeaponObservations, Key_Observation_ActiveWeapon);
 }
 
-TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_Combat::GetSelfObservationsSchema(
-	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyDynamicObservations(
+	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings,
+	const TMap<FName, FLearningAgentsObservationSchemaElement>& ExtraObservations) const
 {
-	// TODO (aki, 11.11.2025): use RelevantObservations from settings
-	
-	TMap<FName, FLearningAgentsObservationSchemaElement> Result;
-	auto HealthObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Self_Dynamic_Health);
-	auto StaminaObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Self_Dynamic_Stamina);
-	auto VelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_Self_Dynamic_Velocity);
-	auto StatesObservation = ULearningAgentsObservations::SpecifyBitmaskObservation(InObservationSchema, StaticEnum<ELACharacterStates>(), Key_Observation_Self_Dynamic_CombatStates);
-	
+	auto HealthObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Dynamic_Health);
+	auto VelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_Dynamic_Velocity);
+	auto StatesObservation = ULearningAgentsObservations::SpecifyBitmaskObservation(InObservationSchema, StaticEnum<ELACharacterStates>(), Key_Observation_Dynamic_CombatStates);
 	auto WeaponObservation = GetWeaponObservationSchema(InObservationSchema, Settings);
 	
 	TMap<FName, FLearningAgentsObservationSchemaElement> DynamicSelfObservations =
 	{
-		{ Key_Observation_Self_Dynamic_Health, HealthObservation },
-		{ Key_Observation_Self_Dynamic_Stamina, StaminaObservation },
-		{ Key_Observation_Self_Dynamic_Velocity, VelocityObservation },
-		{ Key_Observation_Self_Dynamic_CombatStates, StatesObservation },
-		{ Key_Observation_Self_Dynamic_ActiveWeapon, WeaponObservation },
+		{ Key_Observation_Dynamic_Health, HealthObservation },
+		{ Key_Observation_Dynamic_Velocity, VelocityObservation },
+		{ Key_Observation_Dynamic_CombatStates, StatesObservation },
+		{ Key_Observation_ActiveWeapon, WeaponObservation },
 	};
 	
 	// auto GestureObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, 
 	// 	StaticEnum<ELAGesture>(), Key_Observation_Self_Dynamic_Gesture);
 	if (!Settings->Gestures.IsEmpty())
 	{
-		auto GestureOptionalObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures, Key_Observation_Self_Dynamic_Gesture, Key_Observation_Self_Dynamic_Gesture_Optional);
-		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Gesture_Optional, GestureOptionalObservation);
+		auto GestureOptionalObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures, Key_Observation_Dynamic_Gesture, Key_Observation_Dynamic_Gesture_Optional);
+		DynamicSelfObservations.Add(Key_Observation_Dynamic_Gesture_Optional, GestureOptionalObservation);
 	}
 	
 	if (!Settings->Phrases.IsEmpty())
 	{
-		auto PhrasesOptionalObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases, Key_Observation_Self_Dynamic_Phrase, Key_Observation_Self_Dynamic_Phrase_Optional);
-		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Phrase_Optional, PhrasesOptionalObservation);
+		auto PhrasesOptionalObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases, Key_Observation_Dynamic_Phrase, Key_Observation_Dynamic_Phrase_Optional);
+		DynamicSelfObservations.Add(Key_Observation_Dynamic_Phrase_Optional, PhrasesOptionalObservation);
 	}
 	
-	auto DynamicSelfObservationsStruct = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-		DynamicSelfObservations, Key_Observation_Self_Dynamic);
+	DynamicSelfObservations.Append(ExtraObservations);
+	return ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, DynamicSelfObservations, Key_Observation_Dynamic);
+}
 
-	auto LevelObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxLevel, Key_Observation_Self_Static_Level);
-	auto ArmorRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxArmorRate, Key_Observation_Self_Static_ArmorRate);
-	auto SurvivalDesireObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Self_Static_SurvivalDesire);
-
-	TMap<FName, FLearningAgentsObservationSchemaElement> StaticSelfObservations =
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyStaticObservations(ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings, 
+	const TMap<FName, FLearningAgentsObservationSchemaElement>& AdditionalObservations) const
+{
+	auto LevelObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxLevel, Key_Observation_Static_Level);
+	auto ArmorRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxArmorRate, Key_Observation_Static_ArmorRate);
+	
+	TMap<FName, FLearningAgentsObservationSchemaElement> StaticObservations =
 	{
-		{ Key_Observation_Self_Static_Level, LevelObservation },
-		{ Key_Observation_Self_Static_ArmorRate, ArmorRateObservation },
-		{ Key_Observation_Self_Static_SurvivalDesire, SurvivalDesireObservation }
+		{ Key_Observation_Static_Level, LevelObservation },
+		{ Key_Observation_Static_ArmorRate, ArmorRateObservation },
 	};
 	
-	auto StaticSelfObservationsStruct = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-		StaticSelfObservations, Key_Observation_Self_Static);
+	StaticObservations.Append(AdditionalObservations);
+	return ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, StaticObservations, Key_Observation_Static);
+}
+
+TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_Combat::SpecifySelfObservations(
+	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
+{
+	// TODO (aki, 11.11.2025): use RelevantObservations from settings
 	
-	Result.Add(Key_Observation_Self_Static, StaticSelfObservationsStruct);
-	Result.Add(Key_Observation_Self_Dynamic, DynamicSelfObservationsStruct);
+	auto StaminaObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Dynamic_Stamina);
+	TMap<FName, FLearningAgentsObservationSchemaElement> SelfSpecificDynamicObservations =
+	{
+		{ Key_Observation_Dynamic_Stamina, StaminaObservation }
+	};
+	
+	auto SurvivalDesireObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Static_SurvivalDesire);
+	TMap<FName, FLearningAgentsObservationSchemaElement> SelfSpecificStaticObservations =
+	{
+		{ Key_Observation_Static_SurvivalDesire, SurvivalDesireObservation }
+	};
+		
+	FLearningAgentsObservationSchemaElement DynamicSelfObservationsStruct = SpecifyDynamicObservations(InObservationSchema, Settings, SelfSpecificDynamicObservations);
+	FLearningAgentsObservationSchemaElement StaticSelfObservationsStruct = SpecifyStaticObservations(InObservationSchema, Settings, SelfSpecificStaticObservations);
+	FLearningAgentsObservationSchemaElement CombatEventHistoryObservation = SpecifyCombatHistoryObservation(InObservationSchema, Settings);
+	FLearningAgentsObservationSchemaElement TranslationHistoryObservation = SpecifyTranslationHistoryObservation(InObservationSchema, Settings);
+	
+	TMap<FName, FLearningAgentsObservationSchemaElement> Result = 
+	{
+		{ Key_Observation_Static, StaticSelfObservationsStruct },
+		{ Key_Observation_Dynamic, DynamicSelfObservationsStruct },
+		{ Key_Observation_CombatHistory, CombatEventHistoryObservation },
+		{ Key_Observation_TranslationHistory, TranslationHistoryObservation }
+	};
+	
 	return Result;
 }
 
-TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_Combat::GetLidarObservationsSchema(
+TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_Combat::SpecifyLidarSelfObservations(
 	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
 {
 	// welp, until there's no conv3d, LAs will observe convolved "heightmaps" in different plains 
@@ -745,173 +697,89 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	return Result;
 }
 
-FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetEnemyObservationSchema(ULearningAgentsObservationSchema* InObservationSchema,
-	const UCombatLearningSettings* Settings) const
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyOtherCharacterDynamicObservations(ULearningAgentsObservationSchema* InObservationSchema,
+	const UCombatLearningSettings* Settings, const TMap<FName, FLearningAgentsObservationSchemaElement>& AdditionalObservations, ELARaindropTarget RaindropTarget) const
 {
-	TMap<FName, FLearningAgentsObservationSchemaElement> DynamicObservations;
-	TMap<FName, FLearningAgentsObservationSchemaElement> StaticObservations;
-
-	auto EnemyAliveObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Enemy_Dynamic_IsAlive);
-	auto EnemyHealthObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Enemy_Dynamic_Health);
-	auto EnemyVelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_Enemy_Dynamic_Velocity);
-	auto EnemyLocationObservation = ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema, Settings->EnemyDistanceScale, Key_Observation_Enemy_Dynamic_Location);
-	auto EnemyOrientationObservation = ULearningAgentsObservations::SpecifyRotationObservation(InObservationSchema, Key_Observation_Enemy_Dynamic_Orientation);
-	auto AgentCanSeeEnemyObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Enemy_Dynamic_AgentCanSeeEnemy);
-	auto AgentCanBeSeenByEnemyObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Enemy_Dynamic_EnemyCanSeeAgent);
-	auto KillDesireObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Enemy_Dynamic_KillDesire);
-	auto EnemyCombatStatesObservation = ULearningAgentsObservations::SpecifyBitmaskObservation(InObservationSchema, StaticEnum<ELACharacterStates>(), Key_Observation_Enemy_Dynamic_CombatState);
-	auto WeaponObservation = GetWeaponObservationSchema(InObservationSchema, Settings);
+	auto EnemyAliveObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Actor_Dynamic_IsAlive);
+	auto EnemyLocationObservation = ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema, Settings->EnemyDistanceScale, Key_Observation_Actor_Dynamic_Location);
+	auto EnemyOrientationObservation = ULearningAgentsObservations::SpecifyRotationObservation(InObservationSchema, Key_Observation_Actor_Dynamic_Orientation);
+	auto AgentCanSeeEnemyObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Actor_Dynamic_AgentCanSeeActor);
 	
 	auto RaindropToTargetLidarObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema, 
-		Key_Observation_Enemy_Dynamic_RaindropTo_Lidar);
-	const int RaindropToTargetResolution = Settings->GetRaindropToTargetResolution(ELARaindropTarget::Enemy);
+		Key_Observation_Actor_Dynamic_RaindropTo_Lidar);
+	const int RaindropToTargetResolution = Settings->GetRaindropToTargetResolution(RaindropTarget);
 	auto RaindropToTargetArrayObservation = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema, RaindropToTargetLidarObservation,
-		RaindropToTargetResolution, Key_Observation_Enemy_Dynamic_RaindropTo_Array);
+		RaindropToTargetResolution, Key_Observation_Actor_Dynamic_RaindropTo_Array);
 	auto Conv2dRaindropObservation = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema, RaindropToTargetArrayObservation,
-		Settings->LidarRaindropToEnemyConv2dParams, Key_Observation_Enemy_Dynamic_RaindropTo_Convolved);
-	int ConvolvedRaindropOptionalEncodingSize = Settings->LidarRaindropToEnemyConv2dParams.InChannels 
-		* Settings->LidarRaindropToEnemyConv2dParams.InputHeight 
-		* Settings->LidarRaindropToEnemyConv2dParams.InputHeight;
+		Settings->LidarRaindropToTargetConv2dParams[RaindropTarget], Key_Observation_Actor_Dynamic_RaindropTo_Convolved);
+	int ConvolvedRaindropOptionalEncodingSize = Settings->LidarRaindropToTargetConv2dParams[RaindropTarget].InChannels 
+		* Settings->LidarRaindropToTargetConv2dParams[RaindropTarget].InputHeight 
+		* Settings->LidarRaindropToTargetConv2dParams[RaindropTarget].InputHeight;
 	ConvolvedRaindropOptionalEncodingSize = FMath::Clamp(FMath::RoundUpToPowerOfTwo(ConvolvedRaindropOptionalEncodingSize), 128, 512);
 	auto Conv2dRaindropObservationOptional = ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, Conv2dRaindropObservation, 
-		ConvolvedRaindropOptionalEncodingSize, Key_Observation_Enemy_Dynamic_RaindropTo_Convolved_Optional);
+		ConvolvedRaindropOptionalEncodingSize, Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional);
 	
-	DynamicObservations =
+	TMap<FName, FLearningAgentsObservationSchemaElement> OtherCharacterDynamicObservations =
 	{
-		{ Key_Observation_Enemy_Dynamic_Health, EnemyHealthObservation},
-		{ Key_Observation_Enemy_Dynamic_IsAlive, EnemyAliveObservation},
-		{ Key_Observation_Enemy_Dynamic_Velocity, EnemyVelocityObservation },
-		{ Key_Observation_Enemy_Dynamic_Location, EnemyLocationObservation },
-		{ Key_Observation_Enemy_Dynamic_Orientation, EnemyOrientationObservation },
-		{ Key_Observation_Enemy_Dynamic_AgentCanSeeEnemy, AgentCanSeeEnemyObservation },
-		{ Key_Observation_Enemy_Dynamic_EnemyCanSeeAgent, AgentCanBeSeenByEnemyObservation },
-		{ Key_Observation_Enemy_Dynamic_KillDesire, KillDesireObservation },
-		{ Key_Observation_Enemy_Dynamic_CombatState, EnemyCombatStatesObservation },
-		{ Key_Observation_Enemy_Dynamic_Weapon, WeaponObservation },
-		{ Key_Observation_Enemy_Dynamic_RaindropTo_Convolved_Optional, Conv2dRaindropObservationOptional }
+		{ Key_Observation_Actor_Dynamic_IsAlive, EnemyAliveObservation},
+		{ Key_Observation_Actor_Dynamic_Location, EnemyLocationObservation },
+		{ Key_Observation_Actor_Dynamic_Orientation, EnemyOrientationObservation },
+		{ Key_Observation_Actor_Dynamic_AgentCanSeeActor, AgentCanSeeEnemyObservation },
+		{ Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional, Conv2dRaindropObservationOptional }
 	};
 	
-	if (!Settings->Gestures.IsEmpty())
-	{
-		auto GesturesObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures,
-			Key_Observation_Enemy_Dynamic_Gesture, Key_Observation_Enemy_Dynamic_Gesture_Optional);
-		DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Gesture_Optional, GesturesObservation);
-	}
-	
-	if (!Settings->Phrases.IsEmpty())
-	{
-		auto PhrasesObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases,
-			Key_Observation_Enemy_Dynamic_Phrase, Key_Observation_Enemy_Dynamic_Phrase_Optional);
-		DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Phrase_Optional, PhrasesObservation);
-	}
-	
-	auto DynamicObservationsObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, DynamicObservations,
-		Key_Observation_Enemy_Dynamic_Observations);
+	OtherCharacterDynamicObservations.Append(AdditionalObservations);
+	return SpecifyDynamicObservations(InObservationSchema, Settings, OtherCharacterDynamicObservations);
+}
 
-	auto LevelObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxLevel, Key_Observation_Enemy_Static_Level);
-	auto EnemyArmorRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxArmorRate, Key_Observation_Enemy_Static_ArmorRate);
-	StaticObservations =
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyEnemyObservation(ULearningAgentsObservationSchema* InObservationSchema,
+                                                                                                    const UCombatLearningSettings* Settings) const
+{
+	auto KillDesireObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Actor_Dynamic_KillDesire);
+	auto AgentCanBeSeenByEnemyObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Actor_Dynamic_ActorCanSeeAgent);
+	TMap<FName, FLearningAgentsObservationSchemaElement> AdditionalEnemyObservations = 
 	{
-		{ Key_Observation_Enemy_Static_Level, LevelObservation },
-		{ Key_Observation_Enemy_Static_ArmorRate, EnemyArmorRateObservation }
+		{ Key_Observation_Actor_Dynamic_ActorCanSeeAgent, AgentCanBeSeenByEnemyObservation },
+		{ Key_Observation_Actor_Dynamic_KillDesire, KillDesireObservation },
 	};
 	
-	auto StaticObservationsObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, StaticObservations,
-			Key_Observation_Enemy_Static_Observations);
-
+	FLearningAgentsObservationSchemaElement DynamicObservationsObservation = SpecifyOtherCharacterDynamicObservations(InObservationSchema, Settings, AdditionalEnemyObservations, ELARaindropTarget::Enemy);
+	FLearningAgentsObservationSchemaElement StaticObservationsObservation = SpecifyStaticObservations(InObservationSchema, Settings, {} );
+	FLearningAgentsObservationSchemaElement CombatHistoryObservations = SpecifyCombatHistoryObservation(InObservationSchema, Settings);
+	FLearningAgentsObservationSchemaElement TranslationHistoryObservations = SpecifyTranslationHistoryObservation(InObservationSchema, Settings);
+	
 	TMap<FName, FLearningAgentsObservationSchemaElement> EnemyObservations = 
 	{
-		{ Key_Observation_Enemy_Dynamic, DynamicObservationsObservation },
-		{ Key_Observation_Enemy_Static, StaticObservationsObservation }
+		{ Key_Observation_Dynamic, DynamicObservationsObservation },
+		{ Key_Observation_Static, StaticObservationsObservation },
+		{ Key_Observation_CombatHistory, CombatHistoryObservations },
+		{ Key_Observation_TranslationHistory, TranslationHistoryObservations }
 	};
 
 	return ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, EnemyObservations, Key_Observation_Enemy);
 }
 
-FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::GetAllyObservationsSchema(ULearningAgentsObservationSchema* InObservationSchema,
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyAllyObservations(ULearningAgentsObservationSchema* InObservationSchema,
 	const UCombatLearningSettings* Settings) const
 {
-	// 13.11.2025 (aki): a lot of code is copied from Enemy schema definition.
-	// I understand that I could just make uniform "other character" observation and have a field like "attitude"
-	// but idk, I have a hunch that having allies and enemies as entirely different observations is better for learning
-	// because like it's completely different data subsets rather than having them differ on just 1 enum property ("ally, enemy, neutral") 
-	TMap<FName, FLearningAgentsObservationSchemaElement> DynamicObservations;
-	TMap<FName, FLearningAgentsObservationSchemaElement> StaticObservations;
-
-	auto AllyAliveObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Ally_Dynamic_IsAlive);
-	auto AllyHealthObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Ally_Dynamic_Health);
-	auto AllyVelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_Ally_Dynamic_Velocity);
-	auto AllyLocationObservation = ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema, Settings->EnemyDistanceScale, Key_Observation_Ally_Dynamic_Location);
-	auto AllyOrientationObservation = ULearningAgentsObservations::SpecifyRotationObservation(InObservationSchema, Key_Observation_Ally_Dynamic_Orientation);
-	auto AgentCanSeeAllyObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Ally_Dynamic_AgentCanSeeAlly);
-	auto AllyCombatStatesObservation = ULearningAgentsObservations::SpecifyBitmaskObservation(InObservationSchema, StaticEnum<ELACharacterStates>(), Key_Observation_Ally_Dynamic_CombatState);
-	auto WeaponObservation = GetWeaponObservationSchema(InObservationSchema, Settings);
+	FLearningAgentsObservationSchemaElement DynamicObservationsObservation = SpecifyOtherCharacterDynamicObservations(InObservationSchema, Settings, {}, ELARaindropTarget::Ally);
+	FLearningAgentsObservationSchemaElement StaticObservationsObservation = SpecifyStaticObservations(InObservationSchema, Settings, {} );
+	FLearningAgentsObservationSchemaElement CombatHistoryObservations = SpecifyCombatHistoryObservation(InObservationSchema, Settings);
+	// i don't think translation history is necessary for allies
+	// FLearningAgentsObservationSchemaElement TranslationHistoryObservations = SpecifyTranslationHistoryObservation(InObservationSchema, Settings);
 	
-	auto RaindropToTargetLidarObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema, 
-		Key_Observation_Ally_Dynamic_RaindropTo_Lidar);
-	const int RaindropToTargetResolution = Settings->GetRaindropToTargetResolution(ELARaindropTarget::Ally);
-	auto RaindropToTargetArrayObservation = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema, RaindropToTargetLidarObservation,
-		RaindropToTargetResolution, Key_Observation_Ally_Dynamic_RaindropTo_Array);
-	auto Conv2dRaindropObservation = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema, RaindropToTargetArrayObservation,
-		Settings->LidarRaindropToAllyConv2dParams, Key_Observation_Ally_Dynamic_RaindropTo_Convolved);
-	int ConvolvedRaindropOptionalEncodingSize = Settings->LidarRaindropToAllyConv2dParams.InChannels 
-		* Settings->LidarRaindropToAllyConv2dParams.InputHeight 
-		* Settings->LidarRaindropToAllyConv2dParams.InputHeight;
-	ConvolvedRaindropOptionalEncodingSize = FMath::Clamp(FMath::RoundUpToPowerOfTwo(ConvolvedRaindropOptionalEncodingSize), 128, 512);
-	auto Conv2dRaindropObservationOptional = ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, Conv2dRaindropObservation, 
-		ConvolvedRaindropOptionalEncodingSize, Key_Observation_Ally_Dynamic_RaindropTo_Convolved_Optional);
-	
-	DynamicObservations =
-	{
-		{ Key_Observation_Ally_Dynamic_Health, AllyHealthObservation},
-		{ Key_Observation_Ally_Dynamic_IsAlive, AllyAliveObservation},
-		{ Key_Observation_Ally_Dynamic_Velocity, AllyVelocityObservation },
-		{ Key_Observation_Ally_Dynamic_Location, AllyLocationObservation },
-		{ Key_Observation_Ally_Dynamic_Orientation, AllyOrientationObservation },
-		{ Key_Observation_Ally_Dynamic_AgentCanSeeAlly, AgentCanSeeAllyObservation },
-		{ Key_Observation_Ally_Dynamic_CombatState, AllyCombatStatesObservation },
-		{ Key_Observation_Ally_Dynamic_Weapon, WeaponObservation },
-		{ Key_Observation_Ally_Dynamic_RaindropTo_Convolved_Optional, Conv2dRaindropObservationOptional }
-	};
-	
-	if (!Settings->Gestures.IsEmpty())
-	{
-		auto GestureObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Gestures,
-			Key_Observation_Ally_Dynamic_Gesture, Key_Observation_Ally_Dynamic_Gesture_Optional);
-		DynamicObservations.Add(Key_Observation_Ally_Dynamic_Gesture_Optional, GestureObservation);
-	}
-	
-	if (!Settings->Phrases.IsEmpty())
-	{
-		auto PhraseObservation = SpecifyNamedExclusiveDiscreteObservation(InObservationSchema, Settings->Phrases,
-			Key_Observation_Ally_Dynamic_Phrase, Key_Observation_Ally_Dynamic_Phrase_Optional);
-		DynamicObservations.Add(Key_Observation_Ally_Dynamic_Phrase_Optional, PhraseObservation);
-	}
-	
-	auto DynamicObservationsObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, DynamicObservations,
-		Key_Observation_Ally_Dynamic_Observations);
-
-	auto LevelObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxLevel, Key_Observation_Ally_Static_Level);
-	auto AllyArmorRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxArmorRate, Key_Observation_Ally_Static_ArmorRate);
-	StaticObservations =
-	{
-		{ Key_Observation_Ally_Static_Level, LevelObservation },
-		{ Key_Observation_Ally_Static_ArmorRate, AllyArmorRateObservation }
-	};
-	
-	auto StaticObservationsObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, StaticObservations,
-			Key_Observation_Ally_Static_Observations);
-
 	TMap<FName, FLearningAgentsObservationSchemaElement> AllyObservations = 
 	{
-		{ Key_Observation_Ally_Dynamic, DynamicObservationsObservation },
-		{ Key_Observation_Ally_Static, StaticObservationsObservation }
+		{ Key_Observation_Dynamic, DynamicObservationsObservation },
+		{ Key_Observation_Static, StaticObservationsObservation },
+		{ Key_Observation_CombatHistory, CombatHistoryObservations },
+		// { Key_Observation_TranslationHistory, TranslationHistoryObservations }
 	};
 
 	return ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, AllyObservations, Key_Observation_Ally);
 }
 
-TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_Combat::GetCombatStateObservationSchema(
+TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_Combat::SpecifyCombatStateObservation(
 	ULearningAgentsObservationSchema* InObservationSchema) const
 {
 	auto Settings = GetDefault<UCombatLearningSettings>();
@@ -930,9 +798,41 @@ TMap<FName, FLearningAgentsObservationSchemaElement> ULearningAgentsInteractor_C
 	return Result;
 }
 
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyCombatHistoryObservation(
+	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
+{
+	auto EventTypeObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, StaticEnum<ELACombatEvent>(), Key_Observation_CombatHistory_Event_Type);
+	auto EventTimeObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->ExpectedCombatHistoryEventInterval, Key_Observation_CombatHistory_Event_Time);
+	TMap<FName, FLearningAgentsObservationSchemaElement> CombatHistoryItemMap = 
+	{
+		{ Key_Observation_CombatHistory_Event_Type, EventTypeObservation },
+		{ Key_Observation_CombatHistory_Event_Time, EventTimeObservation }
+	};
+	
+	FLearningAgentsObservationSchemaElement CombatHistoryObservationElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, CombatHistoryItemMap, Key_Observation_CombatHistory_Event);
+	return ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema, CombatHistoryObservationElement, Settings->CombatHistorySize, Key_Observation_CombatHistory_Array);
+}
+
+FLearningAgentsObservationSchemaElement ULearningAgentsInteractor_Combat::SpecifyTranslationHistoryObservation(
+	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
+{
+	auto VelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_TranslationHistory_Velocity);
+	auto LocationObservation = ULearningAgentsObservations::SpecifyLocationObservation(InObservationSchema, Settings->EnemyDistanceScale, Key_Observation_TranslationHistory_Entry_Location);
+	auto RotationObservation = ULearningAgentsObservations::SpecifyRotationObservation(InObservationSchema, Key_Observation_TranslationHistory_Entry_Rotation);
+	TMap<FName, FLearningAgentsObservationSchemaElement> CombatHistoryItemMap = 
+	{
+		{ Key_Observation_TranslationHistory_Velocity, VelocityObservation },
+		{ Key_Observation_TranslationHistory_Entry_Location, LocationObservation },
+		{ Key_Observation_TranslationHistory_Entry_Rotation, RotationObservation }
+	};
+	
+	FLearningAgentsObservationSchemaElement TranslationHistoryObservationElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, CombatHistoryItemMap, Key_Observation_TranslationHistory_Entry);
+	return ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema, TranslationHistoryObservationElement, Settings->TranslationHistorySize, Key_Observation_TranslationHistory_Array);
+}
+
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherOptionalNamedExclusiveObservation(ULearningAgentsObservationObject* InObservationObject, const FName& ObservationName,
-	const FName& ObservationOptionalWrapperName, const FGameplayTag& OptionTag,
-	const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, int AgentId)
+                                                                                                                  const FName& ObservationOptionalWrapperName, const FGameplayTag& OptionTag,
+                                                                                                                  const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation, int AgentId)
 {
 	FLearningAgentsObservationObjectElement Observation;
 	if (OptionTag.IsValid())
@@ -950,6 +850,136 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	return OptionalObservation;
 }
 
+FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherStaticObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId,
+	const FCharacterStateBase& CharacterData, const UCombatLearningSettings* Settings, const FVector& AgentWorldLocation,
+	const TMap<FName, FLearningAgentsObservationObjectElement>& AdditionalObservations)
+{
+	auto LevelObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, CharacterData.Level, Key_Observation_Static_Level,
+	    Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	auto ArmorRateObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, CharacterData.ArmorRate, Key_Observation_Static_ArmorRate,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	
+	TMap<FName, FLearningAgentsObservationObjectElement> StaticSelfObservations =
+	{
+		{ Key_Observation_Static_Level, LevelObservation },
+		{ Key_Observation_Static_ArmorRate, ArmorRateObservation },
+	};
+
+	StaticSelfObservations.Append(AdditionalObservations);
+	
+	auto StaticSelfObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, StaticSelfObservations, Key_Observation_Static);
+	return StaticSelfObservationsObservation;
+}
+
+FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherDynamicObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId, const FCharacterStateBase& CharacterData, 
+	const UCombatLearningSettings* Settings, const  TMap<FName, FLearningAgentsObservationObjectElement>& AdditionalObservations,
+	const FVector& AgentWorldLocation, const FTransform& AgentTransform)
+{
+	auto HealthObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, CharacterData.NormalizedHealth, Key_Observation_Dynamic_Health,
+	                                                                           Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	auto VelocityObservation = ULearningAgentsObservations::MakeVelocityObservation(InObservationObject, CharacterData.WorldVelocity, AgentTransform,
+		Key_Observation_Dynamic_Velocity,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	
+	auto StatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(InObservationObject,
+		StaticEnum<ELACharacterStates>(), static_cast<int32>(CharacterData.CombatStates), Key_Observation_Dynamic_CombatStates,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+
+	auto WeaponObservation = GetWeaponObservation(InObservationObject, AgentId, CharacterData.WeaponData, Settings, AgentWorldLocation);
+	
+	TMap<FName, FLearningAgentsObservationObjectElement> DynamicObservations =
+	{
+		{ Key_Observation_Dynamic_Health, HealthObservation },
+		{ Key_Observation_Dynamic_Velocity, VelocityObservation },
+		{ Key_Observation_Dynamic_CombatStates, StatesObservation },
+		{ Key_Observation_ActiveWeapon, WeaponObservation },
+	};
+	
+	if (!Settings->Gestures.IsEmpty())
+	{
+		FLearningAgentsObservationObjectElement OptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
+			Key_Observation_Dynamic_Gesture, Key_Observation_Dynamic_Gesture_Optional, CharacterData.ActiveGesture, 
+			Settings, AgentWorldLocation, AgentId);
+		
+		DynamicObservations.Add(Key_Observation_Dynamic_Gesture_Optional, OptionalObservation);
+	}
+	
+	if (!Settings->Phrases.IsEmpty())
+	{
+		FLearningAgentsObservationObjectElement OptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
+			Key_Observation_Dynamic_Phrase, Key_Observation_Dynamic_Phrase_Optional, CharacterData.ActivePhrase, 
+			Settings, AgentWorldLocation, AgentId);
+		
+		DynamicObservations.Add(Key_Observation_Dynamic_Phrase_Optional, OptionalObservation);
+	}
+	
+	DynamicObservations.Append(AdditionalObservations);
+	return ULearningAgentsObservations::MakeStructObservation(InObservationObject, DynamicObservations, Key_Observation_Dynamic);
+}
+
+FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherCombatHistoryObservation(const FLAObservationGatherParams& GatheringParams,
+	const ULAObservationHistoryComponent* ObservationHistoryComponent)
+{
+	const auto& CombatHistory = ObservationHistoryComponent->GetCombatHistory();
+	TArray<FLearningAgentsObservationObjectElement> CombatHistoryObservations;
+	CombatHistoryObservations.Reserve(GatheringParams.Settings->CombatHistorySize);
+	const float WorldTime = GetWorld()->GetTimeSeconds();
+	for (int i = 0; i < CombatHistory.Num(); ++i)
+	{
+		const float TimeSinceEvent = CombatHistory[i].AtWorldTime > 0.f ? WorldTime - CombatHistory[i].AtWorldTime : CombatHistory[i].AtWorldTime;
+		auto EventTypeObservation = ULearningAgentsObservations::MakeEnumObservation(GatheringParams.InObservationObject, StaticEnum<ELACombatEvent>(), static_cast<uint8>(CombatHistory[i].CombatEvent),
+			Key_Observation_CombatHistory_Event_Type, 
+			GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+		auto EventTimeObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject, TimeSinceEvent, Key_Observation_CombatHistory_Event_Time,
+			GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+		
+		TMap<FName, FLearningAgentsObservationObjectElement> CombatHistoryItemMap = 
+		{
+			{ Key_Observation_CombatHistory_Event_Type, EventTypeObservation },
+			{ Key_Observation_CombatHistory_Event_Time, EventTimeObservation }
+		};
+	
+		auto CombatHistoryObservationItem = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, CombatHistoryItemMap, Key_Observation_CombatHistory_Event);
+		CombatHistoryObservations.Add(CombatHistoryObservationItem);
+	}
+	
+	auto CombatHistoryObservation = ULearningAgentsObservations::MakeStaticArrayObservation(GatheringParams.InObservationObject, CombatHistoryObservations, Key_Observation_CombatHistory_Array);
+	return CombatHistoryObservation;
+}
+
+FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherTranslationHistoryObservation(const FLAObservationGatherParams& GatheringParams, 
+	const ULAObservationHistoryComponent* ObservationHistoryComponent)
+{
+	auto TranslationHistory = ObservationHistoryComponent->GetTranslationHistory(GatheringParams.AgentActor);
+	TArray<FLearningAgentsObservationObjectElement> TranslationHistoryObservations;
+	TranslationHistoryObservations.Reserve(GatheringParams.Settings->TranslationHistorySize);
+	for (int i = 0; i < TranslationHistory.Num(); i++)
+	{
+		auto VelocityObservation = ULearningAgentsObservations::MakeVelocityObservation(GatheringParams.InObservationObject, TranslationHistory[i].Velocity, TranslationHistory[i].RelativeTransform,
+			Key_Observation_TranslationHistory_Velocity,
+			GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+		auto LocationObservation = ULearningAgentsObservations::MakeLocationObservation(GatheringParams.InObservationObject, TranslationHistory[i].Location, TranslationHistory[i].RelativeTransform,
+			Key_Observation_TranslationHistory_Entry_Location,
+			GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+		auto RotationObservation = ULearningAgentsObservations::MakeRotationObservation(GatheringParams.InObservationObject, TranslationHistory[i].Rotation, TranslationHistory[i].RelativeTransform.Rotator(),
+			Key_Observation_TranslationHistory_Entry_Rotation,
+			GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+		TMap<FName, FLearningAgentsObservationObjectElement> CombatHistoryItemMap = 
+		{
+			{ Key_Observation_TranslationHistory_Velocity, VelocityObservation },
+			{ Key_Observation_TranslationHistory_Entry_Location, LocationObservation },
+			{ Key_Observation_TranslationHistory_Entry_Rotation, RotationObservation }
+		};
+	
+		auto TranslationHistoryObservationElement = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, CombatHistoryItemMap, 
+			Key_Observation_TranslationHistory_Entry);
+		TranslationHistoryObservations.Add(TranslationHistoryObservationElement);
+	}
+
+	auto TranslationHistoryObservation = ULearningAgentsObservations::MakeStaticArrayObservation(GatheringParams.InObservationObject, TranslationHistoryObservations, Key_Observation_TranslationHistory_Array);
+	return TranslationHistoryObservation;
+}
+
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherSelfObservations(
 	ULearningAgentsObservationObject* InObservationObject, int AgentId, const FSelfData& SelfData)
 {
@@ -958,76 +988,46 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	auto AgentWorldLocation = AgentActor->GetActorLocation();
 	auto AgentTransform = AgentActor->GetTransform();
 	
-// ==================== gather static observations
-	
-	auto LevelObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.Level, Key_Observation_Self_Static_Level,
-		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-	
-	auto ArmorRateObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.ArmorRate, Key_Observation_Self_Static_ArmorRate,
-		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-	
-	auto SurvivalDesireObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.SurvivalDesire, Key_Observation_Self_Static_SurvivalDesire,
-		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-	
-	TMap<FName, FLearningAgentsObservationObjectElement> StaticSelfObservations =
+	FLAObservationGatherParams GatheringParams 
 	{
-		{ Key_Observation_Self_Static_Level, LevelObservation },
-		{ Key_Observation_Self_Static_ArmorRate, ArmorRateObservation },
-		{ Key_Observation_Self_Static_SurvivalDesire, SurvivalDesireObservation }
+		InObservationObject, Settings, AgentActor, AgentWorldLocation, AgentTransform, AgentId,
 	};
-
+	
+// ==================== gather static observations
+	auto SurvivalDesireObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.SurvivalDesire, Key_Observation_Static_SurvivalDesire,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	TMap<FName, FLearningAgentsObservationObjectElement> AdditionalStaticObservations = 
+	{
+		{ Key_Observation_Static_SurvivalDesire, SurvivalDesireObservation }
+	};
+	
+	FLearningAgentsObservationObjectElement StaticSelfObservationsObservation = GatherStaticObservations(InObservationObject, AgentId, SelfData, Settings, AgentWorldLocation, AdditionalStaticObservations);
+	
 // ====================== gather dynamic observations 
 
-	auto HealthObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.NormalizedHealth, Key_Observation_Self_Dynamic_Health,
+	auto StaminaObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.NormalizedStamina, Key_Observation_Dynamic_Stamina,
 		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-	auto StaminaObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, SelfData.NormalizedStamina, Key_Observation_Self_Dynamic_Stamina,
-		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-	auto VelocityObservation = ULearningAgentsObservations::MakeVelocityObservation(InObservationObject, SelfData.WorldVelocity, AgentTransform,
-		Key_Observation_Self_Dynamic_Velocity,
-		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-	
-	auto StatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(InObservationObject,
-		StaticEnum<ELACharacterStates>(), static_cast<int32>(SelfData.CombatStates), Key_Observation_Self_Dynamic_CombatStates,
-		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-
-	auto WeaponObservation = GetWeaponObservation(InObservationObject, AgentId, SelfData.WeaponData, Settings, AgentWorldLocation);
-	
-	TMap<FName, FLearningAgentsObservationObjectElement> DynamicSelfObservations =
+	TMap<FName, FLearningAgentsObservationObjectElement> AdditionalDynamicObservations =
 	{
-		{ Key_Observation_Self_Dynamic_Health, HealthObservation },
-		{ Key_Observation_Self_Dynamic_Stamina, StaminaObservation },
-		{ Key_Observation_Self_Dynamic_Velocity, VelocityObservation },
-		{ Key_Observation_Self_Dynamic_CombatStates, StatesObservation },
-		{ Key_Observation_Self_Dynamic_ActiveWeapon, WeaponObservation },
+		{ Key_Observation_Dynamic_Stamina, StaminaObservation },
 	};
 	
-	if (!Settings->Gestures.IsEmpty())
-	{
-		FLearningAgentsObservationObjectElement OptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
-			Key_Observation_Self_Dynamic_Gesture, Key_Observation_Self_Dynamic_Gesture_Optional, SelfData.ActiveGesture, 
-			Settings, AgentWorldLocation, AgentId);
-		
-		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Gesture_Optional, OptionalObservation);
-	}
+	FLearningAgentsObservationObjectElement DynamicSelfObservationsObservation = GatherDynamicObservations(InObservationObject, AgentId, SelfData, Settings, AdditionalDynamicObservations,
+		AgentWorldLocation, AgentTransform);
 	
-	if (!Settings->Phrases.IsEmpty())
-	{
-		FLearningAgentsObservationObjectElement OptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
-			Key_Observation_Self_Dynamic_Phrase, Key_Observation_Self_Dynamic_Phrase_Optional, SelfData.ActivePhrase, 
-			Settings, AgentWorldLocation, AgentId);
-		
-		DynamicSelfObservations.Add(Key_Observation_Self_Dynamic_Phrase_Optional, OptionalObservation);
-	}
+	ULAObservationHistoryComponent* ObservationHistoryComponent = AgentActor->FindComponentByClass<ULAObservationHistoryComponent>();
+	
+	FLearningAgentsObservationObjectElement CombatHistoryObservation = GatherCombatHistoryObservation(GatheringParams, ObservationHistoryComponent);
+	FLearningAgentsObservationObjectElement TranslationHistoryObservation = GatherTranslationHistoryObservation(GatheringParams, ObservationHistoryComponent);
 	
 // ====================== combine static and dynamic observations
 	
-	auto StaticSelfObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, StaticSelfObservations, Key_Observation_Self_Static);
-	auto DynamicSelfObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, DynamicSelfObservations, Key_Observation_Self_Dynamic);
-	
 	TMap<FName, FLearningAgentsObservationObjectElement> Observations =
 	{
-		{ Key_Observation_Self_Static, StaticSelfObservationsObservation },
-		{ Key_Observation_Self_Dynamic, DynamicSelfObservationsObservation }
+		{ Key_Observation_Static, StaticSelfObservationsObservation },
+		{ Key_Observation_Dynamic, DynamicSelfObservationsObservation },
+		{ Key_Observation_CombatHistory, CombatHistoryObservation },
+		{ Key_Observation_TranslationHistory, TranslationHistoryObservation }
 	};
 	
 	return ULearningAgentsObservations::MakeStructObservation(InObservationObject, Observations, Key_Observation_Self);
@@ -1123,8 +1123,70 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	return ULearningAgentsObservations::MakeStructObservation(InObservationObject, Observations, Key_Observation_Combat_State);
 }
 
+FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherOtherCharacterDynamicObservations(ULearningAgentsObservationObject* InObservationObject,
+	int32 AgentId, const UCombatLearningSettings* Settings, const TArray<float>* RaindropsTo,
+	const FVector& AgentWorldLocation, const FTransform& AgentTransform, const FRotator& AgentRotation,
+	const FOtherCharacterState& ActorState, const TMap<FName, FLearningAgentsObservationObjectElement>& AdditionalObservations)
+{
+	auto ActorAliveObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, ActorState.bAlive,
+		Key_Observation_Actor_Dynamic_IsAlive,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	auto ActorCanSeeEnemyObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, ActorState.bAgentCanSeeCharacter,
+		Key_Observation_Actor_Dynamic_AgentCanSeeActor,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+		
+	// these 2 might be redundant as there's translation history observation
+	auto ActorLocationObservation = ULearningAgentsObservations::MakeLocationObservation(InObservationObject,
+		ActorState.Actor->GetActorLocation(), AgentTransform,
+		Key_Observation_Actor_Dynamic_Location,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	auto ActorOrientationObservation = ULearningAgentsObservations::MakeRotationObservation(InObservationObject,
+		ActorState.Actor->GetActorRotation(), AgentRotation,
+		Key_Observation_Actor_Dynamic_Orientation,
+		Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
+	
+	
+	FLearningAgentsObservationObjectElement RaindropToActorOptionalObservation;
+	if (RaindropsTo != nullptr)
+	{
+		TArray<FLearningAgentsObservationObjectElement> RaindropToActorLidarObservations;
+		RaindropToActorLidarObservations.SetNum(RaindropsTo->Num());
+		for (int i = 0; i < RaindropsTo->Num(); i++)
+		{
+			auto RaindropToEnemyLidarObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
+				(*RaindropsTo)[i], Key_Observation_Actor_Dynamic_RaindropTo_Lidar);
+			RaindropToActorLidarObservations[i] = RaindropToEnemyLidarObservation;
+		}
+	
+		auto RaindropToEnemyArrayObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
+			RaindropToActorLidarObservations, Key_Observation_Actor_Dynamic_RaindropTo_Array);
+		auto RaindropToEnemyObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
+			RaindropToEnemyArrayObservation, Key_Observation_Actor_Dynamic_RaindropTo_Convolved);
+		RaindropToActorOptionalObservation = ULearningAgentsObservations::MakeOptionalValidObservation(InObservationObject, RaindropToEnemyObservationsConvolved, 
+			Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional);
+	}
+	else
+	{
+		RaindropToActorOptionalObservation = ULearningAgentsObservations::MakeOptionalNullObservation(InObservationObject,
+			Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional);
+	}
+
+	TMap<FName, FLearningAgentsObservationObjectElement> AdditionalOtherCharacterObservations = 
+	{
+		{ Key_Observation_Actor_Dynamic_IsAlive, ActorAliveObservation},
+		{ Key_Observation_Actor_Dynamic_Location, ActorLocationObservation },
+		{ Key_Observation_Actor_Dynamic_Orientation, ActorOrientationObservation },
+		{ Key_Observation_Actor_Dynamic_AgentCanSeeActor, ActorCanSeeEnemyObservation },
+		{ Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional, RaindropToActorOptionalObservation }
+	};
+		
+	AdditionalOtherCharacterObservations.Append(AdditionalObservations);
+	auto DynamicObservationsObservation = GatherDynamicObservations(InObservationObject, AgentId, ActorState, Settings, AdditionalOtherCharacterObservations, AgentWorldLocation, AgentTransform);
+	return DynamicObservationsObservation;
+}
+
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject,
-	ULearningAgentCombatObservationComponent* CombatObservationComponent, int32 AgentId)
+                                                                                                   ULearningAgentCombatObservationComponent* CombatObservationComponent, int32 AgentId)
 {
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
@@ -1132,132 +1194,50 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	auto AgentTransform = AgentActor->GetActorTransform();
 	auto AgentRotation = AgentActor->GetActorRotation();
 
-	auto EnemiesObservationData = CombatObservationComponent->GetEnemiesObservationData();
+	FLAObservationGatherParams GatheringParams 
+	{
+		InObservationObject, Settings, AgentActor, AgentWorldLocation, AgentTransform, AgentId,
+	};
 	
+	auto EnemiesObservationData = CombatObservationComponent->GetEnemiesObservationData();
 	TArray<FLearningAgentsObservationObjectElement> EnemiesObservations;
 	
 	for (const auto& EnemyObservationData : EnemiesObservationData)
 	{
 		const auto EnemyState = StaticCastSharedRef<FEnemyState>(EnemyObservationData.Value->CharacterState);
-		TMap<FName, FLearningAgentsObservationObjectElement> DynamicObservations;
-		TMap<FName, FLearningAgentsObservationObjectElement> StaticObservations;
 
-		auto EnemyAliveObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, EnemyState->bAlive,
-			Key_Observation_Enemy_Dynamic_IsAlive,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto EnemyHealthObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, EnemyState->NormalizedHealth,
-			Key_Observation_Enemy_Dynamic_Health,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto EnemyVelocityObservation = ULearningAgentsObservations::MakeVelocityObservation(InObservationObject, EnemyState->WorldVelocity, AgentTransform,
-			Key_Observation_Enemy_Dynamic_Velocity,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto EnemyLocationObservation = ULearningAgentsObservations::MakeLocationObservation(InObservationObject,
-			EnemyState->Actor->GetActorLocation(), AgentTransform,
-			Key_Observation_Enemy_Dynamic_Location,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto EnemyOrientationObservation = ULearningAgentsObservations::MakeRotationObservation(InObservationObject,
-			EnemyState->Actor->GetActorRotation(), AgentRotation,
-			Key_Observation_Enemy_Dynamic_Orientation,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto AgentCanSeeEnemyObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, EnemyState->bAgentCanSeeCharacter,
-			Key_Observation_Enemy_Dynamic_AgentCanSeeEnemy,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
 		auto EnemyCanSeeAgentObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, EnemyState->bCharacterCanSeeAgent,
-			Key_Observation_Enemy_Dynamic_EnemyCanSeeAgent,
+			Key_Observation_Actor_Dynamic_ActorCanSeeAgent,
 			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
 		auto KillDesireObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, EnemyState->KillDesire,
-			Key_Observation_Enemy_Dynamic_KillDesire,
+			Key_Observation_Actor_Dynamic_KillDesire,
 			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
 		
-		auto EnemyCombatStatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(InObservationObject,
-			StaticEnum<ELACharacterStates>(),static_cast<int32>(EnemyState->CombatStates),
-			Key_Observation_Enemy_Dynamic_CombatState,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto WeaponObservation = GetWeaponObservation(InObservationObject, AgentId, EnemyState->WeaponData, Settings, AgentWorldLocation);
+		TMap<FName, FLearningAgentsObservationObjectElement> AdditionalEnemyObservations = 
+		{
+			{ Key_Observation_Actor_Dynamic_ActorCanSeeAgent, EnemyCanSeeAgentObservation },
+			{ Key_Observation_Actor_Dynamic_KillDesire, KillDesireObservation },
+		};
 
-		FLearningAgentsObservationObjectElement RaindropToEnemyOptionalObservation;
 		const TArray<float>* RaindropsTo = CombatObservationComponent->GetLidarDataTo(EnemyState->Actor.Get(), ELARaindropTarget::Enemy);
-		if (RaindropsTo != nullptr)
+		auto DynamicObservationsObservation = GatherOtherCharacterDynamicObservations(InObservationObject, AgentId, Settings, RaindropsTo,
+			AgentWorldLocation, AgentTransform, AgentRotation, EnemyState.Get(), AdditionalEnemyObservations);
+		
+		auto StaticObservationsObservation = GatherStaticObservations(InObservationObject, AgentId, EnemyState.Get(), Settings, AgentWorldLocation, {});
+		
+		ULAObservationHistoryComponent* ObservationHistoryComponent = EnemyState->Actor->FindComponentByClass<ULAObservationHistoryComponent>();
+		FLearningAgentsObservationObjectElement CombatHistoryObservation = GatherCombatHistoryObservation(GatheringParams, ObservationHistoryComponent);
+		FLearningAgentsObservationObjectElement TranslationHistoryObservation = GatherTranslationHistoryObservation(GatheringParams, ObservationHistoryComponent);
+		
+		TMap<FName, FLearningAgentsObservationObjectElement> ActorObservationsCategories = 
 		{
-			TArray<FLearningAgentsObservationObjectElement> RaindropToEnemyLidarObservations;
-			RaindropToEnemyLidarObservations.SetNum(RaindropsTo->Num());
-			for (int i = 0; i < RaindropsTo->Num(); i++)
-			{
-				auto RaindropToEnemyLidarObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
-					(*RaindropsTo)[i], Key_Observation_Enemy_Dynamic_RaindropTo_Lidar);
-				RaindropToEnemyLidarObservations[i] = RaindropToEnemyLidarObservation;
-			}
-	
-			auto RaindropToEnemyArrayObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
-				RaindropToEnemyLidarObservations, Key_Observation_Enemy_Dynamic_RaindropTo_Array);
-			auto RaindropToEnemyObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
-				RaindropToEnemyArrayObservation, Key_Observation_Enemy_Dynamic_RaindropTo_Convolved);
-			RaindropToEnemyOptionalObservation = ULearningAgentsObservations::MakeOptionalValidObservation(InObservationObject, RaindropToEnemyObservationsConvolved, 
-				Key_Observation_Enemy_Dynamic_RaindropTo_Convolved_Optional);
-		}
-		else
-		{
-			RaindropToEnemyOptionalObservation = ULearningAgentsObservations::MakeOptionalNullObservation(InObservationObject,
-				Key_Observation_Enemy_Dynamic_RaindropTo_Convolved_Optional);
-		}
-
-		DynamicObservations =
-		{
-			{ Key_Observation_Enemy_Dynamic_Health, EnemyHealthObservation},
-			{ Key_Observation_Enemy_Dynamic_IsAlive, EnemyAliveObservation},
-			{ Key_Observation_Enemy_Dynamic_Velocity, EnemyVelocityObservation },
-			{ Key_Observation_Enemy_Dynamic_Location, EnemyLocationObservation },
-			{ Key_Observation_Enemy_Dynamic_Orientation, EnemyOrientationObservation },
-			{ Key_Observation_Enemy_Dynamic_AgentCanSeeEnemy, AgentCanSeeEnemyObservation },
-			{ Key_Observation_Enemy_Dynamic_EnemyCanSeeAgent, EnemyCanSeeAgentObservation },
-			{ Key_Observation_Enemy_Dynamic_KillDesire, KillDesireObservation },
-			{ Key_Observation_Enemy_Dynamic_CombatState, EnemyCombatStatesObservation },
-			{ Key_Observation_Enemy_Dynamic_Weapon, WeaponObservation },
-			{ Key_Observation_Enemy_Dynamic_RaindropTo_Convolved_Optional, RaindropToEnemyOptionalObservation }
+			{ Key_Observation_Dynamic, DynamicObservationsObservation },
+			{ Key_Observation_Static, StaticObservationsObservation },
+			{ Key_Observation_CombatHistory, CombatHistoryObservation },
+			{ Key_Observation_TranslationHistory, TranslationHistoryObservation }
 		};
 		
-		if (!Settings->Gestures.IsEmpty())
-		{
-			auto GestureOptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
-				Key_Observation_Enemy_Dynamic_Gesture, Key_Observation_Enemy_Dynamic_Gesture_Optional, EnemyState->ActiveGesture, 
-				Settings, AgentWorldLocation, AgentId);
-			DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Gesture_Optional, GestureOptionalObservation);
-		}
-		
-		if (!Settings->Phrases.IsEmpty())
-		{
-			auto PhraseOptionalObservation = GatherOptionalNamedExclusiveObservation(InObservationObject, 
-				Key_Observation_Enemy_Dynamic_Phrase, Key_Observation_Enemy_Dynamic_Phrase_Optional, EnemyState->ActivePhrase, 
-				Settings, AgentWorldLocation, AgentId);
-			DynamicObservations.Add(Key_Observation_Enemy_Dynamic_Phrase_Optional, PhraseOptionalObservation);
-		}
-
-		auto DynamicObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, DynamicObservations,
-			Key_Observation_Enemy_Dynamic_Observations);
-
-		auto LevelObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, EnemyState->Level,
-			Key_Observation_Enemy_Static_Level,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto EnemyArmorRateObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, EnemyState->ArmorRate,
-			Key_Observation_Enemy_Static_ArmorRate,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		
-		StaticObservations =
-		{
-			{ Key_Observation_Enemy_Static_Level, LevelObservation },
-			{ Key_Observation_Enemy_Static_ArmorRate, EnemyArmorRateObservation }
-		};
-		
-		auto StaticObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, StaticObservations,
-			Key_Observation_Enemy_Static_Observations);
-
-		TMap<FName, FLearningAgentsObservationObjectElement> EnemyObservations = 
-		{
-			{ Key_Observation_Enemy_Dynamic, DynamicObservationsObservation },
-			{ Key_Observation_Enemy_Static, StaticObservationsObservation }
-		};
-
-		auto EnemyObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, EnemyObservations, Key_Observation_Enemy);
+		auto EnemyObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, ActorObservationsCategories, Key_Observation_Enemy);
 		EnemiesObservations.Add(EnemyObservationsObservation);
 	}
 
@@ -1273,122 +1253,35 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 	auto AgentTransform = AgentActor->GetActorTransform();
 	auto AgentRotation = AgentActor->GetActorRotation();
 
+	FLAObservationGatherParams GatheringParams 
+	{
+		InObservationObject, Settings, AgentActor, AgentWorldLocation, AgentTransform, AgentId,
+	};
+	
 	TArray<FLearningAgentsObservationObjectElement> AlliesObservations;
 	// auto AlliesData = CombatObservationComponent->GetAllies();
 	const auto& AlliesObservationData = CombatObservationComponent->GetAlliesObservationData();
 	
 	for (const auto& AllyObservationData : AlliesObservationData)
 	{
-		TMap<FName, FLearningAgentsObservationObjectElement> DynamicObservations;
-		TMap<FName, FLearningAgentsObservationObjectElement> StaticObservations;
-
 		const auto AllyState = StaticCastSharedRef<FAllyState>(AllyObservationData.Value->CharacterState);
-		auto AllyAliveObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, AllyState->bAlive,
-			Key_Observation_Ally_Dynamic_IsAlive,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto AllyHealthObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, AllyState->NormalizedHealth,
-			Key_Observation_Ally_Dynamic_Health,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto AllyVelocityObservation = ULearningAgentsObservations::MakeVelocityObservation(InObservationObject,
-			AllyState->WorldVelocity, AgentTransform,
-			Key_Observation_Ally_Dynamic_Velocity,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto AllyLocationObservation = ULearningAgentsObservations::MakeLocationObservation(InObservationObject,
-			AllyState->Actor->GetActorLocation(), AgentTransform,
-			Key_Observation_Ally_Dynamic_Location,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto AllyOrientationObservation = ULearningAgentsObservations::MakeRotationObservation(InObservationObject,
-			AllyState->Actor->GetActorRotation(), AgentRotation,
-			Key_Observation_Ally_Dynamic_Orientation,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto AgentCanSeeAllyObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, AllyState->bAgentCanSeeCharacter,
-			Key_Observation_Ally_Dynamic_AgentCanSeeAlly,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		
-		auto AllyCombatStatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(InObservationObject,
-			StaticEnum<ELACharacterStates>(), static_cast<int32>(AllyState->CombatStates),
-			Key_Observation_Ally_Dynamic_CombatState,
-			Settings->bVisLogEnabled, this, AgentId, AgentWorldLocation);
-		auto WeaponObservation = GetWeaponObservation(InObservationObject, AgentId, AllyState->WeaponData, Settings, AgentWorldLocation);
-
-		FLearningAgentsObservationObjectElement RaindropToAllyOptionalObservation;
 		const TArray<float>* RaindropsTo = CombatObservationComponent->GetLidarDataTo(AllyState->Actor.Get(), ELARaindropTarget::Ally);
-		if (RaindropsTo != nullptr)
-		{
-			TArray<FLearningAgentsObservationObjectElement> RaindropToAllyLidarObservations;
-			
-			RaindropToAllyLidarObservations.SetNum(RaindropsTo->Num());
-			for (int i = 0; i < RaindropsTo->Num(); i++)
-			{
-				auto RaindropToAllyLidarObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
-					(*RaindropsTo)[i], Key_Observation_Ally_Dynamic_RaindropTo_Lidar);
-				RaindropToAllyLidarObservations[i] = RaindropToAllyLidarObservation;
-			}
-	
-			auto RaindropToAllyArrayObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
-				RaindropToAllyLidarObservations, Key_Observation_Ally_Dynamic_RaindropTo_Array);
-			auto RaindropToAllyObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
-				RaindropToAllyArrayObservation, Key_Observation_Ally_Dynamic_RaindropTo_Convolved);
-			RaindropToAllyOptionalObservation = ULearningAgentsObservations::MakeOptionalValidObservation(InObservationObject, RaindropToAllyObservationsConvolved, 
-				Key_Observation_Ally_Dynamic_RaindropTo_Convolved_Optional);
-		}
-		else
-		{
-			RaindropToAllyOptionalObservation = ULearningAgentsObservations::MakeOptionalNullObservation(InObservationObject,
-				Key_Observation_Ally_Dynamic_RaindropTo_Convolved_Optional);
-		}
 		
-		DynamicObservations =
-		{
-			{ Key_Observation_Ally_Dynamic_Health, AllyHealthObservation},
-			{ Key_Observation_Ally_Dynamic_IsAlive, AllyAliveObservation},
-			{ Key_Observation_Ally_Dynamic_Velocity, AllyVelocityObservation },
-			{ Key_Observation_Ally_Dynamic_Location, AllyLocationObservation },
-			{ Key_Observation_Ally_Dynamic_Orientation, AllyOrientationObservation },
-			{ Key_Observation_Ally_Dynamic_AgentCanSeeAlly, AgentCanSeeAllyObservation },
-			{ Key_Observation_Ally_Dynamic_CombatState, AllyCombatStatesObservation },
-			{ Key_Observation_Ally_Dynamic_Weapon, WeaponObservation },
-			{ Key_Observation_Ally_Dynamic_RaindropTo_Convolved_Optional, RaindropToAllyOptionalObservation }
-		};
-	
-		if (!Settings->Gestures.IsEmpty())
-		{
-			auto GestureObservation = GatherOptionalNamedExclusiveObservation(InObservationObject,
-				Key_Observation_Ally_Dynamic_Gesture, Key_Observation_Ally_Dynamic_Gesture_Optional, AllyState->ActiveGesture,
-				Settings, AgentWorldLocation, AgentId);
-			DynamicObservations.Add(Key_Observation_Ally_Dynamic_Gesture_Optional, GestureObservation);	
-		}
-		
-		if (!Settings->Phrases.IsEmpty())
-		{
-			auto PhraseObservation = GatherOptionalNamedExclusiveObservation(InObservationObject,
-				Key_Observation_Ally_Dynamic_Phrase, Key_Observation_Ally_Dynamic_Phrase_Optional, AllyState->ActivePhrase,
-				Settings, AgentWorldLocation, AgentId);
-			DynamicObservations.Add(Key_Observation_Ally_Dynamic_Phrase_Optional, PhraseObservation);	
-		}
-		
-		auto DynamicObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, DynamicObservations,
-			Key_Observation_Ally_Dynamic_Observations);
+		auto DynamicObservationsObservation = GatherOtherCharacterDynamicObservations(InObservationObject, AgentId, Settings, RaindropsTo,
+			AgentWorldLocation, AgentTransform, AgentRotation, AllyState.Get(), {});
+		auto StaticObservationsObservation = GatherStaticObservations(InObservationObject, AgentId, AllyState.Get(), Settings, AgentWorldLocation, {});
 
-		auto LevelObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, AllyState->Level, Key_Observation_Ally_Static_Level);
-		auto AllyArmorRateObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, AllyState->ArmorRate, Key_Observation_Ally_Static_ArmorRate);
-		StaticObservations =
-		{
-			{ Key_Observation_Ally_Static_Level, LevelObservation },
-			{ Key_Observation_Ally_Static_ArmorRate, AllyArmorRateObservation }
-		};
-	
-		auto StaticObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, StaticObservations,
-				Key_Observation_Ally_Static_Observations);
-
+		ULAObservationHistoryComponent* ObservationHistoryComponent = AllyState->Actor->FindComponentByClass<ULAObservationHistoryComponent>();
+		FLearningAgentsObservationObjectElement CombatHistoryObservation = GatherCombatHistoryObservation(GatheringParams, ObservationHistoryComponent);
+		
 		TMap<FName, FLearningAgentsObservationObjectElement> AllyObservations = 
 		{
-			{ Key_Observation_Ally_Dynamic, DynamicObservationsObservation },
-			{ Key_Observation_Ally_Static, StaticObservationsObservation }
+			{ Key_Observation_Dynamic, DynamicObservationsObservation },
+			{ Key_Observation_Static, StaticObservationsObservation },
+			{ Key_Observation_CombatHistory, CombatHistoryObservation }
 		};
 
-		auto AllyObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, AllyObservations,
-			Key_Observation_Ally);
+		auto AllyObservationsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, AllyObservations,Key_Observation_Ally);
 		AlliesObservations.Add(AllyObservationsObservation);
 	}
 
@@ -1430,14 +1323,14 @@ bool ULearningAgentsInteractor_Combat::GetSelfStates(const ULearningAgentsObserv
 	
 	TMap<FName, FLearningAgentsObservationObjectElement> DynamicSelfObservations;
 	bool bFoundDynamicSelfObservation = ULearningAgentsObservations::GetStructObservation(DynamicSelfObservations, InObservationObject, *SelfObservationsObservation,
-		Key_Observation_Self_Dynamic);
+		Key_Observation_Dynamic);
 	if (!bFoundDynamicSelfObservation)
 	{
 		ensure(false);
 		return false;
 	}
 	
-	auto SelfStatesObservation = DynamicSelfObservations.Find(Key_Observation_Self_Dynamic_CombatStates);
+	auto SelfStatesObservation = DynamicSelfObservations.Find(Key_Observation_Dynamic_CombatStates);
 	if (SelfStatesObservation == nullptr)
 	{
 		ensure(false);
@@ -1447,7 +1340,7 @@ bool ULearningAgentsInteractor_Combat::GetSelfStates(const ULearningAgentsObserv
 	OutSelfStates = ELACharacterStates::None;
 	int32 RawSelfStates = 0;
 	bool bFoundSelfStates = ULearningAgentsObservations::GetBitmaskObservation(RawSelfStates, InObservationObject, *SelfStatesObservation,
-																			   StaticEnum<ELACharacterStates>(), Key_Observation_Self_Dynamic_CombatStates);
+																			   StaticEnum<ELACharacterStates>(), Key_Observation_Dynamic_CombatStates);
 	if (!bFoundSelfStates)
 	{
 		ensure(false);
@@ -1462,31 +1355,20 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 {
 	TSet<FName> Result;
 	Result.Reserve(16);
-	if ((SelfStates & ELACharacterStates::Attacking) != 0)
+	if ((SelfStates & ELACharacterStates::Attacking) != ELACharacterStates::None)
 	{
 		// idk, it can actually depend on the archetype 
 		Result.Emplace(Key_Action_Combat_Dodge);
 		Result.Emplace(Key_Action_Locomotion);
 	}
 	
-	if ((SelfStates & ELACharacterStates::InStagger) != 0)
+	if ((SelfStates & ELACharacterStates::InStagger) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion);
 		Result.Emplace(Key_Action_Combat);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Parrying) != 0)
-	{
-		Result.Emplace(Key_Action_Combat_Attack);
-		Result.Emplace(Key_Action_Combat_Dodge);
-		Result.Emplace(Key_Action_Gesture);
-		Result.Emplace(Key_Action_UseConsumableItem);
-		Result.Emplace(Key_Action_Locomotion_Blocking);
-		Result.Emplace(Key_Action_ChangeWeaponState);
-		
-	}
-	
-	if ((SelfStates & ELACharacterStates::Blocking) != 0)
+	if ((SelfStates & ELACharacterStates::Blocking) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_UseConsumableItem);
@@ -1494,50 +1376,50 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Dodging) != 0)
+	if ((SelfStates & ELACharacterStates::Dodging) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);
 		Result.Emplace(Key_Action_Locomotion);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Dying) != 0)
+	if ((SelfStates & ELACharacterStates::Dying) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_Blocking);
 		Result.Emplace(Key_Action_Combat_Parry);
 		Result.Emplace(Key_Action_Combat_Dodge);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Falling) != 0)
+	if ((SelfStates & ELACharacterStates::InAir) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Dodge);
 		Result.Emplace(Key_Action_Locomotion_SetSpeed);
 		Result.Emplace(Key_Action_Locomotion_Move);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Swimming) != 0)
+	if ((SelfStates & ELACharacterStates::Swimming) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat);
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::WeaponNotReady) != 0)
+	if ((SelfStates & ELACharacterStates::WeaponNotReady) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);	
 		Result.Emplace(Key_Action_Combat_Parry);	
 	}
 	
-	if ((SelfStates & ELACharacterStates::Gesturing) != 0)
+	if ((SelfStates & ELACharacterStates::Gesturing) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Gesture);
 	}
 
-	if ((SelfStates & ELACharacterStates::Speaking) != 0)
+	if ((SelfStates & ELACharacterStates::Speaking) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_SayPhrase);
 	}
 	
-	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != 0)
+	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_SayPhrase);
 		Result.Emplace(Key_Action_Gesture);
@@ -1545,20 +1427,20 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::HasActiveRootMotionAnimation) != 0)
+	if ((SelfStates & ELACharacterStates::HasActiveRootMotionAnimation) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_Move);
 		Result.Emplace(Key_Action_Locomotion_SetSpeed);
 		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
 	
-	if ((SelfStates & ELACharacterStates::InteractingWithObject) != 0)
+	if ((SelfStates & ELACharacterStates::InteractingWithObject) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion);
 		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
 	
-	if (SelfStates & ELACharacterStates::ChangingWeaponState)
+	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
@@ -1569,13 +1451,13 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 TArray<uint8> ULearningAgentsInteractor_Combat::GetBlockingLocomotionActionsMask(ELACharacterStates SelfStates) const
 {
 	TSet<uint8> Result;
-	if ((SelfStates & ELACharacterStates::Swimming) != 0)
+	if ((SelfStates & ELACharacterStates::Swimming) != ELACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELALocomotionAction::Jump));	
 	
-	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != 0)
+	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != ELACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELALocomotionAction::Mantle));
 	
-	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != 0)
+	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != ELACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELALocomotionAction::Mantle));
 	
 	return Result.Array();
@@ -1584,13 +1466,13 @@ TArray<uint8> ULearningAgentsInteractor_Combat::GetBlockingLocomotionActionsMask
 TArray<uint8> ULearningAgentsInteractor_Combat::GetWeaponStateChangeMask(ELACharacterStates SelfStates) const
 {
 	TSet<uint8> Result;
-	if ((SelfStates & ELACharacterStates::Swimming) != 0)
+	if ((SelfStates & ELACharacterStates::Swimming) != ELACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Ready));	
 	
-	if ((SelfStates & ELACharacterStates::WeaponReady) != 0)
+	if ((SelfStates & ELACharacterStates::WeaponReady) != ELACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Ready));
 	
-	if ((SelfStates & ELACharacterStates::WeaponNotReady) != 0)
+	if ((SelfStates & ELACharacterStates::WeaponNotReady) != ELACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Unready));
 	
 	return Result.Array();

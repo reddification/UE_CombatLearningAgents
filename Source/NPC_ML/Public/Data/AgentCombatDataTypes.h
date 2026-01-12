@@ -3,9 +3,6 @@
 #include "GameplayTagContainer.h"
 #include "LearningAgentsDataTypes.h"
 
-enum class ELAActiveWeaponType : uint8;
-enum ELACharacterStates;
-
 namespace CombatLearning
 {
 	struct FWeaponData
@@ -23,7 +20,8 @@ namespace CombatLearning
 		ELACharacterStates CombatStates;
 		FWeaponData WeaponData;
 		int Level = 0;
-		float ArmorRate;
+		float ArmorRate = 0.f;
+		float AccumulatedNormalizedDamage = 0.f;
 		FGameplayTag ActiveGesture;
 		FGameplayTag ActivePhrase;
 	};
