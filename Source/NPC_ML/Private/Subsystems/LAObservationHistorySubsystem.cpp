@@ -60,7 +60,7 @@ TArray<FTranslationHistory> ULAObservationHistorySubsystem::GetTranslationHistor
 	
 	const TArray<FTranslationHistory>& OriginTransformHistory = bRelativeCase ? TranslationHistories[ObservedByAgent] : TranslationHistories[ForAgent];
 	
-	int EventIndex = (TranslationHistoryRecordIndex + 1) % TranslationHistorySize;
+	int EventIndex = TranslationHistoryRecordIndex;
 	const TArray<FTranslationHistory>& SourceTranslationHistory = TranslationHistories[ForAgent];
 	TArray<FTranslationHistory> Result;
 	Result.SetNumUninitialized(TranslationHistorySize);
