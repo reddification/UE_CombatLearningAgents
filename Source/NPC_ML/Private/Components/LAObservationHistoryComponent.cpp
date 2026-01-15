@@ -13,7 +13,7 @@ void ULAObservationHistoryComponent::BeginPlay()
 	OwnerPawn = Cast<APawn>(GetOwner());
 	Settings = GetDefault<UCombatLearningSettings>();
 	
-	FCombatEventData DefaultCombatEvent(0.f, ELACombatEvent::None);
+	FCombatEventData DefaultCombatEvent(0.f, ELACombatEvent::None, true, ELAAgentAttitude::Self);
 	CombatHistory.SetNumUninitialized(Settings->CombatHistorySize);
 	for (int i = 0; i < Settings->CombatHistorySize; i++)
 		CombatHistory[i] = DefaultCombatEvent;
@@ -30,10 +30,10 @@ void ULAObservationHistoryComponent::EndPlay(const EEndPlayReason::Type EndPlayR
 	Super::EndPlay(EndPlayReason);
 }
 
-void ULAObservationHistoryComponent::AddCombatEvent(ELACombatEvent CombatEvent)
+void ULAObservationHistoryComponent::AddCombatEvent(ELACombatEvent CombatEvent, bool bEventSubject, ELAAgentAttitude AttitudeToCauser)
 {
 	float CurrentTime = GetWorld()->GetTimeSeconds();
-	CombatHistory[CombatHistoryIndex] = FCombatEventData(CurrentTime, CombatEvent);
+	CombatHistory[CombatHistoryIndex] = FCombatEventData(CurrentTime, CombatEvent, bEventSubject, AttitudeToCauser);
 	CombatHistoryIndex = (CombatHistoryIndex + 1) % CombatHistory.Num();
 }
 

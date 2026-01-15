@@ -6,9 +6,9 @@
 struct FOtherCharacterObservationData
 {
 	virtual ~FOtherCharacterObservationData() = default;
-	FOtherCharacterObservationData() : CharacterState(MakeShared<CombatLearning::FOtherCharacterState>()) {  }
+	FOtherCharacterObservationData() : CharacterState(MakeShared<CombatLearning::FPerceivedCharacterData>()) {  }
 	
 	FRaindrop RaindropData;
 	FVector LastKnownLocation = FVector::ZeroVector;
-	TSharedRef<CombatLearning::FOtherCharacterState> CharacterState;
+	TSharedRef<CombatLearning::FPerceivedCharacterData> CharacterState;
 };

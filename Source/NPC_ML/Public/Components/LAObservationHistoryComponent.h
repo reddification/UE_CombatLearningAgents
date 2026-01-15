@@ -26,7 +26,7 @@ class NPC_ML_API ULAObservationHistoryComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
-	void AddCombatEvent(ELACombatEvent CombatEvent);
+	void AddCombatEvent(ELACombatEvent CombatEvent, bool bEventSubject, ELAAgentAttitude AttitudeToCauser);
 	TArray<FCombatEventData> GetCombatHistory() const;
 	
 	TArray<FTranslationHistory> GetTranslationHistory(AActor* ForActor) const;

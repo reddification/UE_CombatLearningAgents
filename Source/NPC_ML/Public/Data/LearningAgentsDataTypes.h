@@ -2,6 +2,15 @@
 
 #include "LearningAgentsDataTypes.generated.h"
 
+UENUM(BlueprintType)
+enum class ELAAgentAttitude : uint8
+{
+	Self = 0,
+	Ally = 1,
+	Enemy = 2, 
+	Neutral = 3,
+};
+
 // will be used as bitflag so can't be uint8
 UENUM()
 enum class ELACharacterStates
@@ -36,16 +45,19 @@ UENUM()
 enum class ELACombatEvent : uint8
 {
 	None = 0,
+	Feinted,
 	AttackMissed,
 	DealtHit,
+	HitObstacle,
+	WeaponsClashed,
 	Dodged,
 	Parried,
 	Blocked,
+	Staggered,
 	Killed,
-	GotParried,
-	GotDodged,
-	GotBlocked,
-	GotHit,
+	UsedConsumableItem,
+	Gestured,
+	SaidPhrase,
 };
 
 UENUM()
@@ -90,13 +102,20 @@ enum class ELAAttackType : uint8
 
 struct FCombatEventData
 {
-	FCombatEventData(float WorldTime, ELACombatEvent CombatEvent)
-		: AtWorldTime(WorldTime), CombatEvent(CombatEvent)
+	FCombatEventData(float WorldTime, ELACombatEvent CombatEvent, bool bEventSubject, ELAAgentAttitude AttitudeToCauser)
+		: AtWorldTime(WorldTime), CombatEvent(CombatEvent), AttitudeToCauser(AttitudeToCauser), bEventSubject(bEventSubject)
 	{
 	}
 
 	float AtWorldTime = 0.f;
 	ELACombatEvent CombatEvent = ELACombatEvent::None;
+	ELAAgentAttitude AttitudeToCauser = ELAAgentAttitude::Enemy;
+	// is event caused by agent or event was caused to agent
+	// i.e. event is stagger. is bEventSubject == true -> agent staggered somebody
+	// if false - agent IS staggered BY somebody
+	// for some events this property is always true.
+	// e.g., attack missed, hit an obstacle, attack feinted - these events are never caused TO an agent, they can only be caused BY an agent
+	bool bEventSubject = false;
 };
 
 struct FTranslationHistory

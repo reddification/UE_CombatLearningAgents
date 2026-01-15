@@ -1,4 +1,6 @@
 ﻿#pragma once
+
+#include "LearningAgentsDataTypes.h"
 #include "RaindropDataTypes.generated.h"
 
 USTRUCT(BlueprintType)
@@ -85,18 +87,9 @@ struct FRaindropBuffer
 	~FRaindropBuffer() = default;
 };
 
-UENUM(BlueprintType)
-enum class ELARaindropTarget : uint8
-{
-	Self = 0,
-	Ally = 1,
-	Enemy = 2, 
-	Neutral = 3,
-};
-
 struct FRaindropRowData
 {
-	FRaindropRowData(int RaindropResolution, int Row, int RaindropBufferIndex, ELARaindropTarget TargetType,
+	FRaindropRowData(int RaindropResolution, int Row, int RaindropBufferIndex, ELAAgentAttitude TargetType,
 		const FGuid& OccupierId)
 		: RaindropResolution(RaindropResolution),
 		  Row(Row),
@@ -109,7 +102,7 @@ struct FRaindropRowData
 	int RaindropResolution = 0;
 	int Row = 0;
 	int RaindropBufferIndex = 0;
-	ELARaindropTarget TargetType;
+	ELAAgentAttitude TargetType;
 	FGuid OccupierId;
 };
 

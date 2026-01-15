@@ -13,7 +13,7 @@ namespace CombatLearning
 		float PowerRate = 10.f;
 	};
 
-	struct FCharacterStateBase
+	struct FCharacterDataBase
 	{
 		float NormalizedHealth = 1.f;
 		FVector WorldVelocity = FVector::ZeroVector;
@@ -26,7 +26,7 @@ namespace CombatLearning
 		FGameplayTag ActivePhrase;
 	};
 
-	struct FOtherCharacterState : public FCharacterStateBase
+	struct FPerceivedCharacterData : public FCharacterDataBase
 	{
 		TWeakObjectPtr<AActor> Actor = nullptr;
 		bool bAlive = true;
@@ -34,13 +34,13 @@ namespace CombatLearning
 		bool bCharacterCanSeeAgent = true;
 	};
 	
-	struct FSelfData : public FCharacterStateBase
+	struct FSelfData : public FCharacterDataBase
 	{
 		float NormalizedStamina = 1.f;
 		float SurvivalDesire = 0.f;
 	};
 
-	struct FEnemyState : public FOtherCharacterState
+	struct FEnemyData : public FPerceivedCharacterData
 	{
 		// this is not personal attention to enemy at this moment of time but "how important in general for the agent to kill the target"
 		// so for example a wanderer would have 0.25 kill desire against rabid dog,
@@ -49,7 +49,7 @@ namespace CombatLearning
 		float KillDesire = 1.f;
 	};
 
-	struct FAllyState : public FOtherCharacterState
+	struct FAllyData : public FPerceivedCharacterData
 	{
 	};
 	

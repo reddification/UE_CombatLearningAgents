@@ -84,13 +84,13 @@ public:
 	FLidarRaindropParams BackwardRaindropsParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TMap<ELARaindropTarget, FLidarRaindropParams> RaindropParams;
+	TMap<ELAAgentAttitude, FLidarRaindropParams> RaindropParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	TEnumAsByte<ECollisionChannel> RaindropCollisionChannel;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TMap<ELARaindropTarget, FRaindropRelevancyParams> RaindropRelevanceParams;
+	TMap<ELAAgentAttitude, FRaindropRelevancyParams> RaindropRelevanceParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	FConv2dObservationParams LidarRaindropDownwardConv2dParams;
@@ -102,7 +102,7 @@ public:
 	FConv2dObservationParams LidarRaindropBackwardConv2dParams;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TMap<ELARaindropTarget, FConv2dObservationParams> LidarRaindropToTargetConv2dParams;
+	TMap<ELAAgentAttitude, FConv2dObservationParams> LidarRaindropToTargetConv2dParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	float MaxCeilingHeight = 1500.f;
@@ -122,5 +122,5 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;
 	
-	FORCEINLINE int GetRaindropToTargetResolution(ELARaindropTarget Target) const { return RaindropParams[Target].GetResolution(); } ;
+	FORCEINLINE int GetRaindropToTargetResolution(ELAAgentAttitude Target) const { return RaindropParams[Target].GetResolution(); } ;
 };
