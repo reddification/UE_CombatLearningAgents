@@ -16,29 +16,26 @@ class NPC_ML_API ULearningAgentLocomotionActionsComponent : public UActorCompone
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this component's properties
-	ULearningAgentLocomotionActionsComponent();
-
-protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
-
-public:
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-	                           FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
-	virtual void Reset() { CurrentMoveInput = FVector::ZeroVector; }
+	virtual void Reset() { CurrentMoveInput = FVector::ZeroVector; CurrentRotationInput = FRotator::ZeroRotator; }
 	virtual void Jump() {}
 	virtual void Mantle() {}
 	virtual void SetSpeed(float NewSpeed) {}
-	virtual void SetMoveDirection(const FVector& MoveDirection) { CurrentMoveInput = MoveDirection; }
-	virtual void SetRotator(const FRotator& Rotator) {}
+	virtual void AddMoveInput(const FVector& MoveDirection) { CurrentMoveInput = MoveDirection; }
+	virtual void AddRotationInput(const FRotator& Rotator) { CurrentRotationInput = Rotator; }
 	virtual void Gesture(const FGameplayTag& GestureTag) {}
 	virtual void SayPhrase(const FGameplayTag& PhraseTag) {}
 	virtual void UseItem(const FGameplayTag& ItemId) {}
 	virtual void SetWeaponReady(bool bReady) {}
 
-private:
+protected:
+	virtual void BeginPlay() override;
+	virtual void UpdateLocomotionInputs();
+	
 	FVector CurrentMoveInput = FVector::ZeroVector;
+	FRotator CurrentRotationInput = FRotator::ZeroRotator;
+	
+private:
+	TWeakObjectPtr<ACharacter> CharacterOwner;
 };

@@ -7,18 +7,24 @@
 #include "LearningAgentsInteractor.h"
 #include "LearningAgentsManager.h"
 #include "LearningAgentsRecorder.h"
+#include "PCGComponent.h"
+#include "Blueprint/UserWidget.h"
+#include "Components/TrainingEpisodeSetupComponent.h"
 #include "Controllers/LearningAgentsCombatController.h"
 #include "Data/ImitationLearningDataTypes.h"
 #include "Data/LogChannels.h"
+#include "Kismet/GameplayStatics.h"
 #include "Subsystems/LearningAgentSubsystem.h"
+#include "UI/MLOverviewPanelWidget.h"
 
 using namespace LearningAgentsImitationActions;
 
-// Sets default values
 ALearningAgentsImitationCombatRecordingManager::ALearningAgentsImitationCombatRecordingManager()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	LearningAgentsManager = CreateDefaultSubobject<ULearningAgentsManager>(TEXT("LearningAgentsManager"));
+	TrainingEpisodeSetupComponent = CreateDefaultSubobject<UTrainingEpisodeSetupComponent>(TEXT("Training Episodes Setup Component"));
+	PCGComponent = CreateDefaultSubobject<UPCGComponent>(TEXT("PCG Component"));
 }
 
 // Called when the game starts or when spawned
@@ -36,6 +42,21 @@ void ALearningAgentsImitationCombatRecordingManager::BeginPlay()
 	bool bReinitializeRecording = true;
 	ILRecorder = ULearningAgentsRecorder::MakeRecorder(LearningAgentsManager, InteractorPtr, ILRecorderClass, FName("ILCombatRecorder"),
 		RecorderPathSettings, RecordingAsset, bReinitializeRecording);
+	
+	if (bAddDebugPanelWidget && ensure(!DebugPanelWidgetClass.IsNull()))
+	{
+		auto WidgetClass = DebugPanelWidgetClass.LoadSynchronous();
+		auto PC = UGameplayStatics::GetPlayerController(this, 0);
+		DebugPanelWidget = CreateWidget<UMLOverviewPanelWidget>(PC, WidgetClass);
+		DebugPanelWidget->AddToViewport();
+	}
+}
+
+void ALearningAgentsImitationCombatRecordingManager::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	TrainingEpisodeSetupComponent->SetPCGComponent(PCGComponent);
+	TrainingEpisodeSetupComponent->TrainingEpisodeSetupCompletedEvent.AddUObject(this, &ALearningAgentsImitationCombatRecordingManager::OnEpisodeSetupCompleted);
 }
 
 void ALearningAgentsImitationCombatRecordingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -58,31 +79,83 @@ void ALearningAgentsImitationCombatRecordingManager::EndPlay(const EEndPlayReaso
 	Super::EndPlay(EndPlayReason);
 }
 
-void ALearningAgentsImitationCombatRecordingManager::StartRecording()
+void ALearningAgentsImitationCombatRecordingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& TrainingPreset)
 {
 	auto& TimerManager = GetWorld()->GetTimerManager();
-	ILRecorder->BeginRecording();
-	TimerManager.SetTimer(RecordTimer, this, &ALearningAgentsImitationCombatRecordingManager::RecordImitations, RecordInterval);
-	TimerManager.SetTimer(RestartTimer, this, &ALearningAgentsImitationCombatRecordingManager::RestartLearning, LearningTime);
-}
-
-void ALearningAgentsImitationCombatRecordingManager::SetImitationRecordingActive(bool bImitationRecordingActive)
-{
-	auto& TimerManager = GetWorld()->GetTimerManager();
-	if (bImitationRecordingActive)
+	LearningTime = FMath::RandRange(TrainingPreset.DurationMin, TrainingPreset.DurationMax);
+	if (DebugPanelWidget.IsValid())
+		DebugPanelWidget->SetTrainingEpisodeData(TrainingPreset);
+	
+	if (StartRecordingDelay > 0.f)
 	{
-		ResetLearningAgents();
-		if (StartRecordingDelay > 0.f)
-			TimerManager.SetTimer(StartRecordingDelayTimer, this, &ALearningAgentsImitationCombatRecordingManager::StartRecording, StartRecordingDelay);
-		else
-			StartRecording();
+		SetState(EMLTrainingSessionState::PreparingToStart);
+		TimerManager.SetTimer(StartRecordingDelayTimer, this, &ALearningAgentsImitationCombatRecordingManager::ResumeImitationRecording, StartRecordingDelay);
+		if (DebugPanelWidget.IsValid())
+		{
+			DebugPanelWidget->SetRemainingTime(StartRecordingDelay);
+			DebugPanelWidget->SetTimerActive(true);
+		}
 	}
 	else
 	{
-		ILRecorder->EndRecording();
-		TimerManager.ClearTimer(RecordTimer);
-		TimerManager.ClearTimer(RestartTimer);
+		ResumeImitationRecording();
 	}
+}
+
+void ALearningAgentsImitationCombatRecordingManager::StartImitationRecording()
+{
+	SetState(EMLTrainingSessionState::SettingUpEpisode);
+	TrainingEpisodeSetupComponent->SetupEpisode();
+}
+
+void ALearningAgentsImitationCombatRecordingManager::StartNextImitationLearning()
+{
+	RestartImitationRecording(true);
+}
+
+void ALearningAgentsImitationCombatRecordingManager::ResumeImitationRecording()
+{
+	SetState(EMLTrainingSessionState::Running);
+	auto& TimerManager = GetWorld()->GetTimerManager();
+	ILRecorder->BeginRecording();
+	TimerManager.SetTimer(RecordTimer, this, &ALearningAgentsImitationCombatRecordingManager::RecordImitations, RecordInterval, true);
+	TimerManager.SetTimer(RestartTimer, this, &ALearningAgentsImitationCombatRecordingManager::StartNextImitationLearning, LearningTime);
+	if (DebugPanelWidget.IsValid())
+		DebugPanelWidget->SetTimerActive(true);
+}
+
+void ALearningAgentsImitationCombatRecordingManager::PauseImitationRecording()
+{
+	SetState(EMLTrainingSessionState::Paused);
+	ILRecorder->EndRecording();
+	if (DebugPanelWidget.IsValid())
+		DebugPanelWidget->SetTimerActive(false);	
+	
+	auto& TimerManager = GetWorld()->GetTimerManager();
+	LearningTime = TimerManager.GetTimerRemaining(RestartTimer);
+	TimerManager.ClearTimer(RecordTimer);
+	TimerManager.ClearTimer(RestartTimer);
+}
+
+void ALearningAgentsImitationCombatRecordingManager::StopImitationRecording()
+{
+	PauseImitationRecording();
+	SetState(EMLTrainingSessionState::Inactive);
+	LearningAgentsManager->ResetAllAgents();
+	TrainingEpisodeSetupComponent->Cleanup();
+	if (DebugPanelWidget.IsValid())
+	{
+		DebugPanelWidget->SetRemainingTime(0.f);
+		DebugPanelWidget->SetTimerActive(false);
+	}
+}
+
+void ALearningAgentsImitationCombatRecordingManager::SetState(EMLTrainingSessionState NewState)
+{
+	TrainingState = NewState;
+	TrainingEpisodeStateChangedEvent.Broadcast(NewState);
+	if (DebugPanelWidget.IsValid())
+		DebugPanelWidget->SetState(NewState);
 }
 
 void ALearningAgentsImitationCombatRecordingManager::RecordImitations()
@@ -91,12 +164,25 @@ void ALearningAgentsImitationCombatRecordingManager::RecordImitations()
 	ILRecorder->AddExperience();
 }
 
-void ALearningAgentsImitationCombatRecordingManager::RestartLearning()
+void ALearningAgentsImitationCombatRecordingManager::RestartImitationRecording(bool bUseNewSetup)
 {
+	SetState(EMLTrainingSessionState::Restarting);
+	if (DebugPanelWidget.IsValid())
+		DebugPanelWidget->SetTimerActive(false);
+	
+	// TODO (aki) 22.01.2026: consider implementing doing a rollback of recorded data
 	ILRecorder->EndRecording();
+	
+	auto& TimerManager = GetWorld()->GetTimerManager();
+	TimerManager.ClearTimer(RestartTimer);
+	TimerManager.ClearTimer(StartRecordingDelayTimer);
+	TimerManager.ClearTimer(RecordTimer);
+	
 	LearningAgentsManager->ResetAllAgents();
-	ResetLearningAgents();
-	ILRecorder->BeginRecording();
+	if (bUseNewSetup)
+		TrainingEpisodeSetupComponent->SetupEpisode();
+	else 
+		TrainingEpisodeSetupComponent->RepeatEpisode();
 }
 
 FAgentPendingActions& ALearningAgentsImitationCombatRecordingManager::GetAgentActionsQueue(AActor* Agent)
@@ -200,11 +286,6 @@ void ALearningAgentsImitationCombatRecordingManager::RegisterWeaponStateChange(A
 	FAgentPendingActions& Queue = GetAgentActionsQueue(Agent);
 	TSharedPtr<FAction_ChangeWeaponState> NewAction = MakeShared<FAction_ChangeWeaponState>(GetWorld()->GetTimeSeconds(), NewState);
 	Queue.AddAction(NewAction);
-}
-
-void ALearningAgentsImitationCombatRecordingManager::ResetLearningAgents()
-{
-	unimplemented();
 }
 
 void ALearningAgentsImitationCombatRecordingManager::OnActionAccumulated(int AgentId)

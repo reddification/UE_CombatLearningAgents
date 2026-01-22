@@ -1,36 +1,27 @@
-﻿// 
+﻿#include "Components/LearningAgentLocomotionActionsComponent.h"
+#include "GameFramework/Character.h"
 
-
-#include "Components/LearningAgentLocomotionActionsComponent.h"
-
-
-// Sets default values for this component's properties
-ULearningAgentLocomotionActionsComponent::ULearningAgentLocomotionActionsComponent()
-{
-	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
-	// off to improve performance if you don't need them.
-	PrimaryComponentTick.bCanEverTick = true;
-
-	// ...
-}
-
-
-// Called when the game starts
 void ULearningAgentLocomotionActionsComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// ...
-	
+	CharacterOwner = Cast<ACharacter>(GetOwner());
 }
 
-
-// Called every frame
 void ULearningAgentLocomotionActionsComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                                              FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	// ...
+	UpdateLocomotionInputs();
 }
 
+void ULearningAgentLocomotionActionsComponent::UpdateLocomotionInputs()
+{
+	if (CurrentMoveInput != FVector::ZeroVector)
+		CharacterOwner->AddMovementInput(CurrentMoveInput);
+	
+	if (CurrentRotationInput != FRotator::ZeroRotator)
+	{
+		CharacterOwner->AddControllerPitchInput(CurrentRotationInput.Pitch);
+		CharacterOwner->AddControllerYawInput(CurrentRotationInput.Yaw);
+	}
+}

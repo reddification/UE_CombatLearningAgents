@@ -195,7 +195,7 @@ namespace LearningAgentsImitationActions
 							
 			virtual bool IsImmediate() const override { return true; }
 			virtual bool CanCombine(FAction* OtherAction) const override { return false; }
-			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Combat_Parry; }
+			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Combat_Block; }
 			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
 							
 		private:

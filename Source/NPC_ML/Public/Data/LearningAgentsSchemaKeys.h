@@ -103,7 +103,7 @@ namespace LAActionKeys
 	
 	inline const FName Key_Action_Combat = FName("Action.Combat");
 	inline const FName Key_Action_Combat_Attack = FName("Action.Combat.Attack");
-	inline const FName Key_Action_Combat_Parry = FName("Action.Combat.Parry");
+	inline const FName Key_Action_Combat_Block = FName("Action.Combat.Block");
 	inline const FName Key_Action_Combat_Dodge = FName("Action.Combat.Dodge");
 	
 	inline const FName Key_Action_Null = FName("Action.Null");

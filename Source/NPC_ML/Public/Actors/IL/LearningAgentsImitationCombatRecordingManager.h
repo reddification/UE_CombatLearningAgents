@@ -5,10 +5,15 @@
 #include "LearningAgentsController.h"
 #include "LearningAgentsRecorder.h"
 #include "Data/LearningAgentsDataTypes.h"
+#include "Data/TrainingDataTypes.h"
 #include "GameFramework/Actor.h"
 
 #include "LearningAgentsImitationCombatRecordingManager.generated.h"
 
+class UMLOverviewPanelWidget;
+enum class EMLTrainingSessionState;
+class UPCGComponent;
+class UTrainingEpisodeSetupComponent;
 class ULearningAgentsCombatController;
 
 namespace LearningAgentsImitationActions
@@ -24,6 +29,9 @@ class NPC_ML_API ALearningAgentsImitationCombatRecordingManager : public AActor
 {
 	GENERATED_BODY()
 
+private:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeStateChangedEvent, EMLTrainingSessionState);
+	
 public:
 	// Sets default values for this actor's properties
 	ALearningAgentsImitationCombatRecordingManager();
@@ -41,17 +49,33 @@ public:
 	void RegisterUseConsumableItem(AActor* Agent, const FGameplayTag& ItemId);
 	void RegisterWeaponStateChange(AActor* Agent, ELAWeaponStateChange NewState);
 
-	void SetImitationRecordingActive(bool bImitationRecordingActive);
+	void StartImitationRecording();
+	void StartNextImitationLearning();
+	void ResumeImitationRecording();
+	void PauseImitationRecording();
+	void StopImitationRecording();
+	void RestartImitationRecording(bool bUseNewSetup);
+	
+	FTrainingEpisodeStateChangedEvent TrainingEpisodeStateChangedEvent;
 	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void PostInitializeComponents() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	void StartRecording();
+	
+	virtual void OnEpisodeSetupCompleted(const FMLTrainingPreset& TrainingPreset);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ULearningAgentsManager* LearningAgentsManager;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UTrainingEpisodeSetupComponent> TrainingEpisodeSetupComponent;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UPCGComponent> PCGComponent;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ULearningAgentsInteractor> InteractorClass;
 
@@ -68,16 +92,20 @@ protected:
 	ULearningAgentsRecording* RecordingAsset;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
-	float LearningTime = 120.f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
 	float RecordInterval = 0.1f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
 	float StartRecordingDelay = 3.f;
 
-	virtual void ResetLearningAgents();
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bAddDebugPanelWidget = true;
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSoftClassPtr<UMLOverviewPanelWidget> DebugPanelWidgetClass;
+	
+	EMLTrainingSessionState TrainingState = EMLTrainingSessionState::Inactive;
+	TWeakObjectPtr<UMLOverviewPanelWidget> DebugPanelWidget;
+
 private:
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsInteractor> Interactor;
@@ -91,9 +119,10 @@ private:
 	FTimerHandle RecordTimer;
 	FTimerHandle RestartTimer;
 	FTimerHandle StartRecordingDelayTimer;
-
+	float LearningTime = 0.f;
+	
+	void SetState(EMLTrainingSessionState NewState);
 	void RecordImitations();
-	void RestartLearning();
 	
 	LearningAgentsImitationActions::FAgentPendingActions& GetAgentActionsQueue(AActor* Agent);
 	LearningAgentsImitationActions::FAgentPendingActions& GetAgentActionsQueue(int AgentId);

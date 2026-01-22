@@ -26,7 +26,7 @@ public class NPC_ML : ModuleRules
 			new string[]
 			{
 				"Core", "GameplayTags", "LearningAgents", "LearningTraining",
-				"LearningAgentsTraining",
+				"LearningAgentsTraining", "PCG", "UMG", "AIModule"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

@@ -143,7 +143,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	auto DodgeAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Combat_Dodge);
 	// auto DodgeActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, DodgeAction, 0.1f, Key_Action_Dodge_Optional);
 	
-	auto ParryAction = ULearningAgentsActions::SpecifyFloatAction(InActionSchema, 360.f, Key_Action_Combat_Parry);
+	auto ParryAction = ULearningAgentsActions::SpecifyFloatAction(InActionSchema, 360.f, Key_Action_Combat_Block);
 	// auto ParryActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, ParryAction, 0.2f, Key_Action_Parry_Optional);
 	
 	auto AttackAction = ULearningAgentsActions::SpecifyEnumAction(InActionSchema, GetAttackEnum(), GetAttackEnumBaseProbabilities(),
@@ -196,14 +196,14 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	TMap<FName, FLearningAgentsActionSchemaElement> CombatActions = 
 	{
 		{ Key_Action_Combat_Attack, AttackAction },
-		{ Key_Action_Combat_Parry, ParryAction },
+		{ Key_Action_Combat_Block, ParryAction },
 		{ Key_Action_Combat_Dodge, DodgeAction },
 	};
 	
 	TMap<FName, float> CombatActionsProbabilities = 
 	{
 		{ Key_Action_Combat_Attack, 0.6f },
-		{ Key_Action_Combat_Parry, 0.3f },
+		{ Key_Action_Combat_Block, 0.3f },
 		{ Key_Action_Combat_Dodge, 0.2f },
 	};
 	
@@ -283,7 +283,7 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	auto AttackActionModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, GetAttackEnum(),
 		GetMaskedAttackValues(), Key_Action_Combat_Attack);
 	auto ParryActionModifier = ULearningAgentsActions::MakeFloatActionModifier(InActionModifier,
-		0.f, AllMaskedActions.Contains(Key_Action_Combat_Parry), Key_Action_Combat_Parry);
+		0.f, AllMaskedActions.Contains(Key_Action_Combat_Block), Key_Action_Combat_Block);
 	auto DodgeActionModifier = ULearningAgentsActions::MakeDirectionActionModifier(InActionModifier, 
 		FVector::ZeroVector, false, false, true, FTransform::Identity,
 		Key_Action_Combat_Dodge);
@@ -291,11 +291,11 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	TMap<FName, FLearningAgentsActionModifierElement> CombatActionModifiersMap = 
 	{
 		{ Key_Action_Combat_Attack, AttackActionModifier },
-		{ Key_Action_Combat_Parry, ParryActionModifier },
+		{ Key_Action_Combat_Block, ParryActionModifier },
 		{ Key_Action_Combat_Dodge, DodgeActionModifier },
 	};
 	
-	TSet<FName> AllCombatActions = { Key_Action_Combat_Attack, Key_Action_Combat_Parry, Key_Action_Combat_Dodge };
+	TSet<FName> AllCombatActions = { Key_Action_Combat_Attack, Key_Action_Combat_Block, Key_Action_Combat_Dodge };
 	TArray<FName> MaskedCombatActions = AllMaskedActions.Intersect(AllCombatActions).Array();
 	auto CombatActionsModifier = ULearningAgentsActions::MakeExclusiveUnionActionModifier(InActionModifier, CombatActionModifiersMap, 
 		MaskedCombatActions);
@@ -1386,7 +1386,6 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	{
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_UseConsumableItem);
-		Result.Emplace(Key_Action_Locomotion_Blocking);
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
@@ -1399,7 +1398,7 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	if ((SelfStates & ELACharacterStates::Dying) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_Blocking);
-		Result.Emplace(Key_Action_Combat_Parry);
+		Result.Emplace(Key_Action_Combat_Block);
 		Result.Emplace(Key_Action_Combat_Dodge);
 	}
 	
@@ -1420,7 +1419,7 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 	if ((SelfStates & ELACharacterStates::WeaponNotReady) != ELACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);	
-		Result.Emplace(Key_Action_Combat_Parry);	
+		Result.Emplace(Key_Action_Combat_Block);	
 	}
 	
 	if ((SelfStates & ELACharacterStates::Gesturing) != ELACharacterStates::None)
@@ -1516,14 +1515,14 @@ void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsA
 		if (ensure(bSuccess))
 			CombatActionsComponent->Attack(AttackIndex);
 	}
-	else if (CombatActionName == Key_Action_Combat_Parry)
+	else if (CombatActionName == Key_Action_Combat_Block)
 	{
 		float ParryAngle = 0.f;
 		bool bSuccess = ULearningAgentsActions::GetFloatAction(ParryAngle, 
-           InActionObject, CombatActionObjectElement, Key_Action_Combat_Parry,
+           InActionObject, CombatActionObjectElement, Key_Action_Combat_Block,
            Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		if (ensure(bSuccess))
-			CombatActionsComponent->Parry(ParryAngle);
+			CombatActionsComponent->Block(ParryAngle);
 	}
 	else if (CombatActionName == Key_Action_Combat_Dodge)
 	{
@@ -1618,7 +1617,7 @@ void ULearningAgentsInteractor_Combat::SampleNonBlockingLocomotionActions(const 
 			Key_Action_Locomotion_Move, 
            Settings->bVisLogEnabled, this, AgentId);
 		if (ensure(bSuccess))
-			LocomotionActionsComponent->SetMoveDirection(MoveDirection);
+			LocomotionActionsComponent->AddMoveInput(MoveDirection);
 	}
 			
 	if (auto RotateAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Rotate))
@@ -1628,7 +1627,7 @@ void ULearningAgentsInteractor_Combat::SampleNonBlockingLocomotionActions(const 
 			InActionObject, *RotateAction,AgentTransform.GetRotation().Rotator(), Key_Action_Locomotion_Rotate,
 			Settings->bVisLogEnabled, this, AgentId, AgentLocation);
 		if (ensure(bSuccess))
-			LocomotionActionsComponent->SetRotator(Rotator);
+			LocomotionActionsComponent->AddRotationInput(Rotator);
 	}
 			
 	if (auto SayPhraseAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_SayPhrase))
