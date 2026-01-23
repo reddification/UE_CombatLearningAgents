@@ -41,7 +41,7 @@ void UTrainingEpisodeSetupComponent::SetupEpisode()
 	else 
 		CurrentPresetIndex = (CurrentPresetIndex + 1) % TrainingPresets.Num();
 	
-	for (auto& ActorSpawnDescriptor : TrainingPresets[CurrentPresetIndex].CharactersSpawnDescriptors)
+	for (auto& ActorSpawnDescriptor : TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors)
 	{
 		ActorSpawnDescriptor.ResetSpawnLocations();
 		for (const auto& SetupActionInstancedStruct : ActorSpawnDescriptor.SetupPipeline)
@@ -63,15 +63,15 @@ void UTrainingEpisodeSetupComponent::RepeatEpisode()
 		return;
 	
 	bSetupInProgress = true;
-	DestroySpawnedCharacters();
-	for (const auto& SpawnDescriptor : TrainingPresets[CurrentPresetIndex].CharactersSpawnDescriptors)
-		SpawnCharacter(SpawnDescriptor, true);
+	DestroySpawnedActors();
+	for (const auto& SpawnDescriptor : TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors)
+		SpawnActor(SpawnDescriptor, true);
 }
 
-void UTrainingEpisodeSetupComponent::DestroySpawnedCharacters()
+void UTrainingEpisodeSetupComponent::DestroySpawnedActors()
 {
-	for (const auto& SpawnedPawn : SpawnedActors)
-		SpawnedPawn->Destroy();
+	for (const auto& SpawnedActor : SpawnedActors)
+		SpawnedActor->Destroy();
 	
 	SpawnedActors.Empty();
 	CurrentSpawnIndex = 0;
@@ -84,28 +84,28 @@ void UTrainingEpisodeSetupComponent::Cleanup()
 
 	// TODO cancel active EQSs
 	
-	DestroySpawnedCharacters();
+	DestroySpawnedActors();
 	EpisodeSetupActionMemories.Reset();
 	if (PCGComponent.IsValid())
 		PCGComponent->Cleanup();
 }
 
-void UTrainingEpisodeSetupComponent::SpawnCharacter(const FMLTrainingCharacterSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup)
+void UTrainingEpisodeSetupComponent::SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup)
 {
 	FRotator Rotation = (SpawnDescriptor.LastInitialLookAtLocation - SpawnDescriptor.LastSpawnLocation).GetSafeNormal().Rotation();
 	auto WorldLocal = GetWorld();
 	FTransform SpawnTransform = FTransform(Rotation, SpawnDescriptor.LastSpawnLocation);
-	auto SpawnClass = SpawnDescriptor.PawnClass.LoadSynchronous();
+	auto SpawnClass = SpawnDescriptor.ActorClass.LoadSynchronous();
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-	auto Pawn = SpawnDescriptor.bSpawnDeferred  
-		? WorldLocal->SpawnActorDeferred<APawn>(SpawnClass, SpawnTransform, nullptr, nullptr, SpawnParameters.SpawnCollisionHandlingOverride)
-		: WorldLocal->SpawnActor<APawn>(SpawnClass, SpawnDescriptor.LastSpawnLocation, Rotation, SpawnParameters);
+	auto Actor = SpawnDescriptor.bSpawnDeferred  
+		? WorldLocal->SpawnActorDeferred<AActor>(SpawnClass, SpawnTransform, nullptr, nullptr, SpawnParameters.SpawnCollisionHandlingOverride)
+		: WorldLocal->SpawnActor<AActor>(SpawnClass, SpawnDescriptor.LastSpawnLocation, Rotation, SpawnParameters);
 	
-	if (Pawn == nullptr)
+	if (Actor == nullptr)
 	{
-		UE_VLOG(this, LogNpcMl, Warning, TEXT("Failed to spawn pawn"));
-		UE_VLOG_LOCATION(this, LogNpcMl, Warning, SpawnDescriptor.LastSpawnLocation, 25.f, FColor::Yellow, TEXT("Failed to spawn pawn here"));
+		UE_VLOG(this, LogNpcMl, Warning, TEXT("Failed to spawn actor"));
+		UE_VLOG_LOCATION(this, LogNpcMl, Warning, SpawnDescriptor.LastSpawnLocation, 25.f, FColor::Yellow, TEXT("Failed to spawn actor here"));
 		return;
 	}
 	
@@ -120,16 +120,16 @@ void UTrainingEpisodeSetupComponent::SpawnCharacter(const FMLTrainingCharacterSp
 			: nullptr;
 		
 		if (bRepeatSetup)
-			SetupAction.Repeat(Pawn, Memory);
+			SetupAction.Repeat(Actor, Memory);
 		else 
-			SetupAction.Setup(Pawn, Memory);
+			SetupAction.Setup(Actor, Memory);
 	}
 	
-	SpawnedActors.Add(Pawn);
+	SpawnedActors.Add(Actor);
 	
 	CurrentSpawnIndex++;
-	if (CurrentSpawnIndex == TrainingPresets[CurrentPresetIndex].CharactersSpawnDescriptors.Num())
-		OnAllCharacterSpawned();	
+	if (CurrentSpawnIndex == TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors.Num())
+		OnAllActorsSpawned();	
 }
 
 void UTrainingEpisodeSetupComponent::FindEpisodeOriginLocation()
@@ -137,15 +137,15 @@ void UTrainingEpisodeSetupComponent::FindEpisodeOriginLocation()
 	TrainingPresets[CurrentPresetIndex].EpisodeOriginLocationEQS.Execute(*this, nullptr, FoundEpisodeOriginLocationDelegate);
 }
 
-void UTrainingEpisodeSetupComponent::StartSpawningCharacters()
+void UTrainingEpisodeSetupComponent::StartSpawningActors()
 {
 	CurrentSpawnIndex = 0;
-	StartSpawningNextCharacter();
+	StartSpawningNextActor();
 }
 
-void UTrainingEpisodeSetupComponent::StartSpawningNextCharacter()
+void UTrainingEpisodeSetupComponent::StartSpawningNextActor()
 {
-	auto ActiveSpawnDescriptor = &TrainingPresets[CurrentPresetIndex].CharactersSpawnDescriptors[CurrentSpawnIndex];
+	auto ActiveSpawnDescriptor = &TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors[CurrentSpawnIndex];
 	ActiveSpawnDescriptor->SpawnAgentLocationEQS.InitForOwnerAndBlackboard(*this, nullptr);
 	ActiveSpawnDescriptor->InitialAgentLookAtEQS.InitForOwnerAndBlackboard(*this, nullptr);
 	ActiveSpawnDescriptor->SpawnAgentLocationEQS.Execute(*this, nullptr, FoundSpawnLocationDelegate);
@@ -171,7 +171,7 @@ void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEn
 	}
 	else
 	{
-		StartSpawningCharacters();
+		StartSpawningActors();
 	}
 }
 
@@ -183,33 +183,33 @@ void UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted(UPCGComponent* InPcgC
 
 void UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted(UPCGComponent* InPcgComponent)
 {
-	StartSpawningCharacters();
+	StartSpawningActors();
 }
 
 void UTrainingEpisodeSetupComponent::OnFoundSpawnLocation(TSharedPtr<FEnvQueryResult> Result)
 {
-	auto& SpawnDescriptor = TrainingPresets[CurrentPresetIndex].CharactersSpawnDescriptors[CurrentSpawnIndex];
+	auto& SpawnDescriptor = TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors[CurrentSpawnIndex];
 	SpawnDescriptor.LastSpawnLocation = GetEQSLocation(Result);
 	if (SpawnDescriptor.LastSpawnLocation != FVector::ZeroVector && SpawnDescriptor.LastInitialLookAtLocation != FVector::ZeroVector)
-		SpawnCharacter(SpawnDescriptor, false);
+		SpawnActor(SpawnDescriptor, false);
 }
 
 void UTrainingEpisodeSetupComponent::OnFoundInitialLookAtLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult)
 {
-	auto& SpawnDescriptor = TrainingPresets[CurrentPresetIndex].CharactersSpawnDescriptors[CurrentSpawnIndex];
+	auto& SpawnDescriptor = TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors[CurrentSpawnIndex];
 	FVector LookAtLocation = GetEQSLocation(EnvQueryResult);
 	if (LookAtLocation == FVector::ZeroVector)
 	{
 		LookAtLocation = FVector::ForwardVector;
-		UE_VLOG(this, LogNpcMl, Warning, TEXT("Failed to get initial look at position for character"));
+		UE_VLOG(this, LogNpcMl, Warning, TEXT("Failed to get initial look at position for actor"));
 	}
 	
 	SpawnDescriptor.LastInitialLookAtLocation = LookAtLocation;
 	if (SpawnDescriptor.LastSpawnLocation != FVector::ZeroVector && SpawnDescriptor.LastInitialLookAtLocation != FVector::ZeroVector)
-		SpawnCharacter(SpawnDescriptor, false);
+		SpawnActor(SpawnDescriptor, false);
 }
 
-void UTrainingEpisodeSetupComponent::OnAllCharacterSpawned()
+void UTrainingEpisodeSetupComponent::OnAllActorsSpawned()
 {
 	TrainingEpisodeSetupCompletedEvent.Broadcast(TrainingPresets[CurrentPresetIndex]);
 	bSetupInProgress = false;

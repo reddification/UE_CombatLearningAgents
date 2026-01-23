@@ -2,9 +2,9 @@
 
 #include "Kismet/GameplayStatics.h"
 
-bool FMLTrainingEpisodeCharacterSetupAction_FinishDeferredSpawn::SetupInternal(APawn* Character, FExternalMemory* Memory) const
+bool FMLTrainingEpisodeActorSetupAction_FinishDeferredSpawn::SetupInternal(AActor* Actor, FExternalMemory* Memory) const
 {
-	Super::SetupInternal(Character, Memory);
-	auto SpawnedCharacter = UGameplayStatics::FinishSpawningActor(Character, Character->GetTransform());
+	Super::SetupInternal(Actor, Memory);
+	auto SpawnedCharacter = UGameplayStatics::FinishSpawningActor(Actor, Actor->GetTransform());
 	return IsValid(SpawnedCharacter);
 }

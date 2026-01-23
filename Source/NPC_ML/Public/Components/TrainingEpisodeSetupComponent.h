@@ -8,8 +8,8 @@
 #include "TrainingEpisodeSetupComponent.generated.h"
 
 
-struct FMLTrainingEpisodeCharacterSetupAction_Base;
-struct FMLTrainingCharacterSpawnDescriptor;
+struct FMLTrainingEpisodeActorSetupAction_Base;
+struct FMLTrainingActorSpawnDescriptor;
 struct FTrainingEpisodeSetupActionExternalMemoryBase;
 struct FMLTrainingPreset;
 class UPCGComponent;
@@ -24,7 +24,7 @@ private:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeSetupCompletedEvent, const FMLTrainingPreset& Preset);
 	
 	using FExternalMemory = FTrainingEpisodeSetupActionExternalMemoryBase;
-	using FSetupAction = FMLTrainingEpisodeCharacterSetupAction_Base;
+	using FSetupAction = FMLTrainingEpisodeActorSetupAction_Base;
 	
 public:
 	 // Runtime generation must be enabled on the PCG component / project settings appropriate to your setup;
@@ -66,7 +66,7 @@ protected:
 	FRuntimeFloatCurve PCGGeometryDensityDistribution;
 
 	// if spawning is deferred, OnAgentSpawned will not be called. caller must finalize the spawn on their own
-	virtual void SpawnCharacter(const FMLTrainingCharacterSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
+	virtual void SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
 	
 	virtual void OnPCGCleanupCompleted(UPCGComponent* InPcgComponent);
 	virtual void OnPCGGenerateCompleted(UPCGComponent* InPcgComponent);
@@ -77,7 +77,7 @@ private:
 	int CurrentSpawnIndex = 0;
 	
 	TMap<FGuid, TUniquePtr<FExternalMemory>> EpisodeSetupActionMemories;
-	TArray<TWeakObjectPtr<APawn>> SpawnedActors;
+	TArray<TWeakObjectPtr<AActor>> SpawnedActors;
 	
 	FQueryFinishedSignature FoundEpisodeOriginLocationDelegate;
 	FQueryFinishedSignature FoundSpawnLocationDelegate;
@@ -88,12 +88,12 @@ private:
 	
 	FVector GetEQSLocation(const TSharedPtr<FEnvQueryResult>& Result) const;
 	
-	void DestroySpawnedCharacters();
+	void DestroySpawnedActors();
 	void FindEpisodeOriginLocation();
-	void StartSpawningNextCharacter();
-	void StartSpawningCharacters();
+	void StartSpawningNextActor();
+	void StartSpawningActors();
 	void OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundSpawnLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundInitialLookAtLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
-	void OnAllCharacterSpawned();
+	void OnAllActorsSpawned();
 };
