@@ -4,6 +4,7 @@
 #include "Subsystems/LAObservationHistorySubsystem.h"
 
 #include "Data/LearningAgentsDataTypes.h"
+#include "Particles/FXBudget.h"
 #include "Settings/CombatLearningSettings.h"
 
 void ULAObservationHistorySubsystem::OnWorldBeginPlay(UWorld& InWorld)
@@ -32,20 +33,32 @@ void ULAObservationHistorySubsystem::RegisterAgent(AActor* Agent)
 		TranslationHistory[i] = FTranslationHistory(FVector::ZeroVector, InitialTransform);
 	
 	TranslationHistories.Add(Agent, TranslationHistory);
+	RegisterHistoryConsumer();
 }
 
 void ULAObservationHistorySubsystem::UnregisterAgent(AActor* Agent)
 {
 	TranslationHistories.Remove(Agent);
+	UnregisterHistoryConsumer();
 }
 
-void ULAObservationHistorySubsystem::SetRecordingEnabled(bool bEnabled)
+void ULAObservationHistorySubsystem::RegisterHistoryConsumer()
 {
-	auto& TimerManager = GetWorld()->GetTimerManager();
-	if (bEnabled)
+	ConsumersCount++;
+	ensure(ConsumersCount >= 0);
+	if (ConsumersCount == 1)
+	{
+		auto& TimerManager = GetWorld()->GetTimerManager();
 		TimerManager.SetTimer(UpdateTranslationsTimer, this, &ULAObservationHistorySubsystem::UpdateTranslationHistories,UpdateInterval, true);
-	else 
-		TimerManager.ClearTimer(UpdateTranslationsTimer);
+	}
+}
+
+void ULAObservationHistorySubsystem::UnregisterHistoryConsumer()
+{
+	ConsumersCount--;
+	ensure(ConsumersCount >= 0);
+	if (ConsumersCount == 0)
+		GetWorld()->GetTimerManager().ClearTimer(UpdateTranslationsTimer);
 }
 
 TArray<FTranslationHistory> ULAObservationHistorySubsystem::GetTranslationHistory(AActor* ForAgent, AActor* ObservedByAgent) const

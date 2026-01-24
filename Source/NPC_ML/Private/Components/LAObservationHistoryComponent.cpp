@@ -19,7 +19,6 @@ void ULAObservationHistoryComponent::BeginPlay()
 		CombatHistory[i] = DefaultCombatEvent;
 	
 	ObservationHistorySubsystem = GetWorld()->GetSubsystem<ULAObservationHistorySubsystem>();
-	ObservationHistorySubsystem->RegisterAgent(OwnerPawn.Get());
 }
 
 void ULAObservationHistoryComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -32,6 +31,9 @@ void ULAObservationHistoryComponent::EndPlay(const EEndPlayReason::Type EndPlayR
 
 void ULAObservationHistoryComponent::AddCombatEvent(ELACombatEvent CombatEvent, bool bEventSubject, ELAAgentAttitude AttitudeToCauser)
 {
+	if (!bActive)
+		return;
+	
 	float CurrentTime = GetWorld()->GetTimeSeconds();
 	CombatHistory[CombatHistoryIndex] = FCombatEventData(CurrentTime, CombatEvent, bEventSubject, AttitudeToCauser);
 	CombatHistoryIndex = (CombatHistoryIndex + 1) % CombatHistory.Num();
@@ -56,4 +58,16 @@ TArray<FCombatEventData> ULAObservationHistoryComponent::GetCombatHistory() cons
 TArray<FTranslationHistory> ULAObservationHistoryComponent::GetTranslationHistory(AActor* ForActor) const
 {
 	return ObservationHistorySubsystem->GetTranslationHistory(ForActor, OwnerPawn.Get());
+}
+
+void ULAObservationHistoryComponent::SetHistoryActive(bool bNewActive)
+{
+	if (bNewActive == bActive)
+		return;
+	
+	bActive = bNewActive;
+	if (bActive)
+		ObservationHistorySubsystem->RegisterAgent(OwnerPawn.Get());
+	else 
+		ObservationHistorySubsystem->UnregisterAgent(OwnerPawn.Get());
 }

@@ -5,38 +5,37 @@
 #include "CoreMinimal.h"
 #include "LearningAgentsCommunicator.h"
 #include "LearningAgentsCritic.h"
-#include "LearningAgentsManager.h"
-#include "LearningAgentsNeuralNetwork.h"
 #include "LearningAgentsPolicy.h"
 #include "LearningAgentsPPOTrainer.h"
 #include "LearningAgentsTrainer.h"
-#include "CombatLearningAgentsManagerComponent.generated.h"
+#include "Actors/MLTrainingManager.h"
+#include "GameFramework/Actor.h"
+#include "LAReinforcementLearningManager.generated.h"
 
-
+class ULearningAgentsNeuralNetwork;
 class ULearningAgentsPPOTrainer;
 class ULearningAgentsCritic;
 class ULearningAgentsPolicy;
 class ULearningAgentsTrainingEnvironment;
 class ULearningAgentsInteractor;
+class ULearningAgentsManager;
+class ULAReinforcementLearningManagerComponent;
 
-UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class NPC_ML_API UCombatLearningAgentsManagerComponent : public ULearningAgentsManager
+UCLASS()
+class NPC_ML_API ALAReinforcementLearningManager : public AMLTrainingManager
 {
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this component's properties
-	UCombatLearningAgentsManagerComponent();
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
-								   FActorComponentTickFunction* ThisTickFunction) override;
-	
+	ALAReinforcementLearningManager();
+
 protected:
 	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsInteractor> InteractorClass;
-
+	
+public:
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ULearningAgentsTrainingEnvironment> TrainingEnvironmentClass;
 
@@ -48,9 +47,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ULearningAgentsPPOTrainer> PPOTrainerClass;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bRunInference = false;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	ULearningAgentsNeuralNetwork* EncoderNN;
@@ -93,9 +89,6 @@ protected:
 
 
 private:
-	UPROPERTY()
-	TObjectPtr<ULearningAgentsInteractor> Interactor;
-
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsTrainingEnvironment> TrainingEnvironment;
 

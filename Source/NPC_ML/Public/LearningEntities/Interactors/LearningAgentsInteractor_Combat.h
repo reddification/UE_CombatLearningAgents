@@ -3,9 +3,9 @@
 #include "CoreMinimal.h"
 #include "LearningAgentsInteractor.h"
 #include "Components/LAObservationHistoryComponent.h"
-#include "Components/LearningAgentCombatActionsComponent.h"
-#include "Components/LearningAgentCombatObservationComponent.h"
-#include "Components/LearningAgentLocomotionActionsComponent.h"
+#include "Components/LACombatActionsComponent.h"
+#include "Components/LACombatObservationComponent.h"
+#include "Components/LALocomotionActionsComponent.h"
 #include "Settings/CombatLearningSettings.h"
 #include "LearningAgentsInteractor_Combat.generated.h"
 
@@ -55,14 +55,14 @@ protected:
 	virtual FLearningAgentsObservationObjectElement GatherSelfObservations(ULearningAgentsObservationObject* InObservationObject, int AgentId,
 	                                                                       const FSelfData& SelfData);
 	virtual FLearningAgentsObservationObjectElement GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject,
-		int32 AgentId, ULearningAgentCombatObservationComponent* LAObservationComponent);
+		int32 AgentId, ULACombatObservationComponent* LAObservationComponent);
 	virtual FLearningAgentsObservationObjectElement GatherCombatStateObservation(ULearningAgentsObservationObject* InObservationObject, 
 		int32 AgentId, const FCombatStateData& CombatStateData);
 	virtual FLearningAgentsObservationObjectElement GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject,
-	                                                                         ULearningAgentCombatObservationComponent*
+	                                                                         ULACombatObservationComponent*
 	                                                                         CombatObservationComponent, int32 AgentId);
 	virtual FLearningAgentsObservationObjectElement GatherAlliesObservations(ULearningAgentsObservationObject* InObservationObject,
-	                                                                         ULearningAgentCombatObservationComponent*
+	                                                                         ULACombatObservationComponent*
 	                                                                         CombatObservationComponent, int32 AgentId);
 	
 	virtual const UEnum* GetAttackEnum() { return StaticEnum<ELAAttackType>(); }
@@ -105,19 +105,19 @@ private:
 	FLearningAgentsActionSchemaElement GetNamedOptionsActionSchemaElement(ULearningAgentsActionSchema* InActionSchema,
 	                                                         const TMap<FGameplayTag, float>& Options, const FName& ActionTag) const;
 	void SampleLocomotionAction(const ULearningAgentsActionObject* InActionObject, int32 AgentId, AActor* AgentActor,
-		ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, const FLearningAgentsActionObjectElement& RootActionObjectElement);
+		ULALocomotionActionsComponent* LocomotionActionsComponent, const FLearningAgentsActionObjectElement& RootActionObjectElement);
 	void SampleNonBlockingLocomotionActions(const ULearningAgentsActionObject* InActionObject, 
 	                                        const TMap<FName, FLearningAgentsActionObjectElement>& NonBlockingLocomotionActionObjectElements, 
-	                                        ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId, const FVector& AgentLocation, const FTransform& AgentTransform, 
+	                                        ULALocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId, const FVector& AgentLocation, const FTransform& AgentTransform, 
 	                                        const UCombatLearningSettings* Settings);
 	void SampleLocomotionAnimationAction(const ULearningAgentsActionObject* InActionObject, const FName& AnimationActionName,
 										 const FLearningAgentsActionObjectElement& AnimationActionObjectElement,
-										 ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent,
+										 ULALocomotionActionsComponent* LocomotionActionsComponent,
 										 int32 AgentId, const FVector& AgentLocation,
 										 const UCombatLearningSettings* Settings);
 	
 	void SampleCombatAction(const ULearningAgentsActionObject* InActionObject, int32 AgentId, const AActor* AgentActor,
-							ULearningAgentCombatActionsComponent* CombatActionsComponent,
+							ULACombatActionsComponent* CombatActionsComponent,
 							const FLearningAgentsActionObjectElement& RootActionObjectElement);
 	TArray<uint8> GetBlockingLocomotionActionsMask(ELACharacterStates SelfStates) const;
 	TArray<uint8> GetWeaponStateChangeMask(ELACharacterStates SelfStates) const;

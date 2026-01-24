@@ -19,6 +19,9 @@ struct FTranslationHistory;
  * This component must be placed on all agent-relevant entities: both players and other agents
  * 
  * You must populate combat history in your project implementation
+ * You must activate this component when needed (@see SetHistoryActive)
+ *		I mean, you can do it in BeginPlay if you want,
+ *		but that would also affect translation history accumulation, which might be redundant to do for dozens of NPCs which may not even participate in combat 
  */
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class NPC_ML_API ULAObservationHistoryComponent : public UActorComponent
@@ -30,6 +33,8 @@ public:
 	TArray<FCombatEventData> GetCombatHistory() const;
 	
 	TArray<FTranslationHistory> GetTranslationHistory(AActor* ForActor) const;
+
+	void SetHistoryActive(bool bActive);
 	
 protected:
 	virtual void BeginPlay() override;
@@ -42,4 +47,5 @@ protected:
 	TArray<FCombatEventData> CombatHistory;
 	
 	int CombatHistoryIndex = 0;
+	bool bActive = false;
 };

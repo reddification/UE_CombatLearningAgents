@@ -5,13 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
-#include "LearningAgentLocomotionActionsComponent.generated.h"
+#include "LALocomotionActionsComponent.generated.h"
 
 /*
  * Put child of this component on your NPC and override virtual functions
  */
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class NPC_ML_API ULearningAgentLocomotionActionsComponent : public UActorComponent
+class NPC_ML_API ULALocomotionActionsComponent : public UActorComponent
 {
 	GENERATED_BODY()
 

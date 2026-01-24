@@ -2,9 +2,9 @@
 #include "LearningEntities/Interactors/LearningAgentsInteractor_Combat.h"
 
 #include "Components/LAObservationHistoryComponent.h"
-#include "Components/LearningAgentCombatActionsComponent.h"
-#include "Components/LearningAgentCombatObservationComponent.h"
-#include "Components/LearningAgentLocomotionActionsComponent.h"
+#include "Components/LACombatActionsComponent.h"
+#include "Components/LACombatObservationComponent.h"
+#include "Components/LALocomotionActionsComponent.h"
 #include "Data/LearningAgentsDataTypes.h"
 #include "Data/LearningAgentsSchemaKeys.h"
 #include "Data/LearningAgentsTags_Combat.h"
@@ -414,7 +414,7 @@ void ULearningAgentsInteractor_Combat::GatherAgentObservation_Implementation(
 {
 	Super::GatherAgentObservation_Implementation(OutObservationObjectElement, InObservationObject, AgentId);
 	auto Agent = Cast<AActor>(GetAgent(AgentId));
-	auto CombatObservationComponent = Agent->FindComponentByClass<ULearningAgentCombatObservationComponent>();
+	auto CombatObservationComponent = Agent->FindComponentByClass<ULACombatObservationComponent>();
 	if (!ensure(CombatObservationComponent))
 		return;
 
@@ -464,8 +464,8 @@ void ULearningAgentsInteractor_Combat::PerformAgentAction_Implementation(
 	
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
 	
-	auto CombatActionsComponent = AgentActor->FindComponentByClass<ULearningAgentCombatActionsComponent>();
-	auto LocomotionActionsComponent = AgentActor->FindComponentByClass<ULearningAgentLocomotionActionsComponent>();
+	auto CombatActionsComponent = AgentActor->FindComponentByClass<ULACombatActionsComponent>();
+	auto LocomotionActionsComponent = AgentActor->FindComponentByClass<ULALocomotionActionsComponent>();
 	
 	CombatActionsComponent->Reset();
 	LocomotionActionsComponent->Reset();
@@ -1048,7 +1048,7 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject,
-	int32 AgentId, ULearningAgentCombatObservationComponent* LAObservationComponent)
+	int32 AgentId, ULACombatObservationComponent* LAObservationComponent)
 {
 	// welp, until there's no conv3d, LAs will observe convolved "heightmaps" in different plains 
 	TMap<FName, FLearningAgentsObservationObjectElement> ResultMap;
@@ -1200,7 +1200,7 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject,
-                                                                                                   ULearningAgentCombatObservationComponent* CombatObservationComponent, int32 AgentId)
+                                                                                                   ULACombatObservationComponent* CombatObservationComponent, int32 AgentId)
 {
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
@@ -1259,7 +1259,7 @@ FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::Gather
 }
 
 FLearningAgentsObservationObjectElement ULearningAgentsInteractor_Combat::GatherAlliesObservations(ULearningAgentsObservationObject* InObservationObject,
-	ULearningAgentCombatObservationComponent* CombatObservationComponent, int32 AgentId)
+	ULACombatObservationComponent* CombatObservationComponent, int32 AgentId)
 {
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
@@ -1492,7 +1492,7 @@ TArray<uint8> ULearningAgentsInteractor_Combat::GetWeaponStateChangeMask(ELAChar
 }
 
 void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsActionObject* InActionObject,
-                                                          const int32 AgentId, const AActor* AgentActor, ULearningAgentCombatActionsComponent* CombatActionsComponent,
+                                                          const int32 AgentId, const AActor* AgentActor, ULACombatActionsComponent* CombatActionsComponent,
                                                           const FLearningAgentsActionObjectElement& RootActionObjectElement)
 {
 	auto AgentLocation = AgentActor->GetActorLocation();
@@ -1540,7 +1540,7 @@ void ULearningAgentsInteractor_Combat::SampleCombatAction(const ULearningAgentsA
 }
 
 void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAgentsActionObject* InActionObject,
-                                                              int32 AgentId, AActor* AgentActor, ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent,
+                                                              int32 AgentId, AActor* AgentActor, ULALocomotionActionsComponent* LocomotionActionsComponent,
                                                               const FLearningAgentsActionObjectElement& RootActionObjectElement)
 {
 	auto AgentLocation = AgentActor->GetActorLocation();
@@ -1596,7 +1596,7 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const ULearningAge
 
 void ULearningAgentsInteractor_Combat::SampleNonBlockingLocomotionActions(const ULearningAgentsActionObject* InActionObject,
 	const TMap<FName, FLearningAgentsActionObjectElement>& NonBlockingLocomotionActionObjectElements,
-	ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId,
+	ULALocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId,
 	const FVector& AgentLocation, const FTransform& AgentTransform,
 	const UCombatLearningSettings* Settings)
 {
@@ -1659,7 +1659,7 @@ void ULearningAgentsInteractor_Combat::SampleNonBlockingLocomotionActions(const 
 
 void ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const ULearningAgentsActionObject* InActionObject,
    const FName& AnimationActionName, const FLearningAgentsActionObjectElement& AnimationActionObjectElement,
-   ULearningAgentLocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId,
+   ULALocomotionActionsComponent* LocomotionActionsComponent, int32 AgentId,
    const FVector& AgentLocation, const UCombatLearningSettings* Settings)
 {
 	if (AnimationActionName == Key_Action_Gesture)

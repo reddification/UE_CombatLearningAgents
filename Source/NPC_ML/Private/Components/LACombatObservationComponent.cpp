@@ -1,17 +1,17 @@
-﻿#include "Components/LearningAgentCombatObservationComponent.h"
+﻿#include "Components/LACombatObservationComponent.h"
 
 #include "Data/AgentCombatDataTypes.h"
 #include "Data/LearningAgentsLogChannels.h"
 #include "Data/LogChannels.h"
 #include "Settings/CombatLearningSettings.h"
 
-ULearningAgentCombatObservationComponent::ULearningAgentCombatObservationComponent()
+ULACombatObservationComponent::ULACombatObservationComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
-void ULearningAgentCombatObservationComponent::BeginPlay()
+void ULACombatObservationComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	Settings = GetDefault<UCombatLearningSettings>();
@@ -44,7 +44,7 @@ void ULearningAgentCombatObservationComponent::BeginPlay()
 	
 }
 
-void ULearningAgentCombatObservationComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void ULACombatObservationComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (ResetRaindropBuffersTimer.IsValid())
 		if (auto World = GetWorld())
@@ -61,7 +61,7 @@ void ULearningAgentCombatObservationComponent::EndPlay(const EEndPlayReason::Typ
 	Super::EndPlay(EndPlayReason);
 }
 
-void ULearningAgentCombatObservationComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
+void ULACombatObservationComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
                                                              FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -114,12 +114,12 @@ void ULearningAgentCombatObservationComponent::TickComponent(float DeltaTime, en
 	UpdateRaindropsToTargets(CachedAlliesData, ELAAgentAttitude::Ally);
 }
 
-bool ULearningAgentCombatObservationComponent::IsAsyncRaindropActive() const
+bool ULACombatObservationComponent::IsAsyncRaindropActive() const
 {
 	return ActiveRaindropsCount.load() > 0;
 }
 
-void ULearningAgentCombatObservationComponent::UpdateRaindropsToTargets(FCharacterDataContainer& CharactersData, ELAAgentAttitude TargetType)
+void ULACombatObservationComponent::UpdateRaindropsToTargets(FCharacterDataContainer& CharactersData, ELAAgentAttitude TargetType)
 {
 	auto AgentLocation = GetOwner()->GetActorLocation();
 	auto AgentUpVector = GetOwner()->GetActorUpVector();
@@ -146,7 +146,7 @@ void ULearningAgentCombatObservationComponent::UpdateRaindropsToTargets(FCharact
 	}
 }
 
-bool ULearningAgentCombatObservationComponent::IsCharacterRelevantForRaindrop(const FPerceivedCharacterData& CharacterState, const FVector& LastKnownLocation,
+bool ULACombatObservationComponent::IsCharacterRelevantForRaindrop(const FPerceivedCharacterData& CharacterState, const FVector& LastKnownLocation,
                                                                               const FRaindropRelevancyParams& RelevancyParams) const
 {
 	if (!CharacterState.bAlive)
@@ -169,7 +169,7 @@ bool ULearningAgentCombatObservationComponent::IsCharacterRelevantForRaindrop(co
 	return bRelevant;
 }
 
-void ULearningAgentCombatObservationComponent::StopRaindrop(FRaindrop& RaindropData, ELAAgentAttitude Attitude)
+void ULACombatObservationComponent::StopRaindrop(FRaindrop& RaindropData, ELAAgentAttitude Attitude)
 {
 	if (!ensure(IsInGameThread()))
 		return;
@@ -180,7 +180,7 @@ void ULearningAgentCombatObservationComponent::StopRaindrop(FRaindrop& RaindropD
 	RaindropData.BufferHandle.RaindropBufferIndex = -1;
 }
 
-FSelfData ULearningAgentCombatObservationComponent::GetSelfData() const
+FSelfData ULACombatObservationComponent::GetSelfData() const
 {
 	FSelfData SelfData;
 
@@ -200,14 +200,14 @@ FSelfData ULearningAgentCombatObservationComponent::GetSelfData() const
 	return SelfData;
 }
 
-FCombatStateData ULearningAgentCombatObservationComponent::GetCombatStateData() const
+FCombatStateData ULACombatObservationComponent::GetCombatStateData() const
 {
 	FCombatStateData Result;
 	Result.CombatTotalDuration = GetWorld()->GetTimeSeconds() - CombatStartTime;
 	return Result;
 }
 
-bool ULearningAgentCombatObservationComponent::OccupyRaindropBuffer(ELAAgentAttitude RaindropTarget, FRaindropBufferHandle& Handle)
+bool ULACombatObservationComponent::OccupyRaindropBuffer(ELAAgentAttitude RaindropTarget, FRaindropBufferHandle& Handle)
 {
 	for (int i = 0; i < RaindropBuffers[RaindropTarget].Num(); i++)
 	{
@@ -222,7 +222,7 @@ bool ULearningAgentCombatObservationComponent::OccupyRaindropBuffer(ELAAgentAtti
 	return false;
 }
 
-void ULearningAgentCombatObservationComponent::ProcessTargetObservations(TArray<TSharedRef<FPerceivedCharacterData>>&& Targets, ELAAgentAttitude RaindropTarget)
+void ULACombatObservationComponent::ProcessTargetObservations(TArray<TSharedRef<FPerceivedCharacterData>>&& Targets, ELAAgentAttitude RaindropTarget)
 {
 	FVector OwnerLocation = GetOwner()->GetActorLocation();
 	int MaxCountOfTargets = 0;
@@ -324,33 +324,33 @@ void ULearningAgentCombatObservationComponent::ProcessTargetObservations(TArray<
 	}
 }
 
-const TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULearningAgentCombatObservationComponent::GetEnemiesObservationData()
+const TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetEnemiesObservationData()
 {
 	TArray<TSharedRef<FPerceivedCharacterData>> Targets = GetEnemies();
 	ProcessTargetObservations(MoveTemp(Targets), ELAAgentAttitude::Enemy);
 	return CachedEnemiesData;
 }
 
-const TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULearningAgentCombatObservationComponent::GetAlliesObservationData()
+const TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetAlliesObservationData()
 {
 	TArray<TSharedRef<FPerceivedCharacterData>> Targets = GetAllies();
 	ProcessTargetObservations(MoveTemp(Targets), ELAAgentAttitude::Ally);
 	return CachedAlliesData;
 }
 
-TArray<TSharedRef<FPerceivedCharacterData>> ULearningAgentCombatObservationComponent::GetEnemies() const
+TArray<TSharedRef<FPerceivedCharacterData>> ULACombatObservationComponent::GetEnemies() const
 {
 	unimplemented();
 	return {};
 }
 
-TArray<TSharedRef<FPerceivedCharacterData>> ULearningAgentCombatObservationComponent::GetAllies() const
+TArray<TSharedRef<FPerceivedCharacterData>> ULACombatObservationComponent::GetAllies() const
 {
 	unimplemented();
 	return {};
 }
 
-void ULearningAgentCombatObservationComponent::OnCombatStarted()
+void ULACombatObservationComponent::OnCombatStarted()
 {
 	CombatStartTime = GetWorld()->GetTimeSeconds();
 	LidarCancellationToken.store(false);
@@ -378,13 +378,13 @@ void ULearningAgentCombatObservationComponent::OnCombatStarted()
 	}
 }
 
-void ULearningAgentCombatObservationComponent::ResetRaindropBuffers()
+void ULACombatObservationComponent::ResetRaindropBuffers()
 {
 	RaindropBuffers.Remove(ELAAgentAttitude::Ally);
 	RaindropBuffers.Remove(ELAAgentAttitude::Enemy);
 }
 
-void ULearningAgentCombatObservationComponent::OnCombatEnded()
+void ULACombatObservationComponent::OnCombatEnded()
 {
 	LidarCancellationToken.store(true);
 	for (auto& Character : CachedEnemiesData)
@@ -395,10 +395,10 @@ void ULearningAgentCombatObservationComponent::OnCombatEnded()
 	
 	SetComponentTickEnabled(false);
 	// 2 seconds should be enough for all raindrops to stop
-	GetWorld()->GetTimerManager().SetTimer(ResetRaindropBuffersTimer, this, &ULearningAgentCombatObservationComponent::ResetRaindropBuffers, 2.f);
+	GetWorld()->GetTimerManager().SetTimer(ResetRaindropBuffersTimer, this, &ULACombatObservationComponent::ResetRaindropBuffers, 2.f);
 }
 
-bool ULearningAgentCombatObservationComponent::HasRelevantLidarData(AActor* Actor, ELAAgentAttitude TargetType) const
+bool ULACombatObservationComponent::HasRelevantLidarData(AActor* Actor, ELAAgentAttitude TargetType) const
 {
 	switch (TargetType)
 	{
@@ -419,7 +419,7 @@ bool ULearningAgentCombatObservationComponent::HasRelevantLidarData(AActor* Acto
 	}
 }
 
-const TArray<float>* ULearningAgentCombatObservationComponent::GetLidarDataTo(AActor* ForActor, ELAAgentAttitude TargetType) const
+const TArray<float>* ULACombatObservationComponent::GetLidarDataTo(AActor* ForActor, ELAAgentAttitude TargetType) const
 {
 	if (!HasRelevantLidarData(ForActor, TargetType) || RaindropBuffers[TargetType].IsEmpty())
 		return nullptr;
@@ -444,7 +444,7 @@ const TArray<float>* ULearningAgentCombatObservationComponent::GetLidarDataTo(AA
 }
 
 // TODO use (and adjust if needed) Nav3D plugin to prepare same data as linetrace raindrops
-void ULearningAgentCombatObservationComponent::CollectSpatialObservation_Octree()
+void ULACombatObservationComponent::CollectSpatialObservation_Octree()
 {
 	// const FVector Offset(SpatialAwarenessObservationRadiusXY, SpatialAwarenessObservationRadiusXY, SpatialAwarenessObservationRadiusZ);
 	// auto AgentLocation = GetOwner()->GetActorLocation();
@@ -498,7 +498,7 @@ void ULearningAgentCombatObservationComponent::CollectSpatialObservation_Octree(
 // 1. it's async and won't stagger the game thread
 // 2. it's ok if it takes 100-150ms to complete for an agent because real humans also don't process the information immediately
 // that said, still TODO find a proper octree implementation and use it instead
-void ULearningAgentCombatObservationComponent::LidarRaindropAsync(const FLidarRaindropVariables* RaindropVariables,
+void ULACombatObservationComponent::LidarRaindropAsync(const FLidarRaindropVariables* RaindropVariables,
                                                                   const FLidarRaindropParams* RaindropParams, const FRaindropBufferHandle* RaindropBufferHandle, ELAAgentAttitude TargetType)
 {
 #if WITH_EDITOR
@@ -568,7 +568,7 @@ void ULearningAgentCombatObservationComponent::LidarRaindropAsync(const FLidarRa
 	});
 }
 
-void ULearningAgentCombatObservationComponent::RaindropRow(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams,
+void ULACombatObservationComponent::RaindropRow(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams,
                                                         const FRaindropRowData& RowData)
 {
 	if (LidarCancellationToken.load())
@@ -625,7 +625,7 @@ void ULearningAgentCombatObservationComponent::RaindropRow(const FLidarRaindropV
 	});
 }
 
-void ULearningAgentCombatObservationComponent::RaindropToArray(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams,
+void ULACombatObservationComponent::RaindropToArray(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams,
                                                         const FRaindropRowData& RowData, TArray<float>& Array) const
 {
 	if (LidarCancellationToken.load())

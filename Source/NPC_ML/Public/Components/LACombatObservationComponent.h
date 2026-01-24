@@ -9,7 +9,7 @@
 #include "Data/LearningAgentsDataTypes.h"
 #include "Settings/CombatLearningSettings.h"
 #include "Data/RaindropDataTypes.h"
-#include "LearningAgentCombatObservationComponent.generated.h"
+#include "LACombatObservationComponent.generated.h"
 
 namespace CombatLearning
 {
@@ -22,14 +22,14 @@ using namespace CombatLearning;
  * Put a child component of this component on your agent actor
  */
 UCLASS(Abstract)
-class NPC_ML_API ULearningAgentCombatObservationComponent : public UActorComponent
+class NPC_ML_API ULACombatObservationComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
 	using FCharacterDataContainer = TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>;
 	
 public:
-	ULearningAgentCombatObservationComponent();
+	ULACombatObservationComponent();
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	virtual FSelfData GetSelfData() const;

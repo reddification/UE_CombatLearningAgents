@@ -1,20 +1,20 @@
-﻿#include "Components/LearningAgentLocomotionActionsComponent.h"
+﻿#include "Components/LALocomotionActionsComponent.h"
 #include "GameFramework/Character.h"
 
-void ULearningAgentLocomotionActionsComponent::BeginPlay()
+void ULALocomotionActionsComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	CharacterOwner = Cast<ACharacter>(GetOwner());
 }
 
-void ULearningAgentLocomotionActionsComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+void ULALocomotionActionsComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                                              FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	UpdateLocomotionInputs();
 }
 
-void ULearningAgentLocomotionActionsComponent::UpdateLocomotionInputs()
+void ULALocomotionActionsComponent::UpdateLocomotionInputs()
 {
 	if (CurrentMoveInput != FVector::ZeroVector)
 		CharacterOwner->AddMovementInput(CurrentMoveInput);

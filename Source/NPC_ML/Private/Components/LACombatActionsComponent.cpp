@@ -1,6 +1,6 @@
-﻿#include "Components/LearningAgentCombatActionsComponent.h"
+﻿#include "Components/LACombatActionsComponent.h"
 
-ULearningAgentCombatActionsComponent::ULearningAgentCombatActionsComponent()
+ULACombatActionsComponent::ULACombatActionsComponent()
 {
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
@@ -11,7 +11,7 @@ ULearningAgentCombatActionsComponent::ULearningAgentCombatActionsComponent()
 
 
 // Called when the game starts
-void ULearningAgentCombatActionsComponent::BeginPlay()
+void ULACombatActionsComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -21,7 +21,7 @@ void ULearningAgentCombatActionsComponent::BeginPlay()
 
 
 // Called every frame
-void ULearningAgentCombatActionsComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+void ULACombatActionsComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                                          FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
