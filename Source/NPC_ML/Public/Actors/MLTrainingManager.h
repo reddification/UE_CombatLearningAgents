@@ -65,9 +65,9 @@ protected:
 	
 	float EpisodeTime = 0.f;
 	virtual void OnEpisodeSetupCompleted(const FMLTrainingPreset& TrainingPreset);
-	virtual void StartNextImitationLearning();
+	virtual void StartNextEpisode();
 
 private:
 	FTimerHandle EpisodeTimer;
-	FTimerHandle StartRecordingDelayTimer;
+	FTimerHandle StartEpisodeDelayTimer;
 };

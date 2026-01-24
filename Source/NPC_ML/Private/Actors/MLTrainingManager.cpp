@@ -71,7 +71,7 @@ void AMLTrainingManager::ResumeTraining()
 	SetState(EMLTrainingSessionState::Running);
 	auto& TimerManager = GetWorld()->GetTimerManager();
 	SetActorTickEnabled(true);
-	TimerManager.SetTimer(EpisodeTimer, this, &AMLTrainingManager::StartNextImitationLearning, EpisodeTime);
+	TimerManager.SetTimer(EpisodeTimer, this, &AMLTrainingManager::StartNextEpisode, EpisodeTime);
 	if (DebugPanelWidget.IsValid())
 	{
 		DebugPanelWidget->SetRemainingTime(EpisodeTime);
@@ -112,7 +112,7 @@ void AMLTrainingManager::RestartTraining(bool bUseNewSetup)
 	
 	auto& TimerManager = GetWorld()->GetTimerManager();
 	TimerManager.ClearTimer(EpisodeTimer);
-	TimerManager.ClearTimer(StartRecordingDelayTimer);
+	TimerManager.ClearTimer(StartEpisodeDelayTimer);
 	SetActorTickEnabled(false);
 	
 	LearningAgentsManager->ResetAllAgents();
@@ -132,7 +132,7 @@ void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& Traini
 	if (StartRecordingDelay > 0.f)
 	{
 		SetState(EMLTrainingSessionState::PreparingToStart);
-		TimerManager.SetTimer(StartRecordingDelayTimer, this, &AMLTrainingManager::ResumeTraining, StartRecordingDelay);
+		TimerManager.SetTimer(StartEpisodeDelayTimer, this, &AMLTrainingManager::ResumeTraining, StartRecordingDelay);
 		if (DebugPanelWidget.IsValid())
 		{
 			DebugPanelWidget->SetRemainingTime(StartRecordingDelay);
@@ -145,7 +145,7 @@ void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& Traini
 	}
 }
 
-void AMLTrainingManager::StartNextImitationLearning()
+void AMLTrainingManager::StartNextEpisode()
 {
 	RestartTraining(true);
 }

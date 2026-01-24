@@ -84,8 +84,4 @@ private:
 
 	FLearningAgentsSharedMemoryTrainerProcess SharedMemory;
 	FLearningAgentsCommunicator Communicator;
-
-	float AccumulatedTime = 0.f;
-
-	void ResetTestingGameEnvironment();
 };
