@@ -17,7 +17,6 @@ using namespace LearningAgentsImitationActions;
 
 AImitationLearningRecordingManager::AImitationLearningRecordingManager()
 {
-	PrimaryActorTick.bCanEverTick = false;
 	BehaviorTag = LearningAgentsTags_Combat::Behavior_Combat_IL_Recording;
 }
 
@@ -31,8 +30,6 @@ void AImitationLearningRecordingManager::Tick(float DeltaSeconds)
 void AImitationLearningRecordingManager::BeginPlay()
 {
 	Super::BeginPlay();
-	auto LAS = GetWorld()->GetSubsystem<UMLSubsystem>();
-	LAS->RegisterILRecordingManager(this);
 
 	auto ManagerPtr = LearningAgentsManager.Get();
 	auto InteractorPtr = Interactor.Get();
@@ -46,9 +43,6 @@ void AImitationLearningRecordingManager::EndPlay(const EEndPlayReason::Type EndP
 {
 	if (auto World = GetWorld())
 	{
-		if (auto LAS = World->GetSubsystem<UMLSubsystem>())
-			LAS->UnregisterILRecordingManager(this);
-		
 		auto& TimerManager = World->GetTimerManager();
 		TimerManager.ClearAllTimersForObject(this);
 	}

@@ -21,7 +21,6 @@ private:
 public:
 	// Sets default values for this actor's properties
 	AMLTrainingManager();
-	virtual void Tick(float DeltaTime) override;
 	virtual void PostInitializeComponents() override;
 	
 	FTrainingEpisodeStateChangedEvent TrainingEpisodeStateChangedEvent;

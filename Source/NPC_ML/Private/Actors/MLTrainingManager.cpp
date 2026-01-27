@@ -28,7 +28,8 @@ void AMLTrainingManager::BeginPlay()
 	Super::BeginPlay();
 	
 	auto ManagerPtr = LearningAgentsManager.Get();
-	Interactor = ULearningAgentsInteractor::MakeInteractor(ManagerPtr, InteractorClass, FName("Interactor yobana"));
+	if (IsValid(InteractorClass))
+		Interactor = ULearningAgentsInteractor::MakeInteractor(ManagerPtr, InteractorClass, FName("Interactor yobana"));
 	
 	if (bAddDebugPanelWidget && ensure(!DebugPanelWidgetClass.IsNull()))
 	{
@@ -37,12 +38,6 @@ void AMLTrainingManager::BeginPlay()
 		DebugPanelWidget = CreateWidget<UMLOverviewPanelWidget>(PC, WidgetClass);
 		DebugPanelWidget->AddToViewport();
 	}
-}
-
-// Called every frame
-void AMLTrainingManager::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
 }
 
 void AMLTrainingManager::SetState(EMLTrainingSessionState NewState)

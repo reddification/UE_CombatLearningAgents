@@ -80,7 +80,7 @@ protected:
 	virtual bool RepeatInternal(AActor* Actor, FExternalMemory* Memory) const { return true; }
 };
 
-USTRUCT(BlueprintType)
+USTRUCT(BlueprintType, DisplayName="Finish deferred spawn")
 struct FMLTrainingEpisodeActorSetupAction_FinishDeferredSpawn : public FMLTrainingEpisodeActorSetupAction_Base
 {
 	GENERATED_BODY()

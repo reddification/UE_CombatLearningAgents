@@ -18,21 +18,22 @@ class NPC_ML_API UMLSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 
+private:
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FMLManagerChangedEvent, FGameplayTag ManagerTag, AMLManagerBase* ChangedManager);
+	
 public:
 	static UMLSubsystem* Get(const UObject* WorldContextObject);
 	
 	void RegisterManager(AMLManagerBase* Manager, const FGameplayTag& BehaviorTag);
 	void UnregisterManager(AMLManagerBase* Manager, const FGameplayTag& BehaviorTag);
+	AMLManagerBase* GetManager(const FGameplayTag& BehaviorTag) const;
 	
 	bool RegisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTag);
 	bool UnregisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTag);
 
-	void RegisterILRecordingManager(AImitationLearningRecordingManager* InILRecordingManager) { ILRecordingManager = InILRecordingManager; }
-	void UnregisterILRecordingManager(AImitationLearningRecordingManager* InILRecordingManager);
-	AImitationLearningRecordingManager* GetILRecordingManager() const { return ILRecordingManager.Get(); }
-
+	mutable FMLManagerChangedEvent MLManagerChangedEvent;
+	
 private:
-	TWeakObjectPtr<AImitationLearningRecordingManager> ILRecordingManager;
 	TMap<FGameplayTag, TWeakObjectPtr<AMLManagerBase>> MLManagers;
-	TMap<FGameplayTag, TMap<TWeakObjectPtr<APawn>, int>> RegisteredAgents;
+	TMap<FGameplayTag, TMap<TWeakObjectPtr<APawn>, int>> ManagersAgents;
 };

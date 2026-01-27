@@ -43,9 +43,17 @@ public:
 	
 	virtual void RepeatEpisode();
 	virtual void Cleanup();
+	
+	FORCEINLINE const FVector& GetEpisodeOriginLocation() const { return EpisodeOriginLocation; };
 
 	FTrainingEpisodeSetupCompletedEvent TrainingEpisodeSetupCompletedEvent;
 
+	// update EQS config params and whatever else there is going to be
+#if WITH_EDITOR
+	UFUNCTION(BlueprintCallable, CallInEditor)
+	void UpdateEditorParams();
+#endif
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -66,11 +74,11 @@ protected:
 	FRuntimeFloatCurve PCGGeometryDensityDistribution;
 
 	// if spawning is deferred, OnAgentSpawned will not be called. caller must finalize the spawn on their own
-	virtual void SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
+	virtual void SpawnActor(FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
 	
 	virtual void OnPCGCleanupCompleted(UPCGComponent* InPcgComponent);
 	virtual void OnPCGGenerateCompleted(UPCGComponent* InPcgComponent);
-	
+
 private:
 	TWeakObjectPtr<UPCGComponent> PCGComponent;
 	int CurrentPresetIndex = 0;
@@ -78,6 +86,14 @@ private:
 	
 	TMap<FGuid, TUniquePtr<FExternalMemory>> EpisodeSetupActionMemories;
 	TArray<TWeakObjectPtr<AActor>> SpawnedActors;
+	
+	struct FPendingLookAtEQSData
+	{
+		TWeakObjectPtr<AActor> Actor;
+		int SpawnDescriptorIndex = -1;
+	};
+	
+	TMap<int32, FPendingLookAtEQSData> PendingEQSLookAtLocationSetups;
 	
 	FQueryFinishedSignature FoundEpisodeOriginLocationDelegate;
 	FQueryFinishedSignature FoundSpawnLocationDelegate;
@@ -91,6 +107,7 @@ private:
 	void DestroySpawnedActors();
 	void FindEpisodeOriginLocation();
 	void StartSpawningNextActor();
+	void IncrementSpawnedActors();
 	void StartSpawningActors();
 	void OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundSpawnLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);

@@ -19,7 +19,8 @@ void UMLSubsystem::RegisterManager(AMLManagerBase* Manager, const FGameplayTag& 
 	}
 	
 	MLManagers.Add(BehaviorTag, Manager);
-	RegisteredAgents.Add(BehaviorTag);
+	ManagersAgents.Add(BehaviorTag);
+	MLManagerChangedEvent.Broadcast(BehaviorTag, Manager);
 }
 
 void UMLSubsystem::UnregisterManager(AMLManagerBase* Manager, const FGameplayTag& BehaviorTag)
@@ -27,9 +28,15 @@ void UMLSubsystem::UnregisterManager(AMLManagerBase* Manager, const FGameplayTag
 	if (MLManagers.Contains(BehaviorTag) && ensure(MLManagers[BehaviorTag] == Manager))
 	{
 		MLManagers[BehaviorTag]->GetLearningAgentsManager()->RemoveAllAgents();
-		RegisteredAgents.Remove(BehaviorTag);
+		ManagersAgents.Remove(BehaviorTag);
 		MLManagers.Remove(BehaviorTag);
+		MLManagerChangedEvent.Broadcast(BehaviorTag, nullptr);
 	}
+}
+
+AMLManagerBase* UMLSubsystem::GetManager(const FGameplayTag& BehaviorTag) const
+{
+	return MLManagers.Contains(BehaviorTag) ? MLManagers[BehaviorTag].Get() : nullptr;
 }
 
 bool UMLSubsystem::RegisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTag)
@@ -41,9 +48,9 @@ bool UMLSubsystem::RegisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTag)
 	int RegisteredIndex = LAM->AddAgent(Pawn);
 	if (ensure(RegisteredIndex != INDEX_NONE))
 	{
-		RegisteredAgents[BehaviorTag].Add(Pawn, RegisteredIndex);
+		ManagersAgents[BehaviorTag].Add(Pawn, RegisteredIndex);
 		Pawn->AddTickPrerequisiteComponent(LAM);
-		if (RegisteredAgents[BehaviorTag].Num() == 1)
+		if (ManagersAgents[BehaviorTag].Num() == 1)
 			MLManagers[BehaviorTag]->SetManagerActive(true);
 			
 		return true;
@@ -54,11 +61,11 @@ bool UMLSubsystem::RegisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTag)
 
 bool UMLSubsystem::UnregisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTag)
 {
-	if (!MLManagers.Contains(BehaviorTag) || !RegisteredAgents[BehaviorTag].Contains(Pawn))
+	if (!MLManagers.Contains(BehaviorTag) || !ManagersAgents[BehaviorTag].Contains(Pawn))
 		return false;
 
 	auto& Manager = MLManagers[BehaviorTag];
-	auto& Agents = RegisteredAgents[BehaviorTag];
+	auto& Agents = ManagersAgents[BehaviorTag];
 	auto LAM = Manager->GetLearningAgentsManager();
 	LAM->RemoveAgent(Agents[Pawn]);
 	Pawn->RemoveTickPrerequisiteComponent(LAM);
@@ -67,10 +74,4 @@ bool UMLSubsystem::UnregisterMLAgent(APawn* Pawn, const FGameplayTag& BehaviorTa
 		Manager->SetManagerActive(false);
 	
 	return true;
-}
-
-void UMLSubsystem::UnregisterILRecordingManager(AImitationLearningRecordingManager* InILRecordingManager)
-{
-	if (InILRecordingManager == ILRecordingManager)
-		ILRecordingManager.Reset();
 }

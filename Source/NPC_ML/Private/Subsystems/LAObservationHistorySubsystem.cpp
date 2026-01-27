@@ -38,8 +38,11 @@ void ULAObservationHistorySubsystem::RegisterAgent(AActor* Agent)
 
 void ULAObservationHistorySubsystem::UnregisterAgent(AActor* Agent)
 {
-	TranslationHistories.Remove(Agent);
-	UnregisterHistoryConsumer();
+	if (TranslationHistories.Contains(Agent))
+	{
+		TranslationHistories.Remove(Agent);
+		UnregisterHistoryConsumer();
+	}
 }
 
 void ULAObservationHistorySubsystem::RegisterHistoryConsumer()
