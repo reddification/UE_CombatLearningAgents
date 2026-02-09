@@ -1,27 +1,15 @@
 ﻿#include "Components/TrainingEpisodeSetupComponent.h"
 
 #include "NavigationSystem.h"
-#include "PCGComponent.h"
 #include "PCGGraph.h"
+#include "Actors/TrainingEpisodePCG.h"
 #include "AI/NavigationSystemBase.h"
-#include "Components/InstancedStaticMeshComponent.h"
 #include "Data/LogChannels.h"
 #include "Data/MLTrainingPresetsDataAsset.h"
 #include "Data/TrainingDataTypes.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
-#include "Interfaces/MLTrainingManagerPcgOwnerInterface.h"
 #include "Subsystems/PCGSubsystem.h"
-
-void UTrainingEpisodeSetupComponent::SetPCGComponent(UPCGComponent* InPCGComponent)
-{
-	if (InPCGComponent->GetGraph() == nullptr)
-		return;
-	
-	PCGComponent = InPCGComponent;
-	PCGComponent->OnPCGGraphCleanedDelegate.AddUObject(this, &UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted);
-	PCGComponent->OnPCGGraphGeneratedDelegate.AddUObject(this, &UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted);
-}
 
 void UTrainingEpisodeSetupComponent::BeginPlay()
 {
@@ -33,8 +21,24 @@ void UTrainingEpisodeSetupComponent::BeginPlay()
 	{
 		UE_VLOG_UELOG(GetOwner(), LogNpcMl, Error, TEXT("Navigation build lock flag is not a power of two. UNavigationSystemV1 expects it to be a power of two"));
 	}
+	
+	if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
+	{
+		NavSys->OnNavigationGenerationFinishedDelegate.AddDynamic(this, &UTrainingEpisodeSetupComponent::OnNavMeshRegenerated);
+	}
 }
 
+// 09 Feb 2026 (aki): current setup logic is lacking. 
+// There's a clear chain of actions to execute and each depends on another but it is not enforced in code
+// TODO refactor setup to an array of actions
+// Currently actions are:
+// 1. Cleanup PCG
+// 2. Wait for navmesh to regenerate
+// 3. Find episode origin location
+// 4. Generate PCG
+// 5. Wait for navmesh to regenerate
+// 6. Start spawning actors
+// maybe PCG-navmesh actions can be combined since one can't exist without another and wait for navmesh to regenerate is common for both cleanup and generate
 void UTrainingEpisodeSetupComponent::SetupEpisode()
 {
 	if (!IsValid(TrainingPresetsDataAsset))
@@ -51,13 +55,11 @@ void UTrainingEpisodeSetupComponent::SetupEpisode()
 	
 	bSetupInProgress = true;
 	Cleanup();
-	if (TrainingPresetsDataAsset->bRandomizeSeedOnSetup)
-		EpisodeSeed = TrainingPresetsDataAsset->bRandomizeSeedOnSetup ? FMath::Rand32() : TrainingPresetsDataAsset->EpisodeSeed;
 	
-	if (TrainingPresetsDataAsset->bUseRandomEpisodeSetup)
-		CurrentPresetIndex = FMath::RandRange(0, TrainingPresetsDataAsset->TrainingPresets.Num() - 1);
-	else 
-		CurrentPresetIndex = (CurrentPresetIndex + 1) % TrainingPresetsDataAsset->TrainingPresets.Num();
+	EpisodeSeed = TrainingPresetsDataAsset->bRandomizeSeedOnSetup ? FMath::Rand32() : TrainingPresetsDataAsset->EpisodeSeed;
+	CurrentPresetIndex = TrainingPresetsDataAsset->bUseRandomEpisodeSetup 
+		? FMath::RandRange(0, TrainingPresetsDataAsset->TrainingPresets.Num() - 1)
+		: CurrentPresetIndex = (CurrentPresetIndex + 1) % TrainingPresetsDataAsset->TrainingPresets.Num();
 	
 	int SpawnsCount = TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors.Num();
 	SpawnLocationsEQSRequests.SetNumZeroed(SpawnsCount);
@@ -81,7 +83,7 @@ void UTrainingEpisodeSetupComponent::SetupEpisode()
 		}
 	}
 	
-	if (!PCGComponent.IsValid() || !PCGComponent->IsCleaningUp())
+	if (!IsValid(TrainingEpisodePCG) || TrainingEpisodePCG->IsReady())
 		FindEpisodeOriginLocation();
 }
 
@@ -120,8 +122,8 @@ void UTrainingEpisodeSetupComponent::DestroySpawnedActors()
 void UTrainingEpisodeSetupComponent::Cleanup()
 {
 #if WITH_EDITOR
-	if (PCGComponent.IsValid() && PCGComponent->IsGenerating())
-		PCGComponent->StopGenerationInProgress();
+	if (IsValid(TrainingEpisodePCG))
+		TrainingEpisodePCG->StopGenerationInProgress();
 #endif
 	
 	DestroySpawnedActors();
@@ -138,7 +140,7 @@ void UTrainingEpisodeSetupComponent::Cleanup()
 	SpawnedActorsLocationsCached.Empty();
 	PendingLookAtLocationEQSRequests.Empty();
 	EpisodeOriginLocation = FVector::ZeroVector;
-	if (PCGComponent.IsValid())
+	if (IsValid(TrainingEpisodePCG))
 	{
 		if (bLockNavmeshForPcgUpdate && !bNavMeshUpdateLocked)
 		{
@@ -149,8 +151,23 @@ void UTrainingEpisodeSetupComponent::Cleanup()
 			}
 		}
 		
-		PCGComponent->Cleanup();
+		TrainingEpisodePCG->CleanupAndDestroy();
 	}
+}
+
+void UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted()
+{
+	TrainingEpisodePCG = nullptr;
+	if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
+	{
+		if (NavSys->IsNavigationBuildInProgress())
+		{
+			// TODO wait for nav mesh to finish update
+		}
+	}
+	
+	if (bSetupInProgress)
+		FindEpisodeOriginLocation();
 }
 
 void UTrainingEpisodeSetupComponent::FindEpisodeOriginLocation()
@@ -158,6 +175,62 @@ void UTrainingEpisodeSetupComponent::FindEpisodeOriginLocation()
 	LocalEpisodeOriginEQS = TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].EpisodeOriginLocationEQS;
 	LocalEpisodeOriginEQS.InitForOwnerAndBlackboard(*this, nullptr);
 	LocalEpisodeOriginEQS.Execute(*this, nullptr, FoundEpisodeOriginLocationDelegate);
+}
+
+void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult)
+{
+	EpisodeOriginLocation = GetEQSLocation(EnvQueryResult);
+	if (EpisodeOriginLocation == FVector::ZeroVector)
+	{
+		ensure(false);
+		UE_VLOG_UELOG(GetOwner(), LogNpcMl, Error, TEXT("Failed to find episode origin location"));
+		FinishSetup();
+		return;
+	}
+	
+	if (TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].EpisodePCG.IsValid())
+		SpawnTrainingEpisodePCG(TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].EpisodePCG);
+
+	if (IsValid(TrainingEpisodePCG))
+	{
+		TrainingEpisodePCG->SetSeed(EpisodeSeed, TrainingPresetsDataAsset->EpisodeSeedParameterName);
+		TrainingEpisodePCG->SetParameters(TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].EpisodePCG.PcgParameters);
+		
+		// this shit doesn't seem to be working. release-ready-in-5.7-my ass
+		if (DebugOptions.Contains(1))
+			UPCGSubsystem::GetInstance(GetWorld())->FlushCache();
+		
+		TrainingEpisodePCG->SetActorLocation(EpisodeOriginLocation);
+		if (bLockNavmeshForPcgUpdate && !bNavMeshUpdateLocked)
+		{
+			if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
+			{
+				NavSys->AddNavigationBuildLock(NavigationBuildLockFlag);
+				bNavMeshUpdateLocked = true;
+			}
+		}
+		
+		const bool bGenerating = TrainingEpisodePCG->Generate();
+		ensure(bGenerating);
+	}
+	else
+	{
+		StartSpawningActors();
+	}
+}
+
+void UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted()
+{
+	if (bLockNavmeshForPcgUpdate && bNavMeshUpdateLocked)
+	{
+		if (UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetWorld()->GetNavigationSystem()))
+		{
+			NavSys->RemoveNavigationBuildLock(ENavigationBuildLock::Custom, UNavigationSystemV1::ELockRemovalRebuildAction::Rebuild);
+			bNavMeshUpdateLocked = false;
+		}
+	}
+	
+	StartSpawningActors();
 }
 
 void UTrainingEpisodeSetupComponent::StartSpawningActors()
@@ -246,120 +319,6 @@ void UTrainingEpisodeSetupComponent::IncrementSpawnedActors()
 		StartSpawningNextActor();
 }
 
-void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult)
-{
-	EpisodeOriginLocation = GetEQSLocation(EnvQueryResult);
-	if (EpisodeOriginLocation == FVector::ZeroVector)
-	{
-		ensure(false);
-		UE_VLOG_UELOG(GetOwner(), LogNpcMl, Error, TEXT("Failed to find episode origin location"));
-		FinishSetup();
-		return;
-	}
-
-	if (PCGComponent.IsValid())
-	{
-		PCGComponent->Seed = EpisodeSeed;
-		auto GraphInstance = PCGComponent->GetGraphInstance();
-		if (!ensure(GraphInstance))
-		{
-			StartSpawningActors();
-			return;
-		}
-		
-		GraphInstance->SetGraphParameter(TrainingPresetsDataAsset->EpisodeSeedParameterName, EpisodeSeed);
-		
-		for (const auto& FloatParameter : TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].PcgParameters.FloatParameters)
-		{
-			auto ParameterSetResult = GraphInstance->SetGraphParameter(FloatParameter.Key, FloatParameter.Value);
-			ensure(ParameterSetResult == EPropertyBagResult::Success);
-		}
-		
-		if (PCGComponent->GetOwner()->Implements<UMLTrainingManagerPcgOwnerInterface>())
-			IMLTrainingManagerPcgOwnerInterface::Execute_SetTrainingEpisodeOrigin(PCGComponent->GetOwner(), EpisodeOriginLocation);
-		
-#if WITH_EDITOR
-		// alas this works, but these functions are editor only
-		// PCGComponent->ResetLastGeneratedBounds();
-		// PCGComponent->DirtyGenerated(EPCGComponentDirtyFlag::All, true);
-#endif
-		
-		// this shit doesn't seem to be working. release-ready-in-5.7-my ass
-		// UPCGSubsystem::GetInstance(GetWorld())->FlushCache();
-		
-		if (bLockNavmeshForPcgUpdate && !bNavMeshUpdateLocked)
-		{
-			if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-			{
-				NavSys->AddNavigationBuildLock(NavigationBuildLockFlag);
-				bNavMeshUpdateLocked = true;
-			}
-		}
-		
-		PCGComponent->Generate();
-		const bool bGenerating = PCGComponent->IsGenerating();
-		ensure(bGenerating);
-	}
-	else
-	{
-		StartSpawningActors();
-	}
-}
-
-void UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted(UPCGComponent* InPcgComponent)
-{
-	if (bSetupInProgress)
-		FindEpisodeOriginLocation();
-}
-
-void UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted(UPCGComponent* InPcgComponent)
-{
-	if (UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetWorld()->GetNavigationSystem()))
-	{
-		if (DebugOptions.Contains(12))
-		{
-			TArray<TObjectPtr<UInstancedStaticMeshComponent>> SpawnedStaticMeshComponents; 
-			// TArray<UActorComponent*> ISMCDummies;
-			InPcgComponent->GetOwner()->GetComponents(SpawnedStaticMeshComponents);
-			for (auto& ISMC : SpawnedStaticMeshComponents)
-			{
-				if (IsValid(ISMC))
-				{
-					if (DebugOptions.Contains(1))
-						ISMC->SetCanEverAffectNavigation(true);
-				
-					if (DebugOptions.Contains(2))
-					{
-						ISMC->SetCanEverAffectNavigation(false);
-						ISMC->SetCanEverAffectNavigation(true);
-					}
-				
-					if (DebugOptions.Contains(3))
-						ISMC->UpdateNavigationBounds();
-				
-					if (DebugOptions.Contains(4))
-						NavSys->UpdateComponentInNavOctree(*ISMC);	
-				}
-			}
-		}
-
-		if (DebugOptions.Contains(5))
-			NavSys->Build();
-		
-		if (bLockNavmeshForPcgUpdate && bNavMeshUpdateLocked)
-		{
-			NavSys->RemoveNavigationBuildLock(ENavigationBuildLock::Custom, UNavigationSystemV1::ELockRemovalRebuildAction::Rebuild);
-			bNavMeshUpdateLocked = false;
-		}
-	}
-	
-	// Force rebuild of navmesh tiles
-	// if (UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetWorld()->GetNavigationSystem()))
-	// 	NavSys->Build();
-	
-	StartSpawningActors();
-}
-
 void UTrainingEpisodeSetupComponent::OnFoundSpawnLocation(TSharedPtr<FEnvQueryResult> Result)
 {
 	auto& SpawnDescriptor = TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors[CurrentSpawnIndex];
@@ -405,6 +364,40 @@ void UTrainingEpisodeSetupComponent::FinishSetup()
 void UTrainingEpisodeSetupComponent::OnAllActorsSpawned()
 {
 	FinishSetup();
+}
+
+void UTrainingEpisodeSetupComponent::CleanTrainingEpisodePCG()
+{
+	if (!IsValid(TrainingEpisodePCG))
+		return;
+	
+	TrainingEpisodePCG->CleanupCompletedEvent.RemoveAll(this);
+	TrainingEpisodePCG->GenerationCompletedEvent.RemoveAll(this);
+	TrainingEpisodePCG->CleanupAndDestroy();
+	TrainingEpisodePCG = nullptr;
+}
+
+void UTrainingEpisodeSetupComponent::SpawnTrainingEpisodePCG(const FMLTrainingEpisodePCG& EpisodePCG)
+{
+	CleanTrainingEpisodePCG();
+	
+	auto PCGContainerClass = EpisodePCG.PCGContainerClass.LoadSynchronous();
+	TrainingEpisodePCG = GetWorld()->SpawnActor<ATrainingEpisodePCG>(PCGContainerClass, GetOwner()->GetActorLocation(), FRotator::ZeroRotator);
+	if (ensure(IsValid(TrainingEpisodePCG)))
+	{
+		TrainingEpisodePCG->CleanupCompletedEvent.AddUObject(this, &UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted);
+		TrainingEpisodePCG->GenerationCompletedEvent.AddUObject(this, &UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted);
+		TrainingEpisodePCG->SetPCG(EpisodePCG.PCG.LoadSynchronous(), false);
+		
+		if (EpisodePCG.bOverrideExtents)
+			TrainingEpisodePCG->SetExtents(EpisodePCG.Extents);
+	}
+}
+
+void UTrainingEpisodeSetupComponent::OnNavMeshRegenerated(ANavigationData* NavData)
+{
+	int x = 1;
+	// TODO continue episode setup process
 }
 
 FVector UTrainingEpisodeSetupComponent::GetEQSLocation(const TSharedPtr<FEnvQueryResult>& Result) const

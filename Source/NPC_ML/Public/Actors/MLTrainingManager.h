@@ -40,9 +40,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UTrainingEpisodeSetupComponent> TrainingEpisodeSetupComponent;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UPCGComponent> PCGComponent;
-	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<ULearningAgentsInteractor> InteractorClass;
 

@@ -2,24 +2,18 @@
 
 #include "LearningAgentsInteractor.h"
 #include "LearningAgentsManager.h"
-#include "PCGComponent.h"
 #include "Components/TrainingEpisodeSetupComponent.h"
-#include "GameFramework/SpectatorPawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/MLOverviewPanelWidget.h"
 
-
-// Sets default values
 AMLTrainingManager::AMLTrainingManager()
 {
 	TrainingEpisodeSetupComponent = CreateDefaultSubobject<UTrainingEpisodeSetupComponent>(TEXT("Training Episodes Setup Component"));
-	PCGComponent = CreateDefaultSubobject<UPCGComponent>(TEXT("PCG Component"));
 }
 
 void AMLTrainingManager::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	TrainingEpisodeSetupComponent->SetPCGComponent(PCGComponent);
 	TrainingEpisodeSetupComponent->TrainingEpisodeSetupCompletedEvent.AddUObject(this, &AMLTrainingManager::OnEpisodeSetupCompleted);
 }
 

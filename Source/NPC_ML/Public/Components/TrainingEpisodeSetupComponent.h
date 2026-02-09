@@ -5,10 +5,12 @@
 #include "CoreMinimal.h"
 #include "NavigationSystem.h"
 #include "Components/ActorComponent.h"
+#include "Data/TrainingDataTypes.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "TrainingEpisodeSetupComponent.generated.h"
 
 
+class ATrainingEpisodePCG;
 class UMLTrainingPresetsDataAsset;
 struct FMLTrainingEpisodeActorSetupAction_Base;
 struct FMLTrainingActorSpawnDescriptor;
@@ -46,10 +48,6 @@ private:
 	};
 	
 public:
-	 // Runtime generation must be enabled on the PCG component / project settings appropriate to your setup;
-	 // otherwise you’ll see “works in editor, not in packaged” symptoms.
-	void SetPCGComponent(UPCGComponent* InPCGComponent);
-		
 	/* Pipeline:
 	 * 1. Cleanup previous PCG generated objects
 	 * 2. Run EQS for episode origin location
@@ -90,12 +88,11 @@ protected:
 	
 	virtual void SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
 	
-	virtual void OnPCGCleanupCompleted(UPCGComponent* InPcgComponent);
-	virtual void OnPCGGenerateCompleted(UPCGComponent* InPcgComponent);
+	virtual void OnPCGCleanupCompleted();
+	virtual void OnPCGGenerateCompleted();
 	virtual void Cleanup();
 
 private:
-	TWeakObjectPtr<UPCGComponent> PCGComponent;
 	int CurrentPresetIndex = 0;
 	int CurrentSpawnIndex = 0;
 	
@@ -123,6 +120,9 @@ private:
 	
 	FVector GetEQSLocation(const TSharedPtr<FEnvQueryResult>& Result) const;
 	
+	UPROPERTY()
+	TObjectPtr<ATrainingEpisodePCG> TrainingEpisodePCG;
+	
 	void DestroySpawnedActors();
 	void FindEpisodeOriginLocation();
 	void StartSpawningNextActor();
@@ -133,4 +133,10 @@ private:
 	void OnFoundInitialLookAtLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void FinishSetup();
 	void OnAllActorsSpawned();
+	void CleanTrainingEpisodePCG();
+
+	void SpawnTrainingEpisodePCG(const FMLTrainingEpisodePCG& EpisodePCG);
+	
+	UFUNCTION()
+	void OnNavMeshRegenerated(ANavigationData* NavData);
 };

@@ -3,6 +3,9 @@
 
 #include "TrainingDataTypes.generated.h"
 
+class ATrainingEpisodePCG;
+class UPCGGraph;
+
 UENUM()
 enum class EMLTrainingSessionState
 {
@@ -120,6 +123,29 @@ struct FMLTrainingActorSpawnDescriptor
 };
 
 USTRUCT(BlueprintType)
+struct FMLTrainingEpisodePCG
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSoftObjectPtr<UPCGGraph> PCG;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSoftClassPtr<ATrainingEpisodePCG> PCGContainerClass;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	FPcgParametersContainer PcgParameters;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bOverrideExtents = false;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(EditCondition="bOverrideExtents"))
+	FVector Extents = FVector(20000.f, 20000.f, 20000.f);
+	
+	bool IsValid() const { return !PCG.IsNull() && !PCGContainerClass.IsNull(); };
+};
+
+USTRUCT(BlueprintType)
 struct FMLTrainingPreset
 {
 	GENERATED_BODY()
@@ -148,6 +174,6 @@ struct FMLTrainingPreset
 	float DurationMax = 45.f;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FPcgParametersContainer PcgParameters;
+	FMLTrainingEpisodePCG EpisodePCG;
 };
 
