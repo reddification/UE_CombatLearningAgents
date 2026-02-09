@@ -3,11 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "NavigationSystem.h"
 #include "Components/ActorComponent.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "TrainingEpisodeSetupComponent.generated.h"
 
 
+class UMLTrainingPresetsDataAsset;
 struct FMLTrainingEpisodeActorSetupAction_Base;
 struct FMLTrainingActorSpawnDescriptor;
 struct FTrainingEpisodeSetupActionExternalMemoryBase;
@@ -26,6 +28,23 @@ private:
 	using FExternalMemory = FTrainingEpisodeSetupActionExternalMemoryBase;
 	using FSetupAction = FMLTrainingEpisodeActorSetupAction_Base;
 	
+	struct FPendingLookAtEQSData
+	{
+		TWeakObjectPtr<AActor> Actor;
+		int SpawnDescriptorIndex = -1;
+	};
+	
+	struct FSpawnedActorsLocations
+	{
+		FSpawnedActorsLocations() {  }
+		
+		FVector SpawnLocation = FVector::ZeroVector; 
+		FVector LookAt = FVector::ZeroVector;
+		
+		void Reset() { SpawnLocation = FVector::ZeroVector; LookAt = FVector::ZeroVector; };
+		bool IsValid() const { return SpawnLocation != FVector::ZeroVector && LookAt != FVector::ZeroVector; };
+	};
+	
 public:
 	 // Runtime generation must be enabled on the PCG component / project settings appropriate to your setup;
 	 // otherwise you’ll see “works in editor, not in packaged” symptoms.
@@ -42,42 +61,38 @@ public:
 	virtual void SetupEpisode();
 	
 	virtual void RepeatEpisode();
-	virtual void Cleanup();
+	virtual void Stop();
 	
 	FORCEINLINE const FVector& GetEpisodeOriginLocation() const { return EpisodeOriginLocation; };
 
 	FTrainingEpisodeSetupCompletedEvent TrainingEpisodeSetupCompletedEvent;
 
-	// update EQS config params and whatever else there is going to be
-#if WITH_EDITOR
-	UFUNCTION(BlueprintCallable, CallInEditor)
-	void UpdateEditorParams();
-#endif
-	
 protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<FMLTrainingPreset> TrainingPresets;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	bool bUseRandomEpisodeSetup = false;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	bool bRandomizeSeedOnSetup = true;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	int32 EpisodeSeed = 12345;
-	
-	// x = random from 0 to 1, y = density of static meshes in proximity of agent
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FRuntimeFloatCurve PCGGeometryDensityDistribution;
+	const UMLTrainingPresetsDataAsset* TrainingPresetsDataAsset;
 
-	// if spawning is deferred, OnAgentSpawned will not be called. caller must finalize the spawn on their own
-	virtual void SpawnActor(FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
+	// 9 Feb 2026 (aki)
+	// just a convenient array of number to opt in and out certain code blocks. 
+	// none of the numbers have any specific meaning aside from the code blocks they enable
+	// TODO remove ASAP when PCG setup works correctly
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<int> DebugOptions;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bLockNavmeshForPcgUpdate = true;
+
+	// 9 Feb 2026 (aki): 
+	// TODO think about getting it from a not existing yet game mode interface "uint8 INpcMlGameMode::GetNavigationBuildPcgLockFlag()"
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	uint8 NavigationBuildLockFlag = ENavigationBuildLock::Custom;
+	
+	virtual void SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
 	
 	virtual void OnPCGCleanupCompleted(UPCGComponent* InPcgComponent);
 	virtual void OnPCGGenerateCompleted(UPCGComponent* InPcgComponent);
+	virtual void Cleanup();
 
 private:
 	TWeakObjectPtr<UPCGComponent> PCGComponent;
@@ -87,20 +102,24 @@ private:
 	TMap<FGuid, TUniquePtr<FExternalMemory>> EpisodeSetupActionMemories;
 	TArray<TWeakObjectPtr<AActor>> SpawnedActors;
 	
-	struct FPendingLookAtEQSData
-	{
-		TWeakObjectPtr<AActor> Actor;
-		int SpawnDescriptorIndex = -1;
-	};
+	FEQSParametrizedQueryExecutionRequest LocalEpisodeOriginEQS;
+
+	TArray<FEQSParametrizedQueryExecutionRequest> SpawnLocationsEQSRequests;
+	TArray<FEQSParametrizedQueryExecutionRequest> SpawnLookAtEQSRequests;
 	
-	TMap<int32, FPendingLookAtEQSData> PendingEQSLookAtLocationSetups;
+	TArray<FSpawnedActorsLocations> SpawnedActorsLocationsCached;
+	
+	// key - EQS request id
+	TMap<int32, FPendingLookAtEQSData> PendingLookAtLocationEQSRequests;
 	
 	FQueryFinishedSignature FoundEpisodeOriginLocationDelegate;
 	FQueryFinishedSignature FoundSpawnLocationDelegate;
 	FQueryFinishedSignature FoundInitialLookAtLocationDelegate;
 
 	FVector EpisodeOriginLocation = FVector::ZeroVector;
+	int32 EpisodeSeed = 0;
 	bool bSetupInProgress = false;
+	bool bNavMeshUpdateLocked = false;
 	
 	FVector GetEQSLocation(const TSharedPtr<FEnvQueryResult>& Result) const;
 	
@@ -112,5 +131,6 @@ private:
 	void OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundSpawnLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundInitialLookAtLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
+	void FinishSetup();
 	void OnAllActorsSpawned();
 };

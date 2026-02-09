@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Actors/MLManagerBase.h"
 #include "Data/TrainingDataTypes.h"
+#include "Interfaces/MLTrainingManagerPcgOwnerInterface.h"
 #include "MLTrainingManager.generated.h"
 
 class UTrainingEpisodeSetupComponent;
@@ -11,7 +12,7 @@ class ULearningAgentsInteractor;
 class UMLOverviewPanelWidget;
 
 UCLASS()
-class NPC_ML_API AMLTrainingManager : public AMLManagerBase
+class NPC_ML_API AMLTrainingManager : public AMLManagerBase, public IMLTrainingManagerPcgOwnerInterface
 {
 	GENERATED_BODY()
 
@@ -69,4 +70,7 @@ protected:
 private:
 	FTimerHandle EpisodeTimer;
 	FTimerHandle StartEpisodeDelayTimer;
+	
+public: // IMLTrainingManagerPcgOwnerInterface
+	virtual void SetTrainingEpisodeOrigin_Implementation(const FVector& Origin) override;
 };

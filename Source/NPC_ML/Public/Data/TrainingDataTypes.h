@@ -28,7 +28,16 @@ struct FTrainingEpisodeSetupExternalMemory_Spawn : public FExternalMemory
 };
 
 USTRUCT(BlueprintType)
-struct FMLTrainingEpisodeActorSetupAction_Base
+struct FPcgParametersContainer
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<FName, float> FloatParameters;
+};
+
+USTRUCT(BlueprintType)
+struct NPC_ML_API FMLTrainingEpisodeActorSetupAction_Base
 {
 	GENERATED_BODY()
 	
@@ -95,10 +104,10 @@ struct FMLTrainingActorSpawnDescriptor
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere)
-	FEQSParametrizedQueryExecutionRequest SpawnAgentLocationEQS;
+	FEQSParametrizedQueryExecutionRequest SpawnActorLocationEQS;
 	
 	UPROPERTY(EditAnywhere)
-	FEQSParametrizedQueryExecutionRequest InitialAgentLookAtEQS;
+	FEQSParametrizedQueryExecutionRequest InitialActorLookAtEQS;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bSpawnDeferred = true;
@@ -108,17 +117,6 @@ struct FMLTrainingActorSpawnDescriptor
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ExcludeBaseStruct))
 	TArray<TInstancedStruct<FMLTrainingEpisodeActorSetupAction_Base>> SetupPipeline;
-	
-	// i'm punk mne pohui #YOLO
-	// TODO svinia priberis'
-	FVector LastSpawnLocation = FVector::ZeroVector;
-	FVector LastInitialLookAtLocation = FVector::ZeroVector;
-	
-	void ResetSpawnLocations()
-	{
-		LastSpawnLocation = FVector::ZeroVector;
-		LastInitialLookAtLocation = FVector::ZeroVector;
-	}
 };
 
 USTRUCT(BlueprintType)
@@ -148,5 +146,8 @@ struct FMLTrainingPreset
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float DurationMax = 45.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FPcgParametersContainer PcgParameters;
 };
 

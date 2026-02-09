@@ -4,6 +4,7 @@
 #include "LearningAgentsManager.h"
 #include "PCGComponent.h"
 #include "Components/TrainingEpisodeSetupComponent.h"
+#include "GameFramework/SpectatorPawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/MLOverviewPanelWidget.h"
 
@@ -90,13 +91,16 @@ void AMLTrainingManager::StopTraining()
 	PauseTraining();
 	SetState(EMLTrainingSessionState::Inactive);
 	LearningAgentsManager->ResetAllAgents(); // managers will unregister themselves upon 
-	TrainingEpisodeSetupComponent->Cleanup();
+	TrainingEpisodeSetupComponent->Stop();
 	EpisodeTime = 0.f;
 	if (DebugPanelWidget.IsValid())
 	{
 		DebugPanelWidget->SetRemainingTime(0.f);
 		DebugPanelWidget->SetTimerActive(false);
 	}
+	
+	if (auto PlayerController = UGameplayStatics::GetPlayerController(this, 0))
+		PlayerController->StartSpectatingOnly();
 }
 
 void AMLTrainingManager::RestartTraining(bool bUseNewSetup)
@@ -143,4 +147,9 @@ void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& Traini
 void AMLTrainingManager::StartNextEpisode()
 {
 	RestartTraining(true);
+}
+
+void AMLTrainingManager::SetTrainingEpisodeOrigin_Implementation(const FVector& Origin)
+{
+	SetActorLocation(Origin);
 }
