@@ -3,7 +3,6 @@
 #include "NavigationSystem.h"
 #include "PCGGraph.h"
 #include "Actors/TrainingEpisodePCG.h"
-#include "AI/NavigationSystemBase.h"
 #include "Data/LogChannels.h"
 #include "Data/MLTrainingPresetsDataAsset.h"
 #include "Data/TrainingDataTypes.h"
@@ -104,7 +103,7 @@ void UTrainingEpisodeSetupComponent::Stop()
 	if (bLockNavmeshForPcgUpdate && bNavMeshUpdateLocked)
 	{
 		if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-			NavSys->RemoveNavigationBuildLock(NavigationBuildLockFlag);
+			NavSys->RemoveNavigationBuildLock(NavigationBuildLockFlag, NavMeshLockRemovalAction);
 		
 		bNavMeshUpdateLocked = false;
 	}
@@ -142,15 +141,7 @@ void UTrainingEpisodeSetupComponent::Cleanup()
 	EpisodeOriginLocation = FVector::ZeroVector;
 	if (IsValid(TrainingEpisodePCG))
 	{
-		if (bLockNavmeshForPcgUpdate && !bNavMeshUpdateLocked)
-		{
-			if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-			{
-				NavSys->AddNavigationBuildLock(NavigationBuildLockFlag);
-				bNavMeshUpdateLocked = true;
-			}
-		}
-		
+		LockNavMeshUpdate();
 		TrainingEpisodePCG->CleanupAndDestroy();
 	}
 }
@@ -158,9 +149,16 @@ void UTrainingEpisodeSetupComponent::Cleanup()
 void UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted()
 {
 	TrainingEpisodePCG = nullptr;
+	UnlockNavmeshUpdate();
+	
 	if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
 	{
-		if (NavSys->IsNavigationBuildInProgress())
+		bool bHasDirtyAreas = NavSys->HasDirtyAreasQueued();
+		int NumRemainingTasks = NavSys->GetNumRemainingBuildTasks();
+		int NumRunningTasks = NavSys->GetNumRunningBuildTasks();
+		ensure (bHasDirtyAreas && NumRemainingTasks > 0 && NumRunningTasks > 0 || !bHasDirtyAreas && NumRemainingTasks == 0 && NumRunningTasks == 0);
+		bool bNeedToWait = bHasDirtyAreas || NumRemainingTasks > 0 || NumRunningTasks > 0;
+		if (bNeedToWait)
 		{
 			// TODO wait for nav mesh to finish update
 		}
@@ -201,14 +199,7 @@ void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEn
 			UPCGSubsystem::GetInstance(GetWorld())->FlushCache();
 		
 		TrainingEpisodePCG->SetActorLocation(EpisodeOriginLocation);
-		if (bLockNavmeshForPcgUpdate && !bNavMeshUpdateLocked)
-		{
-			if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-			{
-				NavSys->AddNavigationBuildLock(NavigationBuildLockFlag);
-				bNavMeshUpdateLocked = true;
-			}
-		}
+		LockNavMeshUpdate();
 		
 		const bool bGenerating = TrainingEpisodePCG->Generate();
 		ensure(bGenerating);
@@ -221,15 +212,7 @@ void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEn
 
 void UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted()
 {
-	if (bLockNavmeshForPcgUpdate && bNavMeshUpdateLocked)
-	{
-		if (UNavigationSystemV1* NavSys = Cast<UNavigationSystemV1>(GetWorld()->GetNavigationSystem()))
-		{
-			NavSys->RemoveNavigationBuildLock(ENavigationBuildLock::Custom, UNavigationSystemV1::ELockRemovalRebuildAction::Rebuild);
-			bNavMeshUpdateLocked = false;
-		}
-	}
-	
+	UnlockNavmeshUpdate();
 	StartSpawningActors();
 }
 
@@ -366,17 +349,6 @@ void UTrainingEpisodeSetupComponent::OnAllActorsSpawned()
 	FinishSetup();
 }
 
-void UTrainingEpisodeSetupComponent::CleanTrainingEpisodePCG()
-{
-	if (!IsValid(TrainingEpisodePCG))
-		return;
-	
-	TrainingEpisodePCG->CleanupCompletedEvent.RemoveAll(this);
-	TrainingEpisodePCG->GenerationCompletedEvent.RemoveAll(this);
-	TrainingEpisodePCG->CleanupAndDestroy();
-	TrainingEpisodePCG = nullptr;
-}
-
 void UTrainingEpisodeSetupComponent::SpawnTrainingEpisodePCG(const FMLTrainingEpisodePCG& EpisodePCG)
 {
 	CleanTrainingEpisodePCG();
@@ -394,8 +366,45 @@ void UTrainingEpisodeSetupComponent::SpawnTrainingEpisodePCG(const FMLTrainingEp
 	}
 }
 
+void UTrainingEpisodeSetupComponent::CleanTrainingEpisodePCG()
+{
+	if (!IsValid(TrainingEpisodePCG))
+		return;
+	
+	TrainingEpisodePCG->CleanupCompletedEvent.RemoveAll(this);
+	TrainingEpisodePCG->GenerationCompletedEvent.RemoveAll(this);
+	TrainingEpisodePCG->CleanupAndDestroy();
+	TrainingEpisodePCG = nullptr;
+}
+
+void UTrainingEpisodeSetupComponent::LockNavMeshUpdate()
+{
+	if (bLockNavmeshForPcgUpdate && !bNavMeshUpdateLocked)
+	{
+		if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
+		{
+			NavSys->AddNavigationBuildLock(NavigationBuildLockFlag);
+			bNavMeshUpdateLocked = true;
+		}
+	}
+}
+
+void UTrainingEpisodeSetupComponent::UnlockNavmeshUpdate()
+{
+	if (bLockNavmeshForPcgUpdate && bNavMeshUpdateLocked)
+	{
+		if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
+		{
+			NavSys->RemoveNavigationBuildLock(NavigationBuildLockFlag, NavMeshLockRemovalAction);
+			bNavMeshUpdateLocked = false;
+		}
+	}
+}
+
 void UTrainingEpisodeSetupComponent::OnNavMeshRegenerated(ANavigationData* NavData)
 {
+	auto NavSys = UNavigationSystemV1::GetCurrent(this);
+	bool bAllDoneLikeReallyReallyDone = !NavSys->HasDirtyAreasQueued() && NavSys->GetNumRunningBuildTasks() == 0 && NavSys->GetNumRemainingBuildTasks() == 0;
 	int x = 1;
 	// TODO continue episode setup process
 }

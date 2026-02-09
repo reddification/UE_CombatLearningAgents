@@ -19,6 +19,17 @@ struct FMLTrainingPreset;
 class UPCGComponent;
 class UEnvQuery;
 
+UENUM()
+enum ETrainingEpisodeSetupAction
+{
+	None,
+	PCG_Cleanup,
+	PCG_Generate,
+	WaitForNavmeshToGenerate,
+	FindEpisodeOriginLocation,
+	SpawnActors
+};
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class NPC_ML_API UTrainingEpisodeSetupComponent : public UActorComponent
 {
@@ -81,9 +92,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bLockNavmeshForPcgUpdate = true;
 
+	// Must be a power of 2
 	// 9 Feb 2026 (aki): 
 	// TODO think about getting it from a not existing yet game mode interface "uint8 INpcMlGameMode::GetNavigationBuildPcgLockFlag()"
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(UIMIn = 16, ClampMin = 16))
 	uint8 NavigationBuildLockFlag = ENavigationBuildLock::Custom;
 	
 	virtual void SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
@@ -118,6 +130,8 @@ private:
 	bool bSetupInProgress = false;
 	bool bNavMeshUpdateLocked = false;
 	
+	UNavigationSystemV1::ELockRemovalRebuildAction NavMeshLockRemovalAction = UNavigationSystemV1::ELockRemovalRebuildAction::NoRebuild;
+
 	FVector GetEQSLocation(const TSharedPtr<FEnvQueryResult>& Result) const;
 	
 	UPROPERTY()
@@ -134,8 +148,11 @@ private:
 	void FinishSetup();
 	void OnAllActorsSpawned();
 	void CleanTrainingEpisodePCG();
-
+	
 	void SpawnTrainingEpisodePCG(const FMLTrainingEpisodePCG& EpisodePCG);
+	
+	void LockNavMeshUpdate();
+	void UnlockNavmeshUpdate();
 	
 	UFUNCTION()
 	void OnNavMeshRegenerated(ANavigationData* NavData);
