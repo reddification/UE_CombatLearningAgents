@@ -7,10 +7,13 @@
 ATrainingEpisodePCG::ATrainingEpisodePCG()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	
 	PCGComponent = CreateDefaultSubobject<UPCGComponent>(TEXT("PCG Component"));
 	PCGComponent->GenerationTrigger = EPCGComponentGenerationTrigger::GenerateOnDemand;
+	
 	BoundsComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Bounds volume"));
 	BoundsComponent->SetCollisionProfileName(FName("NoCollision"));
+	BoundsComponent->SetCanEverAffectNavigation(false);
 	SetRootComponent(BoundsComponent);
 	
 #if WITH_EDITOR
@@ -60,12 +63,15 @@ bool ATrainingEpisodePCG::Cleanup()
 	return PCGComponent->IsCleaningUp();
 }
 
-void ATrainingEpisodePCG::CleanupAndDestroy()
+bool ATrainingEpisodePCG::CleanupAndDestroy()
 {
 	bPendingDestroy = true;
 	PCGComponent->Cleanup();
-	if (!PCGComponent->IsCleaningUp())
+	bool bStartedCleanup = PCGComponent->IsCleaningUp();
+	if (!bStartedCleanup)
 		Destroy();
+	
+	return bStartedCleanup;
 }
 
 bool ATrainingEpisodePCG::IsReady() const

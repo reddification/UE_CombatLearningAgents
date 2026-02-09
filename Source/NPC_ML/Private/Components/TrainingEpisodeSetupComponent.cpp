@@ -20,15 +20,10 @@ void UTrainingEpisodeSetupComponent::BeginPlay()
 	{
 		UE_VLOG_UELOG(GetOwner(), LogNpcMl, Error, TEXT("Navigation build lock flag is not a power of two. UNavigationSystemV1 expects it to be a power of two"));
 	}
-	
-	if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-	{
-		NavSys->OnNavigationGenerationFinishedDelegate.AddDynamic(this, &UTrainingEpisodeSetupComponent::OnNavMeshRegenerated);
-	}
 }
 
 // 09 Feb 2026 (aki): current setup logic is lacking. 
-// There's a clear chain of actions to execute and each depends on another but it is not enforced in code
+// There's a clear chain of actions to execute and each depends on another but it is not enforced clearly in code
 // TODO refactor setup to an array of actions
 // Currently actions are:
 // 1. Cleanup PCG
@@ -38,6 +33,7 @@ void UTrainingEpisodeSetupComponent::BeginPlay()
 // 5. Wait for navmesh to regenerate
 // 6. Start spawning actors
 // maybe PCG-navmesh actions can be combined since one can't exist without another and wait for navmesh to regenerate is common for both cleanup and generate
+// maybe use FlowGraph. But then again - adding FlowGraph as a dependency just for UTrainingEpisodeSetupComponent pipeline...
 void UTrainingEpisodeSetupComponent::SetupEpisode()
 {
 	if (!IsValid(TrainingPresetsDataAsset))
@@ -53,6 +49,7 @@ void UTrainingEpisodeSetupComponent::SetupEpisode()
 	}
 	
 	bSetupInProgress = true;
+	
 	Cleanup();
 	
 	EpisodeSeed = TrainingPresetsDataAsset->bRandomizeSeedOnSetup ? FMath::Rand32() : TrainingPresetsDataAsset->EpisodeSeed;
@@ -100,13 +97,7 @@ void UTrainingEpisodeSetupComponent::RepeatEpisode()
 void UTrainingEpisodeSetupComponent::Stop()
 {
 	Cleanup();
-	if (bLockNavmeshForPcgUpdate && bNavMeshUpdateLocked)
-	{
-		if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-			NavSys->RemoveNavigationBuildLock(NavigationBuildLockFlag, NavMeshLockRemovalAction);
-		
-		bNavMeshUpdateLocked = false;
-	}
+	UnlockNavmeshUpdate();
 }
 
 void UTrainingEpisodeSetupComponent::DestroySpawnedActors()
@@ -139,10 +130,13 @@ void UTrainingEpisodeSetupComponent::Cleanup()
 	SpawnedActorsLocationsCached.Empty();
 	PendingLookAtLocationEQSRequests.Empty();
 	EpisodeOriginLocation = FVector::ZeroVector;
+	
 	if (IsValid(TrainingEpisodePCG))
 	{
 		LockNavMeshUpdate();
-		TrainingEpisodePCG->CleanupAndDestroy();
+		bool bCleaningUp = TrainingEpisodePCG->CleanupAndDestroy();
+		if (bCleaningUp)
+			TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::PCG_Cleanup);
 	}
 }
 
@@ -151,28 +145,22 @@ void UTrainingEpisodeSetupComponent::OnPCGCleanupCompleted()
 	TrainingEpisodePCG = nullptr;
 	UnlockNavmeshUpdate();
 	
-	if (auto NavSys = UNavigationSystemV1::GetCurrent(this))
-	{
-		bool bHasDirtyAreas = NavSys->HasDirtyAreasQueued();
-		int NumRemainingTasks = NavSys->GetNumRemainingBuildTasks();
-		int NumRunningTasks = NavSys->GetNumRunningBuildTasks();
-		ensure (bHasDirtyAreas && NumRemainingTasks > 0 && NumRunningTasks > 0 || !bHasDirtyAreas && NumRemainingTasks == 0 && NumRunningTasks == 0);
-		bool bNeedToWait = bHasDirtyAreas || NumRemainingTasks > 0 || NumRunningTasks > 0;
-		if (bNeedToWait)
-		{
-			// TODO wait for nav mesh to finish update
-		}
-	}
-	
 	if (bSetupInProgress)
-		FindEpisodeOriginLocation();
+	{
+		bool bNeedToWaitNavmeshRegenerate = WaitNavmeshUpdate(ETrainingEpisodeSetupAction::FindEpisodeOriginLocation);
+		if (!bNeedToWaitNavmeshRegenerate)
+			FindEpisodeOriginLocation();
+		else 
+			TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::WaitForNavmeshToGenerate);
+	}
 }
 
 void UTrainingEpisodeSetupComponent::FindEpisodeOriginLocation()
-{
+{	
 	LocalEpisodeOriginEQS = TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].EpisodeOriginLocationEQS;
 	LocalEpisodeOriginEQS.InitForOwnerAndBlackboard(*this, nullptr);
 	LocalEpisodeOriginEQS.Execute(*this, nullptr, FoundEpisodeOriginLocationDelegate);
+	TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::FindEpisodeOriginLocation);
 }
 
 void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult)
@@ -202,7 +190,15 @@ void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEn
 		LockNavMeshUpdate();
 		
 		const bool bGenerating = TrainingEpisodePCG->Generate();
-		ensure(bGenerating);
+		if (ensure(bGenerating))
+		{
+			TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::PCG_Generate);
+		}
+		else
+		{
+			UnlockNavmeshUpdate();
+			StartSpawningActors();
+		}
 	}
 	else
 	{
@@ -213,12 +209,17 @@ void UTrainingEpisodeSetupComponent::OnFoundEpisodeOriginLocation(TSharedPtr<FEn
 void UTrainingEpisodeSetupComponent::OnPCGGenerateCompleted()
 {
 	UnlockNavmeshUpdate();
-	StartSpawningActors();
+	bool bNeedToWaitNavmeshRegenerate = WaitNavmeshUpdate(ETrainingEpisodeSetupAction::SpawnActors);
+	if (!bNeedToWaitNavmeshRegenerate)
+		StartSpawningActors();
+	else 
+		TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::WaitForNavmeshToGenerate);
 }
 
 void UTrainingEpisodeSetupComponent::StartSpawningActors()
 {
 	CurrentSpawnIndex = 0;
+	TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::SpawnActors);
 	StartSpawningNextActor();
 }
 
@@ -340,6 +341,7 @@ void UTrainingEpisodeSetupComponent::OnFoundInitialLookAtLocation(TSharedPtr<FEn
 
 void UTrainingEpisodeSetupComponent::FinishSetup()
 {
+	TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::None);
 	TrainingEpisodeSetupCompletedEvent.Broadcast(TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex]);
 	bSetupInProgress = false;
 }
@@ -401,12 +403,49 @@ void UTrainingEpisodeSetupComponent::UnlockNavmeshUpdate()
 	}
 }
 
+bool UTrainingEpisodeSetupComponent::WaitNavmeshUpdate(ETrainingEpisodeSetupAction ScheduledActionPostNavmeshUpdate)
+{
+	auto NavSys = UNavigationSystemV1::GetCurrent(this);
+	if (!NavSys)
+		return false;
+	
+	bool bHasDirtyAreas = NavSys->HasDirtyAreasQueued();
+	int NumRemainingTasks = NavSys->GetNumRemainingBuildTasks();
+	int NumRunningTasks = NavSys->GetNumRunningBuildTasks();
+	// ensure (bHasDirtyAreas && NumRemainingTasks > 0 && NumRunningTasks > 0 || !bHasDirtyAreas && NumRemainingTasks == 0 && NumRunningTasks == 0);
+	bool bNeedToWaitNavmeshRegenerate = bHasDirtyAreas || NumRemainingTasks > 0 || NumRunningTasks > 0;
+	if (bNeedToWaitNavmeshRegenerate)
+	{
+		PendingStepPostNavmeshRegenerate = ScheduledActionPostNavmeshUpdate;
+		NavSys->OnNavigationGenerationFinishedDelegate.AddDynamic(this, &UTrainingEpisodeSetupComponent::OnNavMeshRegenerated);
+	}
+	
+	return bNeedToWaitNavmeshRegenerate;
+}
+
 void UTrainingEpisodeSetupComponent::OnNavMeshRegenerated(ANavigationData* NavData)
 {
 	auto NavSys = UNavigationSystemV1::GetCurrent(this);
 	bool bAllDoneLikeReallyReallyDone = !NavSys->HasDirtyAreasQueued() && NavSys->GetNumRunningBuildTasks() == 0 && NavSys->GetNumRemainingBuildTasks() == 0;
-	int x = 1;
-	// TODO continue episode setup process
+	if (bAllDoneLikeReallyReallyDone)
+	{
+		NavSys->OnNavigationGenerationFinishedDelegate.RemoveAll(this);
+		auto NextAction = PendingStepPostNavmeshRegenerate;
+		PendingStepPostNavmeshRegenerate = ETrainingEpisodeSetupAction::None;		
+		switch (NextAction)
+		{
+			case ETrainingEpisodeSetupAction::FindEpisodeOriginLocation:
+				FindEpisodeOriginLocation();
+				break;
+			case ETrainingEpisodeSetupAction::SpawnActors:
+				StartSpawningActors();
+				break;
+			default:
+				ensure(false);
+				break;
+		}
+		
+	}
 }
 
 FVector UTrainingEpisodeSetupComponent::GetEQSLocation(const TSharedPtr<FEnvQueryResult>& Result) const

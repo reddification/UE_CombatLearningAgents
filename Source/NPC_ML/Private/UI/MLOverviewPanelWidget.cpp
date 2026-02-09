@@ -1,4 +1,6 @@
 ﻿#include "UI/MLOverviewPanelWidget.h"
+
+#include "Components/HorizontalBox.h"
 #include "Components/TextBlock.h"
 
 void UMLOverviewPanelWidget::SetState(EMLTrainingSessionState NewState)
@@ -40,4 +42,14 @@ void UMLOverviewPanelWidget::UpdateStateTimer()
 		GetWorld()->GetTimerManager().ClearTimer(StateTimer);
 	
 	RemainingTimeTextblock->SetText(FText::AsNumber(FMath::FloorToInt32(RemainingTime)));
+}
+
+void UMLOverviewPanelWidget::OnEpisodeSetupActionChanged(ETrainingEpisodeSetupAction TrainingEpisodeSetupAction)
+{
+	auto NewVisibility = TrainingEpisodeSetupAction == ETrainingEpisodeSetupAction::None ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible;
+	if (GetVisibility() != NewVisibility)
+		EpisodeStepContainer->SetVisibility(NewVisibility);
+
+	if (auto DescriptionTextPtr = TrainingEpisodeSetupActionTitles.Find(TrainingEpisodeSetupAction))
+		TrainingEpisodeSetupActionTextblock->SetText(*DescriptionTextPtr);
 }

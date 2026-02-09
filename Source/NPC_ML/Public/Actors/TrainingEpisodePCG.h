@@ -25,8 +25,8 @@ public:
 	void SetPCG(class UPCGGraph* NewPcgGraph, bool bGenerateImmediately);
 	bool Generate();
 	bool Cleanup();
-	
-	void CleanupAndDestroy();
+
+	bool CleanupAndDestroy();
 	bool IsReady() const;
 	void SetSeed(int32 NewSeed, const FName& EpisodeSeedParameterName);
 	void SetParameters(const FPcgParametersContainer& Parameters);

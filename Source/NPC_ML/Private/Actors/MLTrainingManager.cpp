@@ -15,6 +15,7 @@ void AMLTrainingManager::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	TrainingEpisodeSetupComponent->TrainingEpisodeSetupCompletedEvent.AddUObject(this, &AMLTrainingManager::OnEpisodeSetupCompleted);
+	TrainingEpisodeSetupComponent->TrainingEpisodeSetupStepChangedEvent.AddUObject(this, &AMLTrainingManager::OnEpisodeSetupStepChanged);
 }
 
 // Called when the game starts or when spawned
@@ -136,6 +137,12 @@ void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& Traini
 	{
 		ResumeTraining();
 	}
+}
+
+void AMLTrainingManager::OnEpisodeSetupStepChanged(ETrainingEpisodeSetupAction TrainingEpisodeSetupAction)
+{
+	if (DebugPanelWidget.IsValid())
+		DebugPanelWidget->OnEpisodeSetupActionChanged(TrainingEpisodeSetupAction);
 }
 
 void AMLTrainingManager::StartNextEpisode()

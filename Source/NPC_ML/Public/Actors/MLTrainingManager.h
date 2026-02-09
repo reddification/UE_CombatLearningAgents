@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Actors/MLManagerBase.h"
+#include "Components/TrainingEpisodeSetupComponent.h"
 #include "Data/TrainingDataTypes.h"
 #include "Interfaces/MLTrainingManagerPcgOwnerInterface.h"
 #include "MLTrainingManager.generated.h"
@@ -62,6 +63,7 @@ protected:
 	
 	float EpisodeTime = 0.f;
 	virtual void OnEpisodeSetupCompleted(const FMLTrainingPreset& TrainingPreset);
+	virtual void OnEpisodeSetupStepChanged(ETrainingEpisodeSetupAction TrainingEpisodeSetupAction);
 	virtual void StartNextEpisode();
 
 private:

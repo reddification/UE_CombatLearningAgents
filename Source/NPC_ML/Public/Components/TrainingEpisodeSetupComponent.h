@@ -19,17 +19,6 @@ struct FMLTrainingPreset;
 class UPCGComponent;
 class UEnvQuery;
 
-UENUM()
-enum ETrainingEpisodeSetupAction
-{
-	None,
-	PCG_Cleanup,
-	PCG_Generate,
-	WaitForNavmeshToGenerate,
-	FindEpisodeOriginLocation,
-	SpawnActors
-};
-
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class NPC_ML_API UTrainingEpisodeSetupComponent : public UActorComponent
 {
@@ -37,6 +26,7 @@ class NPC_ML_API UTrainingEpisodeSetupComponent : public UActorComponent
 
 private:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeSetupCompletedEvent, const FMLTrainingPreset& Preset);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeSetupStepChangedEvent, ETrainingEpisodeSetupAction CurrentStep);
 	
 	using FExternalMemory = FTrainingEpisodeSetupActionExternalMemoryBase;
 	using FSetupAction = FMLTrainingEpisodeActorSetupAction_Base;
@@ -75,6 +65,7 @@ public:
 	FORCEINLINE const FVector& GetEpisodeOriginLocation() const { return EpisodeOriginLocation; };
 
 	FTrainingEpisodeSetupCompletedEvent TrainingEpisodeSetupCompletedEvent;
+	FTrainingEpisodeSetupStepChangedEvent TrainingEpisodeSetupStepChangedEvent;
 
 protected:
 	virtual void BeginPlay() override;
@@ -127,6 +118,7 @@ private:
 
 	FVector EpisodeOriginLocation = FVector::ZeroVector;
 	int32 EpisodeSeed = 0;
+	ETrainingEpisodeSetupAction PendingStepPostNavmeshRegenerate = ETrainingEpisodeSetupAction::None;
 	bool bSetupInProgress = false;
 	bool bNavMeshUpdateLocked = false;
 	
@@ -153,6 +145,7 @@ private:
 	
 	void LockNavMeshUpdate();
 	void UnlockNavmeshUpdate();
+	bool WaitNavmeshUpdate(ETrainingEpisodeSetupAction ScheduledActionPostNavmeshUpdate);
 	
 	UFUNCTION()
 	void OnNavMeshRegenerated(ANavigationData* NavData);

@@ -17,6 +17,17 @@ enum class EMLTrainingSessionState
 	Restarting,
 };
 
+UENUM()
+enum class ETrainingEpisodeSetupAction : uint8
+{
+	None,
+	PCG_Cleanup,
+	PCG_Generate,
+	WaitForNavmeshToGenerate,
+	FindEpisodeOriginLocation,
+	SpawnActors
+};
+
 struct FTrainingEpisodeSetupActionExternalMemoryBase
 {
 	bool bCanSetup = true;
