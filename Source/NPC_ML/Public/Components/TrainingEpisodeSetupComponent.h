@@ -7,6 +7,7 @@
 #include "Components/ActorComponent.h"
 #include "Data/TrainingDataTypes.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
+#include "StructUtils/InstancedStruct.h"
 #include "TrainingEpisodeSetupComponent.generated.h"
 
 
@@ -30,6 +31,7 @@ private:
 	
 	using FExternalMemory = FTrainingEpisodeSetupActionExternalMemoryBase;
 	using FSetupAction = FMLTrainingEpisodeActorSetupAction_Base;
+	using FSetupPipeline = TArray<TInstancedStruct<FSetupAction>>;
 	
 	struct FPendingLookAtEQSData
 	{
@@ -58,7 +60,7 @@ public:
 	 * 6. Spawn NPCs
 	 */
 	virtual void SetupEpisode();
-	
+
 	virtual void RepeatEpisode();
 	virtual void Stop();
 	
@@ -89,7 +91,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(UIMIn = 16, ClampMin = 16))
 	uint8 NavigationBuildLockFlag = ENavigationBuildLock::Custom;
 	
-	virtual void SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup);
+	void SpawnNewActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor);
+	void RespawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor);
 	
 	virtual void OnPCGCleanupCompleted();
 	virtual void OnPCGGenerateCompleted();
@@ -99,8 +102,8 @@ private:
 	int CurrentPresetIndex = 0;
 	int CurrentSpawnIndex = 0;
 	
-	TMap<FGuid, TUniquePtr<FExternalMemory>> EpisodeSetupActionMemories;
-	TArray<TWeakObjectPtr<AActor>> SpawnedActors;
+	TMap<FGuid, FExternalMemoryPtr> EpisodeSetupActionMemories;
+	TMap<FGuid, TWeakObjectPtr<AActor>> SpawnedActors;
 	
 	FEQSParametrizedQueryExecutionRequest LocalEpisodeOriginEQS;
 
@@ -120,6 +123,7 @@ private:
 	int32 EpisodeSeed = 0;
 	ETrainingEpisodeSetupAction PendingStepPostNavmeshRegenerate = ETrainingEpisodeSetupAction::None;
 	bool bSetupInProgress = false;
+	bool bRepeatingEpisode = false;
 	bool bNavMeshUpdateLocked = false;
 	
 	UNavigationSystemV1::ELockRemovalRebuildAction NavMeshLockRemovalAction = UNavigationSystemV1::ELockRemovalRebuildAction::NoRebuild;
@@ -130,13 +134,17 @@ private:
 	TObjectPtr<ATrainingEpisodePCG> TrainingEpisodePCG;
 	
 	void DestroySpawnedActors();
+	void InitializeEpisodeActorSetupActionsMemories(const FSetupPipeline& Pipeline);
 	void FindEpisodeOriginLocation();
 	void StartSpawningNextActor();
+	AActor* SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor);
 	void IncrementSpawnedActors();
 	void StartSpawningActors();
 	void OnFoundEpisodeOriginLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundSpawnLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
 	void OnFoundInitialLookAtLocation(TSharedPtr<FEnvQueryResult> EnvQueryResult);
+	void ExecuteActorOnStartActions();
+	void ExecuteActorSetupPipeline(AActor* Actor, const FSetupPipeline& SetupPipeline);
 	void FinishSetup();
 	void OnAllActorsSpawned();
 	void CleanTrainingEpisodePCG();

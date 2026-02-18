@@ -6,6 +6,7 @@
 #include "Data/LogChannels.h"
 #include "Data/MLTrainingPresetsDataAsset.h"
 #include "Data/TrainingDataTypes.h"
+#include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "Subsystems/PCGSubsystem.h"
@@ -49,7 +50,7 @@ void UTrainingEpisodeSetupComponent::SetupEpisode()
 	}
 	
 	bSetupInProgress = true;
-	
+	bRepeatingEpisode = false;
 	Cleanup();
 	
 	EpisodeSeed = TrainingPresetsDataAsset->bRandomizeSeedOnSetup ? FMath::Rand32() : TrainingPresetsDataAsset->EpisodeSeed;
@@ -63,24 +64,38 @@ void UTrainingEpisodeSetupComponent::SetupEpisode()
 	SpawnedActorsLocationsCached.SetNumZeroed(SpawnsCount);
 	
 	PendingLookAtLocationEQSRequests.Reserve(SpawnsCount);
-	EpisodeSetupActionMemories.Reserve(SpawnsCount);
+	EpisodeSetupActionMemories.Reserve(SpawnsCount * 10);
 	
 	for (const auto& ActorSpawnDescriptor : TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors)
 	{
-		for (const auto& SetupActionInstancedStruct : ActorSpawnDescriptor.SetupPipeline)
+		if (!IsValid(ActorSpawnDescriptor.Template))
 		{
-			if (ensure(SetupActionInstancedStruct.IsValid()))
-			{
-				const auto& SetupAction = SetupActionInstancedStruct.Get<FSetupAction>();
-				TUniquePtr<FExternalMemory> ExternalMemory = SetupAction.MakeMemory();
-				if (ExternalMemory.IsValid())
-					EpisodeSetupActionMemories.Add(SetupAction.PipelineActionId, MoveTemp(ExternalMemory));
-			}
+			UE_VLOG_UELOG(GetOwner(), LogNpcMl, Warning, TEXT("No template set in an actor descriptor in preset %s"), *TrainingPresetsDataAsset->GetName())
+			continue;	
 		}
+		
+		InitializeEpisodeActorSetupActionsMemories(ActorSpawnDescriptor.Template->SetupPipelineOnSpawn);
+		InitializeEpisodeActorSetupActionsMemories(ActorSpawnDescriptor.SetupPipelineOnSpawn);
+		InitializeEpisodeActorSetupActionsMemories(ActorSpawnDescriptor.Template->SetupPipelineOnStart);
+		InitializeEpisodeActorSetupActionsMemories(ActorSpawnDescriptor.SetupPipelineOnStart);
 	}
 	
 	if (!IsValid(TrainingEpisodePCG) || TrainingEpisodePCG->IsReady())
 		FindEpisodeOriginLocation();
+}
+
+void UTrainingEpisodeSetupComponent::InitializeEpisodeActorSetupActionsMemories(const FSetupPipeline& Pipeline)
+{
+	for (const auto& SetupActionInstancedStruct : Pipeline)
+	{
+		if (ensure(SetupActionInstancedStruct.IsValid()))
+		{
+			const auto& SetupAction = SetupActionInstancedStruct.Get<FSetupAction>();
+			FExternalMemoryPtr ExternalMemory = SetupAction.MakeMemory();
+			if (ExternalMemory.IsValid())
+				EpisodeSetupActionMemories.Add(SetupAction.PipelineActionId, ExternalMemory);
+		}
+	}
 }
 
 void UTrainingEpisodeSetupComponent::RepeatEpisode()
@@ -89,9 +104,15 @@ void UTrainingEpisodeSetupComponent::RepeatEpisode()
 		return;
 	
 	bSetupInProgress = true;
+	bRepeatingEpisode = true;
 	DestroySpawnedActors();
 	for (const auto& SpawnDescriptor : TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors)
-		SpawnActor(SpawnDescriptor, true);
+	{
+		RespawnActor(SpawnDescriptor);
+		CurrentSpawnIndex++;
+	}
+	
+	OnAllActorsSpawned();
 }
 
 void UTrainingEpisodeSetupComponent::Stop()
@@ -103,7 +124,8 @@ void UTrainingEpisodeSetupComponent::Stop()
 void UTrainingEpisodeSetupComponent::DestroySpawnedActors()
 {
 	for (const auto& SpawnedActor : SpawnedActors)
-		SpawnedActor->Destroy();
+		if (SpawnedActor.Value.IsValid())
+			SpawnedActor.Value->Destroy();
 	
 	SpawnedActors.Empty();
 	CurrentSpawnIndex = 0;
@@ -226,7 +248,7 @@ void UTrainingEpisodeSetupComponent::StartSpawningActors()
 void UTrainingEpisodeSetupComponent::StartSpawningNextActor()
 {
 	const auto& ActiveSpawnDescriptor = TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors[CurrentSpawnIndex];
-	SpawnLocationsEQSRequests[CurrentSpawnIndex] = ActiveSpawnDescriptor.SpawnActorLocationEQS;
+	SpawnLocationsEQSRequests[CurrentSpawnIndex] = ActiveSpawnDescriptor.Template->SpawnActorLocationEQS;
 	SpawnLocationsEQSRequests[CurrentSpawnIndex].InitForOwnerAndBlackboard(*this, nullptr);
 	const int32 EqsId =  SpawnLocationsEQSRequests[CurrentSpawnIndex].Execute(*this, nullptr, FoundSpawnLocationDelegate);
 	if (EqsId == INDEX_NONE)
@@ -238,60 +260,82 @@ void UTrainingEpisodeSetupComponent::StartSpawningNextActor()
 	}
 }
 
-void UTrainingEpisodeSetupComponent::SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor, bool bRepeatSetup)
+AActor* UTrainingEpisodeSetupComponent::SpawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor)
 {
 	auto& SpawnData = SpawnedActorsLocationsCached[CurrentSpawnIndex];
 	const bool bNeedsLookAtEQS = SpawnData.LookAt == FVector::ZeroVector;
 	FRotator Rotation = bNeedsLookAtEQS
-		? FVector::ForwardVector.Rotation() 
-		: (SpawnData.LookAt - SpawnData.SpawnLocation).GetSafeNormal().Rotation();
+        ? FVector::ForwardVector.Rotation() 
+        : (SpawnData.LookAt - SpawnData.SpawnLocation).GetSafeNormal().Rotation();
 	
 	auto WorldLocal = GetWorld();
+	Rotation.Pitch = 0.f;
+	Rotation.Roll = 0.f;
 	FTransform SpawnTransform = FTransform(Rotation, SpawnData.SpawnLocation);
-	auto SpawnClass = SpawnDescriptor.ActorClass.LoadSynchronous();
+	auto SpawnClass = SpawnDescriptor.Template->ActorClass.LoadSynchronous();
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 	UE_LOG(LogNpcMl, Log, TEXT("Trying to spawn actor"));
-	auto Actor = SpawnDescriptor.bSpawnDeferred  
-		? WorldLocal->SpawnActorDeferred<AActor>(SpawnClass, SpawnTransform, nullptr, nullptr, SpawnParameters.SpawnCollisionHandlingOverride)
-		: WorldLocal->SpawnActor<AActor>(SpawnClass, SpawnData.SpawnLocation, Rotation, SpawnParameters);
+	auto Actor = SpawnDescriptor.Template->bSpawnDeferred  
+		             ? WorldLocal->SpawnActorDeferred<AActor>(SpawnClass, SpawnTransform, nullptr, nullptr, SpawnParameters.SpawnCollisionHandlingOverride)
+		             : WorldLocal->SpawnActor<AActor>(SpawnClass, SpawnData.SpawnLocation, Rotation, SpawnParameters);
 	
-	if (Actor == nullptr)
+	if (Actor != nullptr)
+	{
+		SpawnedActors.Add(SpawnDescriptor.Id, Actor);
+		ExecuteActorSetupPipeline(Actor, SpawnDescriptor.Template->SetupPipelineOnSpawn);
+		ExecuteActorSetupPipeline(Actor, SpawnDescriptor.SetupPipelineOnSpawn);
+	}
+	else
 	{
 		ensure(false);
 		UE_VLOG_UELOG(GetOwner(), LogNpcMl, Warning, TEXT("Failed to spawn actor [%d]"), CurrentSpawnIndex);
-		UE_VLOG_LOCATION(this, LogNpcMl, Warning, SpawnData.SpawnLocation, 25.f, FColor::Yellow, TEXT("Failed to spawn actor here"));
-		IncrementSpawnedActors();
-		return;
+		UE_VLOG_LOCATION(GetOwner(), LogNpcMl, Warning, SpawnData.SpawnLocation, 25.f, FColor::Yellow, TEXT("Failed to spawn actor here"));
 	}
 	
-	for (const auto& SetupActionInstancedStruct : SpawnDescriptor.SetupPipeline)
+	return Actor;
+}
+
+void UTrainingEpisodeSetupComponent::SpawnNewActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor)
+{
+	AActor* Actor = SpawnActor(SpawnDescriptor);
+	if (Actor != nullptr)
+	{
+		if (IsValid(SpawnDescriptor.Template->InitialActorLookAtEQS.QueryTemplate))
+		{
+			SpawnLookAtEQSRequests[CurrentSpawnIndex] = SpawnDescriptor.Template->InitialActorLookAtEQS;
+			SpawnLookAtEQSRequests[CurrentSpawnIndex].InitForOwnerAndBlackboard(*Actor, nullptr);
+			const int32 LookAtEQSRequestId = SpawnLookAtEQSRequests[CurrentSpawnIndex].Execute(*Actor, nullptr, FoundInitialLookAtLocationDelegate);
+			if (LookAtEQSRequestId != INDEX_NONE)
+				PendingLookAtLocationEQSRequests.Add(LookAtEQSRequestId, { Actor,  CurrentSpawnIndex });
+		}
+	}
+	
+	IncrementSpawnedActors();
+}
+
+void UTrainingEpisodeSetupComponent::RespawnActor(const FMLTrainingActorSpawnDescriptor& SpawnDescriptor)
+{
+	SpawnActor(SpawnDescriptor);
+}
+
+void UTrainingEpisodeSetupComponent::ExecuteActorSetupPipeline(AActor* Actor, const FSetupPipeline& SetupPipeline)
+{
+	for (const auto& SetupActionInstancedStruct : SetupPipeline)
 	{
 		if (!ensure(SetupActionInstancedStruct.IsValid()))
 			continue;
 	
 		const auto& SetupAction = SetupActionInstancedStruct.Get<FSetupAction>();
-		auto Memory = EpisodeSetupActionMemories.Contains(SetupAction.PipelineActionId) 
-			? EpisodeSetupActionMemories[SetupAction.PipelineActionId].Get() 
-			: nullptr;
+		FExternalMemoryPtr Memory = EpisodeSetupActionMemories.Contains(SetupAction.PipelineActionId) 
+		   ? EpisodeSetupActionMemories[SetupAction.PipelineActionId] 
+		   : nullptr;
 	
-		if (bRepeatSetup)
+		if (bRepeatingEpisode)
 			SetupAction.Repeat(Actor, Memory);
 		else 
 			SetupAction.Setup(Actor, Memory);
 	}
-
-	if (bNeedsLookAtEQS)
-	{
-		SpawnLookAtEQSRequests[CurrentSpawnIndex] = SpawnDescriptor.InitialActorLookAtEQS;
-		SpawnLookAtEQSRequests[CurrentSpawnIndex].InitForOwnerAndBlackboard(*Actor, nullptr);
-		const int32 LookAtEQSRequestId = SpawnLookAtEQSRequests[CurrentSpawnIndex].Execute(*Actor, nullptr, FoundInitialLookAtLocationDelegate);
-		if (LookAtEQSRequestId != INDEX_NONE)
-			PendingLookAtLocationEQSRequests.Add(LookAtEQSRequestId, { Actor,  CurrentSpawnIndex });
-	}
-	
-	SpawnedActors.Add(Actor);
-	IncrementSpawnedActors();
 }
 
 void UTrainingEpisodeSetupComponent::IncrementSpawnedActors()
@@ -310,7 +354,7 @@ void UTrainingEpisodeSetupComponent::OnFoundSpawnLocation(TSharedPtr<FEnvQueryRe
 	if (SpawnLocation != FVector::ZeroVector)
 	{
 		SpawnedActorsLocationsCached[CurrentSpawnIndex].SpawnLocation = SpawnLocation;
-		SpawnActor(SpawnDescriptor, false);
+		SpawnNewActor(SpawnDescriptor);
 	}
 	else
 	{
@@ -339,16 +383,30 @@ void UTrainingEpisodeSetupComponent::OnFoundInitialLookAtLocation(TSharedPtr<FEn
 	PendingLookAtLocationEQSRequests.Remove(EnvQueryResult->QueryID);
 }
 
+void UTrainingEpisodeSetupComponent::ExecuteActorOnStartActions()
+{
+	for (const auto& SpawnDescriptor : TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex].ActorsSpawnDescriptors)
+	{
+		const auto* ActorPtr = SpawnedActors.Find(SpawnDescriptor.Id);
+		if (ActorPtr == nullptr || !ActorPtr->IsValid())
+			continue; 
+		
+		ExecuteActorSetupPipeline(ActorPtr->Get(), SpawnDescriptor.Template->SetupPipelineOnStart);
+		ExecuteActorSetupPipeline(ActorPtr->Get(), SpawnDescriptor.SetupPipelineOnStart);
+	}
+}
+
+void UTrainingEpisodeSetupComponent::OnAllActorsSpawned()
+{
+	ExecuteActorOnStartActions();
+	FinishSetup();
+}
+
 void UTrainingEpisodeSetupComponent::FinishSetup()
 {
 	TrainingEpisodeSetupStepChangedEvent.Broadcast(ETrainingEpisodeSetupAction::None);
 	TrainingEpisodeSetupCompletedEvent.Broadcast(TrainingPresetsDataAsset->TrainingPresets[CurrentPresetIndex]);
 	bSetupInProgress = false;
-}
-
-void UTrainingEpisodeSetupComponent::OnAllActorsSpawned()
-{
-	FinishSetup();
 }
 
 void UTrainingEpisodeSetupComponent::SpawnTrainingEpisodePCG(const FMLTrainingEpisodePCG& EpisodePCG)
@@ -426,7 +484,15 @@ bool UTrainingEpisodeSetupComponent::WaitNavmeshUpdate(ETrainingEpisodeSetupActi
 void UTrainingEpisodeSetupComponent::OnNavMeshRegenerated(ANavigationData* NavData)
 {
 	auto NavSys = UNavigationSystemV1::GetCurrent(this);
-	bool bAllDoneLikeReallyReallyDone = !NavSys->HasDirtyAreasQueued() && NavSys->GetNumRunningBuildTasks() == 0 && NavSys->GetNumRemainingBuildTasks() == 0;
+	const bool bHasDirtyAreasQueued = NavSys->HasDirtyAreasQueued();
+	const int RunningBuildTasksCount = NavSys->GetNumRunningBuildTasks();
+	const int RemainingBuildTasksCount = NavSys->GetNumRemainingBuildTasks();
+	
+	UE_VLOG(GetOwner(), LogNpcMl, VeryVerbose,
+		TEXT("UTrainingEpisodeSetupComponent::OnNavMeshRegenerated:\nHas dirty areas queued: %s\nRunning build tasks: %d\nRemaining build tasks: %d"),
+		bHasDirtyAreasQueued ? TEXT("true") : TEXT("false"), RunningBuildTasksCount, RemainingBuildTasksCount);
+	
+	bool bAllDoneLikeReallyReallyDone = !bHasDirtyAreasQueued && RunningBuildTasksCount == 0 && RemainingBuildTasksCount == 0;
 	if (bAllDoneLikeReallyReallyDone)
 	{
 		NavSys->OnNavigationGenerationFinishedDelegate.RemoveAll(this);
@@ -444,7 +510,6 @@ void UTrainingEpisodeSetupComponent::OnNavMeshRegenerated(ANavigationData* NavDa
 				ensure(false);
 				break;
 		}
-		
 	}
 }
 

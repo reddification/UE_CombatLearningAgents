@@ -2,7 +2,9 @@
 
 #include "LearningAgentsInteractor.h"
 #include "LearningAgentsManager.h"
+#include "Components/TrainingEpisodeManagerComponent.h"
 #include "Components/TrainingEpisodeSetupComponent.h"
+#include "GameFramework/GameStateBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/MLOverviewPanelWidget.h"
 
@@ -34,6 +36,20 @@ void AMLTrainingManager::BeginPlay()
 		DebugPanelWidget = CreateWidget<UMLOverviewPanelWidget>(PC, WidgetClass);
 		DebugPanelWidget->AddToViewport();
 	}
+	
+	if (auto GameState = GetWorld()->GetGameState())
+		if (auto MLTrainingEpisodeManager = GameState->FindComponentByClass<UTrainingEpisodeManagerComponent>())
+			MLTrainingEpisodeManager->RegisterTrainingManager(this);
+}
+
+void AMLTrainingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (auto WorldLocal = GetWorld())
+		if (auto GameState = WorldLocal->GetGameState())
+			if (auto MLTrainingEpisodeManager = GameState->FindComponentByClass<UTrainingEpisodeManagerComponent>())
+				MLTrainingEpisodeManager->UnregisterTrainingManager(this);
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void AMLTrainingManager::SetState(EMLTrainingSessionState NewState)

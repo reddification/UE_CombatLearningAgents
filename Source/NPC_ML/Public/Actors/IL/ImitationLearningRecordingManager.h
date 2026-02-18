@@ -50,7 +50,7 @@ public:
 	virtual void ResumeTraining() override;
 	virtual void PauseTraining() override;
 	virtual void RestartTraining(bool bUseNewSetup) override;
-	
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

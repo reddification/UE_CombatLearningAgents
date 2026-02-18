@@ -25,7 +25,7 @@ public:
 	AMLTrainingManager();
 	virtual void PostInitializeComponents() override;
 	
-	FTrainingEpisodeStateChangedEvent TrainingEpisodeStateChangedEvent;
+	mutable FTrainingEpisodeStateChangedEvent TrainingEpisodeStateChangedEvent;
 	
 	FORCEINLINE bool IsTrainingActive() const { return TrainingState == EMLTrainingSessionState::Running; };
 	
@@ -35,8 +35,11 @@ public:
 	virtual void StopTraining();
 	virtual void RestartTraining(bool bUseNewSetup);
 	
+	FORCEINLINE EMLTrainingSessionState GetEpisodeState() const { return TrainingState; };
+	
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UTrainingEpisodeSetupComponent> TrainingEpisodeSetupComponent;

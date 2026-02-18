@@ -1,7 +1,4 @@
-﻿// 
-
-
-#include "EQS/Contexts/EnvQueryContext_MLTrainingEpisodeLocation.h"
+﻿#include "EQS/Contexts/EnvQueryContext_MLTrainingEpisodeLocation.h"
 
 #include "Components/TrainingEpisodeSetupComponent.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"

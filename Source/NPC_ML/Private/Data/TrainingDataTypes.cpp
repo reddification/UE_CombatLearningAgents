@@ -1,10 +1,21 @@
 ﻿#include "Data/TrainingDataTypes.h"
+#include "EnvironmentQuery/EnvQuery.h"
 
-#include "Kismet/GameplayStatics.h"
+#if WITH_EDITOR
 
-bool FMLTrainingEpisodeActorSetupAction_FinishDeferredSpawn::SetupInternal(AActor* Actor, FExternalMemory* Memory) const
+void UMLTrainingEpisodeActorTemplate::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
-	Super::SetupInternal(Actor, Memory);
-	auto SpawnedCharacter = UGameplayStatics::FinishSpawningActor(Actor, Actor->GetTransform());
-	return IsValid(SpawnedCharacter);
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	if (IsValid(SpawnActorLocationEQS.QueryTemplate))
+		SpawnActorLocationEQS.QueryTemplate->CollectQueryParams(*this, SpawnActorLocationEQS.QueryConfig);
+
+	if (IsValid(InitialActorLookAtEQS.QueryTemplate))
+		InitialActorLookAtEQS.QueryTemplate->CollectQueryParams(*this, InitialActorLookAtEQS.QueryConfig);
+
+	// TODO 27.01.2026 (aki): interface or base virtual function like UpdateEditorConfig(*this) for whatever setup actions using EQS or whatever
+	// for (auto& SpawnActionInstancedStruct : SpawnDescriptor.SetupPipeline)
+	// {
+	// }
 }
+
+#endif

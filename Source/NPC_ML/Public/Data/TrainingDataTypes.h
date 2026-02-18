@@ -1,6 +1,9 @@
 ﻿#pragma once
+
+#include "TrainingEpisodeActorSetupActions.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 
+#include "StructUtils/InstancedStruct.h"
 #include "TrainingDataTypes.generated.h"
 
 class ATrainingEpisodePCG;
@@ -28,19 +31,6 @@ enum class ETrainingEpisodeSetupAction : uint8
 	SpawnActors
 };
 
-struct FTrainingEpisodeSetupActionExternalMemoryBase
-{
-	bool bCanSetup = true;
-};
-
-using FExternalMemory = FTrainingEpisodeSetupActionExternalMemoryBase;
-
-struct FTrainingEpisodeSetupExternalMemory_Spawn : public FExternalMemory
-{
-	FVector SpawnLocation = FVector::ZeroVector;
-	FVector LookAt = FVector::ZeroVector;
-};
-
 USTRUCT(BlueprintType)
 struct FPcgParametersContainer
 {
@@ -50,72 +40,17 @@ struct FPcgParametersContainer
 	TMap<FName, float> FloatParameters;
 };
 
-USTRUCT(BlueprintType)
-struct NPC_ML_API FMLTrainingEpisodeActorSetupAction_Base
+UCLASS(BlueprintType)
+class UMLTrainingEpisodeActorTemplate : public UDataAsset
 {
 	GENERATED_BODY()
 	
-	using Super = FMLTrainingEpisodeActorSetupAction_Base;
-
-	FMLTrainingEpisodeActorSetupAction_Base()
-	{
-		PipelineActionId = FGuid::NewGuid();
-	};
+public:
 	
-	virtual ~FMLTrainingEpisodeActorSetupAction_Base() = default;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	FGuid PipelineActionId;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(UIMin = 0.f, ClampMin = 0.f, UIMax = 1.f, ClampMax = 1.f))
-	float SetupChance = 1.f;
-	
-	bool Setup(AActor* Actor, FExternalMemory* Memory) const
-	{
-		if (CanSetup(Actor))
-		{
-			if (Memory != nullptr)
-				Memory->bCanSetup = true;
-				
-			return SetupInternal(Actor, Memory);
-		}
-		
-		return false;
-	};
-	
-	bool Repeat(AActor* Actor, FExternalMemory* Memory) const
-	{
-		if (Memory == nullptr || Memory->bCanSetup)
-			return RepeatInternal(Actor, Memory);
-		
-		return false;
-	};
-	
-	virtual float CanSetup(AActor* Actor) const
-	{
-		return SetupChance >= 1.f ? true : FMath::RandRange(0.f, 1.f) <= SetupChance;
-	}
-	
-	virtual TUniquePtr<FExternalMemory> MakeMemory() const { return MakeUnique<FExternalMemory>(); }
-	
-protected:
-	virtual bool SetupInternal(AActor* Actor, FExternalMemory* Memory) const { return true; }
-	virtual bool RepeatInternal(AActor* Actor, FExternalMemory* Memory) const { return true; }
-};
-
-USTRUCT(BlueprintType, DisplayName="Finish deferred spawn")
-struct FMLTrainingEpisodeActorSetupAction_FinishDeferredSpawn : public FMLTrainingEpisodeActorSetupAction_Base
-{
-	GENERATED_BODY()
-	
-protected:
-	virtual bool SetupInternal(AActor* Actor, FExternalMemory* Memory) const override;
-};
-
-USTRUCT(BlueprintType)
-struct FMLTrainingActorSpawnDescriptor
-{
-	GENERATED_BODY()
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditDefaultsOnly)
+	FString UserDescription;
+#endif
 	
 	UPROPERTY(EditAnywhere)
 	FEQSParametrizedQueryExecutionRequest SpawnActorLocationEQS;
@@ -123,14 +58,48 @@ struct FMLTrainingActorSpawnDescriptor
 	UPROPERTY(EditAnywhere)
 	FEQSParametrizedQueryExecutionRequest InitialActorLookAtEQS;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bSpawnDeferred = true;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSoftClassPtr<AActor> ActorClass;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ExcludeBaseStruct))
-	TArray<TInstancedStruct<FMLTrainingEpisodeActorSetupAction_Base>> SetupPipeline;
+	// these actions will be applied immediately on spawn
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta=(ExcludeBaseStruct))
+	TArray<TInstancedStruct<FMLTrainingEpisodeActorSetupAction_Base>> SetupPipelineOnSpawn;
+	
+	// these actions will be applied when all actors have already spawned and right before the training episode starts
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta=(ExcludeBaseStruct))
+	TArray<TInstancedStruct<FMLTrainingEpisodeActorSetupAction_Base>> SetupPipelineOnStart;
+	
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+};
+
+USTRUCT(BlueprintType)
+struct FMLTrainingActorSpawnDescriptor
+{
+	GENERATED_BODY()
+
+	FMLTrainingActorSpawnDescriptor()
+	{
+		Id = FGuid::NewGuid();
+	}
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	FGuid Id;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UMLTrainingEpisodeActorTemplate* Template = nullptr;
+
+	// episode specific. will be applied after template actions 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(ExcludeBaseStruct))
+	TArray<TInstancedStruct<FMLTrainingEpisodeActorSetupAction_Base>> SetupPipelineOnSpawn;
+	
+	// episode specific. will be applied after template actions
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(ExcludeBaseStruct))
+	TArray<TInstancedStruct<FMLTrainingEpisodeActorSetupAction_Base>> SetupPipelineOnStart;
 };
 
 USTRUCT(BlueprintType)
@@ -167,16 +136,9 @@ struct FMLTrainingPreset
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FString ConfigDescription;
 	
-	UPROPERTY(EditAnywhere)
-	FEQSParametrizedQueryExecutionRequest EpisodeOriginLocationEQS;
-	
 	//  currently only matters for PCG
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float EpisodeAreaRadius = 2500.f;
-	
-	// both agent and dummy-NPCs go here
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<FMLTrainingActorSpawnDescriptor> ActorsSpawnDescriptors;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float DurationMin = 15.f;
@@ -184,7 +146,14 @@ struct FMLTrainingPreset
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float DurationMax = 45.f;
 	
+	UPROPERTY(EditAnywhere)
+	FEQSParametrizedQueryExecutionRequest EpisodeOriginLocationEQS;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FMLTrainingEpisodePCG EpisodePCG;
+	
+	// both agent and dummy-NPCs go here
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FMLTrainingActorSpawnDescriptor> ActorsSpawnDescriptors;
 };
 
