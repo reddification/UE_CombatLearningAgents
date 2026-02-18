@@ -24,6 +24,7 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Dynamic_Health = FName("Observation.Dynamic.Health");
 	inline const FName Key_Observation_Dynamic_AccumulatedDamage = FName("Observation.Dynamic.AccumulatedDamage");
 	inline const FName Key_Observation_Dynamic_Stamina = FName("Observation.Dynamic.Stamina");
+	inline const FName Key_Observation_Dynamic_Poise = FName("Observation.Dynamic.Poise");
 	inline const FName Key_Observation_Dynamic_Velocity = FName("Observation.Dynamic.Velocity");
 	inline const FName Key_Observation_Dynamic_CombatStates = FName("Observation.Dynamic.CombatStates");
 	
@@ -32,29 +33,27 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Dynamic_Phrase = FName("Observation.Dynamic.Phrase");
 	inline const FName Key_Observation_Dynamic_Phrase_Optional = FName("Observation.Dynamic.Phrase.Optional");
 	
-	inline const FName Key_Observation_ActiveWeapon = FName("Observation.Dynamic.ActiveWeapon.Range");
-	inline const FName Key_Observation_ActiveWeapon_Range = FName("Observation.Dynamic.ActiveWeapon.Range");
-	inline const FName Key_Observation_ActiveWeapon_Range_Melee = FName("Observation.Dynamic.ActiveWeapon.Range.Melee");
-	inline const FName Key_Observation_ActiveWeapon_Range_Ranged = FName("Observation.Dynamic.ActiveWeapon.Range.Ranged");
-	inline const FName Key_Observation_ActiveWeapon_Type = FName("Observation.Dynamic.ActiveWeapon.Type");
-	inline const FName Key_Observation_ActiveWeapon_Mastery = FName("Observation.Dynamic.ActiveWeapon.Mastery");
-	inline const FName Key_Observation_ActiveWeapon_PowerRate = FName("Observation.Dynamic.ActiveWeapon.PowerRate");
-
 	inline const FName Key_Observation_Static = FName("Observation.Static");
 	inline const FName Key_Observation_Static_Level = FName("Observation.Static.Level");
 	inline const FName Key_Observation_Static_ArmorRate = FName("Observation.Static.ArmorRate");
-	inline const FName Key_Observation_Static_SurvivalDesire = FName("Observation.Static.SurvivalDesire");
+	inline const FName Key_Observation_Actor_Static_IsAlive = FName("Observation.Actor.Dynamic.IsAlive");
 
+	inline const FName Key_Observation_Static_ActiveWeapon = FName("Observation.Static.ActiveWeapon.Range");
+	inline const FName Key_Observation_Static_ActiveWeapon_Range = FName("Observation.Static.ActiveWeapon.Range");
+	inline const FName Key_Observation_Static_ActiveWeapon_Range_Melee = FName("Observation.Static.ActiveWeapon.Range.Melee");
+	inline const FName Key_Observation_Static_ActiveWeapon_Range_Ranged = FName("Observation.Static.ActiveWeapon.Range.Ranged");
+	inline const FName Key_Observation_Static_ActiveWeapon_Type = FName("Observation.Static.ActiveWeapon.Type");
+	inline const FName Key_Observation_Static_ActiveWeapon_Mastery = FName("Observation.Static.ActiveWeapon.Mastery");
+	inline const FName Key_Observation_Static_ActiveWeapon_PowerRate = FName("Observation.Static.ActiveWeapon.PowerRate");
+	
 	inline const FName Key_Observation_Enemies = FName("Observation.Enemy.Array");
 	inline const FName Key_Observation_Enemy = FName("Observation.Enemy");
 	
 	inline const FName Key_Observation_Allies = FName("Observation.Ally.Array");
 	inline const FName Key_Observation_Ally = FName("Observation.Ally");
 	
-	inline const FName Key_Observation_Actor_Dynamic_IsAlive = FName("Observation.Actor.Dynamic.IsAlive");
 	inline const FName Key_Observation_Actor_Dynamic_AgentCanSeeActor = FName("Observation.Actor.Dynamic.AgentCanSeeEnemy");
 	inline const FName Key_Observation_Actor_Dynamic_ActorCanSeeAgent = FName("Observation.Actor.Dynamic.EnemyCanSeeAgent");
-	inline const FName Key_Observation_Actor_Dynamic_KillDesire = FName("Observation.Actor.Dynamic.KillDesire");
 
 	inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Lidar = FName("Observation.Actor.Dynamic.RaindropTo.Lidar");
 	inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Array = FName("Observation.Actor.Dynamic.RaindropTo.Array");

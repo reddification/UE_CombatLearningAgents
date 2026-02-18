@@ -53,10 +53,10 @@ protected:
 	
 	virtual float GetNormalizedHealth(AActor* ForActor) const { return 1.f; }
 	virtual float GetNormalizedStamina(AActor* ForActor) const { return 1.f; }
+	virtual float GetNormalizedPoise(AActor* ForActor) const { return 1.f; };
 	virtual float GetArmorRate(AActor* ForActor) const { return 0.f; }
 	virtual ELACharacterStates GetCombatStates(AActor* ForActor) const { return ELACharacterStates::None; }
 	virtual int GetLevel(AActor* ForActor) const { return 1; }
-	virtual float GetSurvivalDesire() const { return 0.75f; }
 	virtual FWeaponData GetWeaponData(AActor* ForActor) const { return {}; }
 	virtual const FGameplayTag& GetActiveGesture(AActor* ForActor) const { return FGameplayTag::EmptyTag; }
 	virtual const FGameplayTag& GetActivePhrase(AActor* ForActor) const { return FGameplayTag::EmptyTag; }

@@ -187,10 +187,10 @@ FSelfData ULACombatObservationComponent::GetSelfData() const
 	auto OwnerActor = GetOwner();
 	SelfData.NormalizedHealth = GetNormalizedHealth(OwnerActor);
 	SelfData.NormalizedStamina = GetNormalizedStamina(OwnerActor);
+	SelfData.NormalizedPoise = GetNormalizedPoise(OwnerActor);
 	SelfData.ArmorRate = GetArmorRate(OwnerActor);
 	SelfData.CombatStates = GetCombatStates(OwnerActor);
 	SelfData.Level = GetLevel(OwnerActor);
-	SelfData.SurvivalDesire = GetSurvivalDesire();
 	SelfData.WeaponData = GetWeaponData(OwnerActor);
 	SelfData.WorldVelocity = OwnerActor->GetVelocity();
 	SelfData.ActiveGesture = GetActiveGesture(OwnerActor);

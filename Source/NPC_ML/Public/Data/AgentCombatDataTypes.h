@@ -37,7 +37,7 @@ namespace CombatLearning
 	struct FSelfData : public FCharacterDataBase
 	{
 		float NormalizedStamina = 1.f;
-		float SurvivalDesire = 0.f;
+		float NormalizedPoise = 1.f;
 	};
 
 	struct FEnemyData : public FPerceivedCharacterData
@@ -46,7 +46,6 @@ namespace CombatLearning
 		// so for example a wanderer would have 0.25 kill desire against rabid dog,
 		//		like if the dog is likely to kill the agent then fuck it lets run, or don't really push it and approach carefully
 		// and if you just killed agent's "wife" then it will be furious with kill desire == 1 
-		float KillDesire = 1.f;
 	};
 
 	struct FAllyData : public FPerceivedCharacterData
