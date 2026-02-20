@@ -196,7 +196,7 @@ FSelfData ULACombatObservationComponent::GetSelfData() const
 	SelfData.ActiveGesture = GetActiveGesture(OwnerActor);
 	SelfData.ActivePhrase = GetActivePhrase(OwnerActor);
 	SelfData.AccumulatedNormalizedDamage = GetAccumulatedNormalizedDamage(OwnerActor);
-	
+	SelfData.Identity = GetIdentity(OwnerActor);
 	return SelfData;
 }
 
@@ -260,12 +260,12 @@ void ULACombatObservationComponent::ProcessTargetObservations(TArray<TSharedRef<
 		Targets.RemoveAt(MaxCountOfTargets, Targets.Num() - MaxCountOfTargets);
 	
 	// remove those that don't present anymore
-	TSet<AActor*> TargetActorsSet;
+	TSet<const AActor*> TargetActorsSet;
 	TargetActorsSet.Reserve(Targets.Num());
 	for (int i = 0; i < Targets.Num(); i++)
 		TargetActorsSet.Add(Targets[i]->Actor.Get());
 	
-	TSet<AActor*> NoMorePresentCharacters;
+	TSet<const AActor*> NoMorePresentCharacters;
 	NoMorePresentCharacters.Reserve(CachedTargetsData->Num() - Targets.Num());
 	for (auto& CachedEnemy : *CachedTargetsData)
 	{
@@ -324,14 +324,14 @@ void ULACombatObservationComponent::ProcessTargetObservations(TArray<TSharedRef<
 	}
 }
 
-const TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetEnemiesObservationData()
+const TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetEnemiesObservationData()
 {
 	TArray<TSharedRef<FPerceivedCharacterData>> Targets = GetEnemies();
 	ProcessTargetObservations(MoveTemp(Targets), ELAAgentAttitude::Enemy);
 	return CachedEnemiesData;
 }
 
-const TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetAlliesObservationData()
+const TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetAlliesObservationData()
 {
 	TArray<TSharedRef<FPerceivedCharacterData>> Targets = GetAllies();
 	ProcessTargetObservations(MoveTemp(Targets), ELAAgentAttitude::Ally);
@@ -398,7 +398,7 @@ void ULACombatObservationComponent::OnCombatEnded()
 	GetWorld()->GetTimerManager().SetTimer(ResetRaindropBuffersTimer, this, &ULACombatObservationComponent::ResetRaindropBuffers, 2.f);
 }
 
-bool ULACombatObservationComponent::HasRelevantLidarData(AActor* Actor, ELAAgentAttitude TargetType) const
+bool ULACombatObservationComponent::HasRelevantLidarData(const AActor* Actor, ELAAgentAttitude TargetType) const
 {
 	switch (TargetType)
 	{
@@ -419,7 +419,7 @@ bool ULACombatObservationComponent::HasRelevantLidarData(AActor* Actor, ELAAgent
 	}
 }
 
-const TArray<float>* ULACombatObservationComponent::GetLidarDataTo(AActor* ForActor, ELAAgentAttitude TargetType) const
+const TArray<float>* ULACombatObservationComponent::GetLidarDataTo(const AActor* ForActor, ELAAgentAttitude TargetType) const
 {
 	if (!HasRelevantLidarData(ForActor, TargetType) || RaindropBuffers[TargetType].IsEmpty())
 		return nullptr;

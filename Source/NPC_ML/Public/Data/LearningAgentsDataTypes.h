@@ -100,6 +100,54 @@ enum class ELAAttackType : uint8
 	Default = 0
 };
 
+UENUM()
+enum class ELARoleplayTemper : uint8
+{
+	None = 0,
+	Aggressive,
+	Calm,
+	Passive,
+	Frightened,
+	Serious,
+	Quirky,
+	Arrogant,
+	Coward,
+	Cunning
+};
+
+UENUM()
+enum class ELARoleplayPersonality : uint8
+{
+	None = 0,
+	Noble,
+	Scum,
+	Civilian,
+	Military,
+	Criminal,
+	Wanderer,
+	Intellectual
+};
+
+UENUM()
+enum class ELACurrentRoleplayObjective : uint8
+{
+	None = 0,
+	Idle,
+	Relax,
+	Duty,
+	Work,
+	CriminalActivity
+};
+
+UENUM()
+enum class ELARoleplayCombatAttitude : uint8
+{
+	None = 0,
+	Ally,
+	MustProtect,
+	SeekHelp,
+};
+
 struct FCombatEventData
 {
 	FCombatEventData(float WorldTime, ELACombatEvent CombatEvent, bool bEventSubject, ELAAgentAttitude AttitudeToCauser)

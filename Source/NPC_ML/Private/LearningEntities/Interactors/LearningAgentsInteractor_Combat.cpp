@@ -613,6 +613,19 @@ FObservationSchemaItem ULearningAgentsInteractor_Combat::SpecifyStaticObservatio
 {
 	auto LevelObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxLevel, Key_Observation_Static_Level);
 	auto ArmorRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxArmorRate, Key_Observation_Static_ArmorRate);
+	
+	auto ObjectiveEnumObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, GetAgentObjectiveEnum(), Key_Observation_Static_Identity_Objective);
+	auto PersonalityEnumObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, GetAgentPersonalityEnum(), Key_Observation_Static_Identity_Personality);
+	auto TemperEnumObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, GetAgentTemperEnum(), Key_Observation_Static_Identity_Temper);
+	auto IdentityObservations = FObservationSchemasMap
+	{
+		{ Key_Observation_Static_Identity_Objective, ObjectiveEnumObservation },
+		{ Key_Observation_Static_Identity_Personality, PersonalityEnumObservation },
+		{ Key_Observation_Static_Identity_Temper, TemperEnumObservation }
+	};
+	
+	auto IdentityObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, IdentityObservations, Key_Observation_Static_Identity);
+	
 	auto WeaponObservation = GetWeaponObservationSchema(InObservationSchema, Settings);
 	
 	FObservationSchemasMap StaticObservations =
@@ -620,6 +633,7 @@ FObservationSchemaItem ULearningAgentsInteractor_Combat::SpecifyStaticObservatio
 		{ Key_Observation_Static_Level, LevelObservation },
 		{ Key_Observation_Static_ArmorRate, ArmorRateObservation },
 		{ Key_Observation_Static_ActiveWeapon, WeaponObservation },
+		{ Key_Observation_Static_Identity, IdentityObservation }
 	};
 	
 	StaticObservations.Append(AdditionalObservations);
@@ -737,10 +751,13 @@ FObservationSchemaItem ULearningAgentsInteractor_Combat::SpecifyOtherCharacterSt
 	const FObservationSchemasMap& AdditionalObservations) const
 {
 	auto CharacterAliveObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Actor_Static_IsAlive);
+	auto RoleplayAttitudeEnumObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, GetRoleplayAttitudeEnum(),
+		Key_Observation_Actor_Static_RoleplayAttitude);
 	
 	FObservationSchemasMap OtherCharacterStaticObservations =
 	{
-		{ Key_Observation_Actor_Static_IsAlive, CharacterAliveObservation},
+		{ Key_Observation_Actor_Static_IsAlive, CharacterAliveObservation },
+		{ Key_Observation_Actor_Static_RoleplayAttitude, RoleplayAttitudeEnumObservation },
 	};
 	
 	OtherCharacterStaticObservations.Append(AdditionalObservations);
@@ -871,17 +888,41 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherOptionalNamedExcl
 FObservationObjectItem ULearningAgentsInteractor_Combat::GatherStaticObservations(const FObservationGatherParams& GatheringParams,
 	const FCharacterDataBase& CharacterData, const FObservationObjectsMap& AdditionalObservations)
 {
+	// 18 Feb 2026 (aki): TODO think about caching some of that stuff if it takes noticeable time
+	TRACE_CPUPROFILER_EVENT_SCOPE(LA::GatherStaticObservations)
+	
 	auto LevelObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject, CharacterData.Level, Key_Observation_Static_Level,
 	    GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
 	auto ArmorRateObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject, CharacterData.ArmorRate, Key_Observation_Static_ArmorRate,
 		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
-	auto WeaponObservation = GetWeaponObservation(GatheringParams.InObservationObject, GatheringParams.AgentId, CharacterData.WeaponData, GatheringParams.Settings, GatheringParams.AgentWorldLocation);
+	
+	auto ObjectiveObservation = ULearningAgentsObservations::MakeEnumObservation(GatheringParams.InObservationObject, GetAgentObjectiveEnum(), 
+		CharacterData.Identity.Objective, Key_Observation_Static_Identity_Objective, 
+		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+	auto TemperObservation = ULearningAgentsObservations::MakeEnumObservation(GatheringParams.InObservationObject, GetAgentTemperEnum(), 
+		CharacterData.Identity.Temper, Key_Observation_Static_Identity_Temper, 
+		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+	auto PersonalityObservation = ULearningAgentsObservations::MakeEnumObservation(GatheringParams.InObservationObject, GetAgentPersonalityEnum(), 
+		CharacterData.Identity.Personality, Key_Observation_Static_Identity_Personality, 
+		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+	auto IdentityObservationsMap = FObservationObjectsMap
+	{
+		{ Key_Observation_Static_Identity_Objective, ObjectiveObservation },
+		{ Key_Observation_Static_Identity_Personality, TemperObservation },
+		{ Key_Observation_Static_Identity_Temper, PersonalityObservation }
+	};
+	
+	auto IdentityObservation = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, IdentityObservationsMap,
+		Key_Observation_Static_Identity);
+	auto WeaponObservation = GetWeaponObservation(GatheringParams.InObservationObject, GatheringParams.AgentId, CharacterData.WeaponData, 
+		GatheringParams.Settings, GatheringParams.AgentWorldLocation);
 	
 	FObservationObjectsMap StaticSelfObservations =
 	{
 		{ Key_Observation_Static_Level, LevelObservation },
 		{ Key_Observation_Static_ArmorRate, ArmorRateObservation },
 		{ Key_Observation_Static_ActiveWeapon, WeaponObservation },
+		{ Key_Observation_Static_Identity, IdentityObservation },
 	};
 
 	StaticSelfObservations.Append(AdditionalObservations);
@@ -1157,7 +1198,6 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherOtherCharacterDyn
 		Key_Observation_Actor_Dynamic_Orientation,
 		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
 	
-	
 	FObservationObjectItem RaindropToActorOptionalObservation;
 	if (RaindropsTo != nullptr)
 	{
@@ -1203,10 +1243,14 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherOtherCharacterSta
 	auto ActorAliveObservation = ULearningAgentsObservations::MakeBoolObservation(GatheringParams.InObservationObject, ActorState.bAlive,
 		Key_Observation_Actor_Static_IsAlive,
 		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+	auto RoleplayAttitudeObservation = ULearningAgentsObservations::MakeEnumObservation(GatheringParams.InObservationObject, 
+		GetRoleplayAttitudeEnum(), ActorState.RoleplayAttitude, Key_Observation_Actor_Static_RoleplayAttitude, 
+		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
 	
 	FObservationObjectsMap AdditionalOtherCharacterObservations = 
 	{
-		{ Key_Observation_Actor_Static_IsAlive, ActorAliveObservation},
+		{ Key_Observation_Actor_Static_IsAlive, ActorAliveObservation },
+		{ Key_Observation_Actor_Static_RoleplayAttitude, RoleplayAttitudeObservation }
 	};
 		
 	AdditionalOtherCharacterObservations.Append(AdditionalObservations);
@@ -1215,7 +1259,7 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherOtherCharacterSta
 }
 
 FObservationObjectItem ULearningAgentsInteractor_Combat::GatherEnemiesObservation(ULearningAgentsObservationObject* InObservationObject,
-                                                                                                   ULACombatObservationComponent* CombatObservationComponent, int32 AgentId)
+	ULACombatObservationComponent* CombatObservationComponent, int32 AgentId)
 {
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));

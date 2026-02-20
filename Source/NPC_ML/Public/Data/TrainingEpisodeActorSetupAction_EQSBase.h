@@ -43,12 +43,13 @@ private:
 using FExternalMemory_EQS = FTrainingEpisodeSetupActionExternalMemory_EQS;
 
 USTRUCT(DisplayName="Run EQS", meta=(Hidden))
-struct NPC_ML_API FCharacterInitializationSetupPipeline_RunEQS_Base : public FMLTrainingEpisodeActorSetupAction_Base
+struct NPC_ML_API FCharacterInitializationSetupAction_RunEQS_Base : public FMLTrainingEpisodeActorSetupAction_Base
 {
 	GENERATED_BODY()
 
 public:
 	virtual FExternalMemoryPtr MakeMemory() const override;
+	virtual float CanSetup(AActor* Actor) const override;
 	
 protected:
 	virtual bool SetupInternal(AActor* Actor, FExternalMemoryPtr ExternalMemory) const override;

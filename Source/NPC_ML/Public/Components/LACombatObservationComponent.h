@@ -26,7 +26,7 @@ class NPC_ML_API ULACombatObservationComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-	using FCharacterDataContainer = TMap<TWeakObjectPtr<AActor>, TSharedPtr<FOtherCharacterObservationData>>;
+	using FCharacterDataContainer = TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>;
 	
 public:
 	ULACombatObservationComponent();
@@ -42,8 +42,8 @@ public:
 	void OnCombatStarted();
 	void OnCombatEnded();
 	
-	bool HasRelevantLidarData(AActor* Actor, ELAAgentAttitude TargetType) const;
-	const TArray<float>* GetLidarDataTo(AActor* ForActor, ELAAgentAttitude TargetType) const;
+	bool HasRelevantLidarData(const AActor* Actor, ELAAgentAttitude TargetType) const;
+	const TArray<float>* GetLidarDataTo(const AActor* ForActor, ELAAgentAttitude TargetType) const;
 	FORCEINLINE int GetRaindropToTargetResolution(ELAAgentAttitude Target) const { return Settings->RaindropParams[Target].GetResolution(); }
 	const FLidarSelfObservationCache& GetSelfLidarData() const { return LidarSelfObservationCache; }
 
@@ -51,16 +51,17 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
-	virtual float GetNormalizedHealth(AActor* ForActor) const { return 1.f; }
-	virtual float GetNormalizedStamina(AActor* ForActor) const { return 1.f; }
-	virtual float GetNormalizedPoise(AActor* ForActor) const { return 1.f; };
-	virtual float GetArmorRate(AActor* ForActor) const { return 0.f; }
-	virtual ELACharacterStates GetCombatStates(AActor* ForActor) const { return ELACharacterStates::None; }
-	virtual int GetLevel(AActor* ForActor) const { return 1; }
-	virtual FWeaponData GetWeaponData(AActor* ForActor) const { return {}; }
-	virtual const FGameplayTag& GetActiveGesture(AActor* ForActor) const { return FGameplayTag::EmptyTag; }
-	virtual const FGameplayTag& GetActivePhrase(AActor* ForActor) const { return FGameplayTag::EmptyTag; }
-	virtual float GetAccumulatedNormalizedDamage(AActor* ForActor) const { return 0.f; }
+	virtual float GetNormalizedHealth(const AActor* ForActor) const { return 1.f; }
+	virtual float GetNormalizedStamina(const AActor* ForActor) const { return 1.f; }
+	virtual float GetNormalizedPoise(const AActor* ForActor) const { return 1.f; };
+	virtual float GetArmorRate(const AActor* ForActor) const { return 0.f; }
+	virtual ELACharacterStates GetCombatStates(const AActor* ForActor) const { return ELACharacterStates::None; }
+	virtual int GetLevel(const AActor* ForActor) const { return 1; }
+	virtual FWeaponData GetWeaponData(const AActor* ForActor) const { return {}; }
+	virtual const FGameplayTag& GetActiveGesture(const AActor* ForActor) const { return FGameplayTag::EmptyTag; }
+	virtual const FGameplayTag& GetActivePhrase(const AActor* ForActor) const { return FGameplayTag::EmptyTag; }
+	virtual float GetAccumulatedNormalizedDamage(const AActor* ForActor) const { return 0.f; }
+	virtual FRoleplayIdentity GetIdentity(const AActor* ForActor) const { return FRoleplayIdentity(); };
 	
 	virtual TArray<TSharedRef<FPerceivedCharacterData>> GetEnemies() const;
 	virtual TArray<TSharedRef<FPerceivedCharacterData>> GetAllies() const;

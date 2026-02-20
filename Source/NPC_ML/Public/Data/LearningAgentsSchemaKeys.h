@@ -36,7 +36,14 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Static = FName("Observation.Static");
 	inline const FName Key_Observation_Static_Level = FName("Observation.Static.Level");
 	inline const FName Key_Observation_Static_ArmorRate = FName("Observation.Static.ArmorRate");
-	inline const FName Key_Observation_Actor_Static_IsAlive = FName("Observation.Actor.Dynamic.IsAlive");
+	
+	inline const FName Key_Observation_Static_Identity = FName("Observation.Static.Identity");
+	inline const FName Key_Observation_Static_Identity_Objective = FName("Observation.Static.Identity.Objective");
+	inline const FName Key_Observation_Static_Identity_Temper = FName("Observation.Static.Identity.Temper");
+	inline const FName Key_Observation_Static_Identity_Personality = FName("Observation.Static.Identity.Personality");
+	
+	inline const FName Key_Observation_Actor_Static_IsAlive = FName("Observation.Actor.Static.IsAlive");
+	inline const FName Key_Observation_Actor_Static_RoleplayAttitude = FName("Observation.Actor.Static.RoleplayAttitude");
 
 	inline const FName Key_Observation_Static_ActiveWeapon = FName("Observation.Static.ActiveWeapon.Range");
 	inline const FName Key_Observation_Static_ActiveWeapon_Range = FName("Observation.Static.ActiveWeapon.Range");

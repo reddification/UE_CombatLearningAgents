@@ -1,13 +1,19 @@
 ﻿#include "Data/TrainingEpisodeActorSetupAction_EQSBase.h"
 #include "AITypes.h"
+#include "EnvironmentQuery/EnvQuery.h"
 
-FExternalMemoryPtr FCharacterInitializationSetupPipeline_RunEQS_Base::MakeMemory() const
+FExternalMemoryPtr FCharacterInitializationSetupAction_RunEQS_Base::MakeMemory() const
 {
 	return MakeShared<FExternalMemory_EQS>();
 }
 
-bool FCharacterInitializationSetupPipeline_RunEQS_Base::SetupInternal(AActor* Actor,
-                                                                      FExternalMemoryPtr ExternalMemory) const
+float FCharacterInitializationSetupAction_RunEQS_Base::CanSetup(AActor* Actor) const
+{
+	return Super::CanSetup(Actor) && IsValid(EQSRequest.QueryTemplate);
+}
+
+bool FCharacterInitializationSetupAction_RunEQS_Base::SetupInternal(AActor* Actor,
+                                                                    FExternalMemoryPtr ExternalMemory) const
 {
 	auto Base = Super::SetupInternal(Actor, ExternalMemory);
 	if (!Base) return false;

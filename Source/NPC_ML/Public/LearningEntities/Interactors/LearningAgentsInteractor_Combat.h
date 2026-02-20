@@ -55,7 +55,7 @@ protected:
 		const UCombatLearningSettings* Settings,
 		const FObservationSchemasMap& AdditionalObservations, ELAAgentAttitude RaindropTarget) const;
 	virtual FObservationSchemaItem SpecifyOtherCharacterStaticObservations(ULearningAgentsObservationSchema* InObservationSchema, 
-		const UCombatLearningSettings* Settings, const FObservationSchemasMap& AdditionalObservations) const;
+	                                                                       const UCombatLearningSettings* Settings, const FObservationSchemasMap& AdditionalObservations) const;
 	virtual FObservationSchemaItem SpecifyEnemyObservation(ULearningAgentsObservationSchema* InObservationSchema, 
 		const UCombatLearningSettings* Settings) const;
 	virtual FObservationSchemaItem SpecifyAllyObservations(ULearningAgentsObservationSchema* InObservationSchema, 
@@ -75,6 +75,11 @@ protected:
 		ULACombatObservationComponent* CombatObservationComponent, int32 AgentId);
 	
 	virtual const UEnum* GetAttackEnum() { return StaticEnum<ELAAttackType>(); }
+	virtual const UEnum* GetAgentObjectiveEnum() const { return StaticEnum<ELACurrentRoleplayObjective>(); };
+	virtual const UEnum* GetAgentPersonalityEnum() const { return StaticEnum<ELARoleplayPersonality>(); };
+	virtual const UEnum* GetAgentTemperEnum() const { return StaticEnum<ELARoleplayTemper>(); };
+	virtual const UEnum* GetRoleplayAttitudeEnum() const { return StaticEnum<ELARoleplayCombatAttitude>(); };
+	
 	virtual TMap<uint8, float> GetAttackEnumBaseProbabilities() const { return {{0, 1.f }}; }
 	virtual TArray<uint8> GetMaskedAttackValues() const { return { }; }
 	
@@ -87,6 +92,7 @@ private:
 	FObservationSchemaItem SpecifyDynamicObservations(
 		ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings,
 		const FObservationSchemasMap& ExtraObservations) const;
+	
 	FObservationSchemaItem SpecifyStaticObservations(
 		ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings, const FObservationSchemasMap& AdditionalObservations) const;
 	FObservationObjectItem GatherOptionalNamedExclusiveObservation(ULearningAgentsObservationObject* InObservationObject,

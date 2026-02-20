@@ -13,6 +13,13 @@ namespace CombatLearning
 		float PowerRate = 10.f;
 	};
 
+	struct FRoleplayIdentity
+	{
+		uint8 Personality = 0;
+		uint8 Temper = 0;
+		uint8 Objective = 0;
+	};
+	
 	struct FCharacterDataBase
 	{
 		float NormalizedHealth = 1.f;
@@ -24,14 +31,16 @@ namespace CombatLearning
 		float AccumulatedNormalizedDamage = 0.f;
 		FGameplayTag ActiveGesture;
 		FGameplayTag ActivePhrase;
+		FRoleplayIdentity Identity;
 	};
 
 	struct FPerceivedCharacterData : public FCharacterDataBase
 	{
-		TWeakObjectPtr<AActor> Actor = nullptr;
+		TWeakObjectPtr<const AActor> Actor = nullptr;
 		bool bAlive = true;
 		bool bAgentCanSeeCharacter = true;
 		bool bCharacterCanSeeAgent = true;
+		uint8 RoleplayAttitude = 0;
 	};
 	
 	struct FSelfData : public FCharacterDataBase
