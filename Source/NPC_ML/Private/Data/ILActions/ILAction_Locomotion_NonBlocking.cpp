@@ -51,6 +51,7 @@ namespace LearningAgentsImitationActions
 
 	void FAction_Locomotion_NonBlocking::Combine(const TSharedPtr<FAction>& OtherAction)
 	{
+		Super::Combine(OtherAction);
 		const auto& OtherActionType = OtherAction->GetType();
 		if (!IsTypeOf(OtherActionType))
 		{

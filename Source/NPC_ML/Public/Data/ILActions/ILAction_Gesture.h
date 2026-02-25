@@ -10,7 +10,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_Gesture : public FAction_AnimationBase
+	class NPC_ML_API FAction_Gesture : public FAction_AnimationBase
 	{
 		using Super = FAction_AnimationBase;
 		

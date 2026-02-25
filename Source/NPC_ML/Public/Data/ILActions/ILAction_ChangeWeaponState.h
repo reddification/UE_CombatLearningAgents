@@ -8,7 +8,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_ChangeWeaponState : public FAction_AnimationBase
+	class NPC_ML_API FAction_ChangeWeaponState : public FAction_AnimationBase
 	{
 	private: 
 		using Super = FAction_AnimationBase;

@@ -4,7 +4,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction
+	class NPC_ML_API FAction
 	{
 		public:
 			FAction(float Timestamp) : Timestamp(Timestamp)
@@ -38,7 +38,7 @@ namespace LearningAgentsImitationActions
 			bool bTypeInitialized = false;
 	};
 	
-	struct FAgentPendingActionsBuffer
+	struct NPC_ML_API FAgentPendingActionsBuffer
 	{
 		DECLARE_DELEGATE_OneParam(FActionAccumulatedEvent, int AgentId);
 		

@@ -8,7 +8,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_Dodge : public FAction
+	class NPC_ML_API FAction_Dodge : public FAction
 	{
 		using Super = FAction;
 	public:

@@ -7,7 +7,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_Locomotion_BlockingLocomotion : public FAction
+	class NPC_ML_API FAction_Locomotion_BlockingLocomotion : public FAction
 	{
 		using Super = FAction;
 	public:

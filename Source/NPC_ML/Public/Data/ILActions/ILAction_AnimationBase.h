@@ -10,7 +10,7 @@ using namespace LAActionKeys;
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_AnimationBase : public FAction_Locomotion_NonBlocking
+	class NPC_ML_API FAction_AnimationBase : public FAction_Locomotion_NonBlocking
 	{
 		
 	private:

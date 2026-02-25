@@ -6,7 +6,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_Attack : public FAction
+	class NPC_ML_API FAction_Attack : public FAction
 	{
 		using Super = FAction;
 	public:

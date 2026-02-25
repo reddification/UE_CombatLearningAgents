@@ -8,7 +8,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_UseConsumableItem : public FAction_AnimationBase
+	class NPC_ML_API FAction_UseConsumableItem : public FAction_AnimationBase
 	{
 		using Super = FAction_AnimationBase;
 	public:

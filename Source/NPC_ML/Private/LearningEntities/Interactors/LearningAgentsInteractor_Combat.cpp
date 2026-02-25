@@ -240,7 +240,7 @@ FActionSchemaCategoryData ULearningAgentsInteractor_Combat::SpecifyNonBlockingLo
 		FLearningAgentsActionSchemaElement SayPhraseAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Phrases,
 			Key_Action_SayPhrase);
 		NonBlockingLocomotionActionsCategory.Elements.Emplace(Key_Action_SayPhrase, SayPhraseAction);
-		NonBlockingLocomotionActionsCategory.Elements.Emplace(Key_Action_SayPhrase, 0.2f);
+		NonBlockingLocomotionActionsCategory.Probabilities.Emplace(Key_Action_SayPhrase, 0.2f);
 	}
 	return NonBlockingLocomotionActionsCategory;
 }

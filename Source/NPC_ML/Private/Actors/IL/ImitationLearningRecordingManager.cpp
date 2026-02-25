@@ -87,7 +87,7 @@ FAgentPendingActionsBuffer& AImitationLearningRecordingManager::GetAgentActionsQ
 
 FAgentPendingActionsBuffer& AImitationLearningRecordingManager::GetAgentActionsQueue(int AgentId)
 {
-	auto& PendingActionQueues = ILController->GetPendingActionQueues(); 
+	auto& PendingActionQueues = ILController->GetPendingActionBuffer(); 
 	if (!PendingActionQueues.Contains(AgentId))
 	{
 		PendingActionQueues.Add(AgentId, FAgentPendingActionsBuffer(AgentId));

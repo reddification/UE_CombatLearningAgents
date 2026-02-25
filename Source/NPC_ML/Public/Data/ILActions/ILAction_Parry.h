@@ -8,7 +8,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_Parry : public FAction
+	class NPC_ML_API FAction_Parry : public FAction
 	{
 		using Super = FAction;
 		public:

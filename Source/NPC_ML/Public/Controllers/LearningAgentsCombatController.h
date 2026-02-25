@@ -1,10 +1,8 @@
-﻿// 
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "LearningAgentsController.h"
-#include "Data/ImitationLearningDataTypes.h"
+#include "Data/ILActions/ILAction_Base.h"
 #include "LearningAgentsCombatController.generated.h"
 
 UCLASS()
@@ -17,10 +15,9 @@ public:
 		ULearningAgentsActionObject* InActionObject, const ULearningAgentsObservationObject* InObservationObject, 
 		const FLearningAgentsObservationObjectElement& InObservationObjectElement, const int32 AgentId) override;
 
-	// хуйня какая то. надо по человечески сделать
-	FORCEINLINE TMap<int, LearningAgentsImitationActions::FAgentPendingActions>& GetPendingActionQueues() { return PendingActionQueues; }
+	FORCEINLINE TMap<int, LearningAgentsImitationActions::FAgentPendingActionsBuffer>& GetPendingActionBuffer() { return PendingActionQueues; }
 	
 private:
 	// key = agent id
-	TMap<int, LearningAgentsImitationActions::FAgentPendingActions> PendingActionQueues;
+	TMap<int, LearningAgentsImitationActions::FAgentPendingActionsBuffer> PendingActionQueues;
 };

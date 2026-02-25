@@ -4,7 +4,6 @@
 #include "Controllers/LearningAgentsCombatController.h"
 
 #include "LearningAgentsInteractor.h"
-#include "Data/ImitationLearningDataTypes.h"
 #include "Data/LearningAgentsSchemaKeys.h"
 
 using namespace LAActionKeys;

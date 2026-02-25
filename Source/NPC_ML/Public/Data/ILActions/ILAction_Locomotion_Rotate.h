@@ -6,7 +6,7 @@
 
 namespace LearningAgentsImitationActions
 {
-	class FAction_Locomotion_Rotate : public FAction_Locomotion_NonBlocking
+	class NPC_ML_API FAction_Locomotion_Rotate : public FAction_Locomotion_NonBlocking
 	{
 		using Super = FAction_Locomotion_NonBlocking;
 		
