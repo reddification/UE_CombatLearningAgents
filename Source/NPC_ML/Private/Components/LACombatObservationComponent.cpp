@@ -186,6 +186,7 @@ FSelfData ULACombatObservationComponent::GetSelfData() const
 
 	auto OwnerActor = GetOwner();
 	SelfData.NormalizedHealth = GetNormalizedHealth(OwnerActor);
+	SelfData.Actor = OwnerActor;
 	SelfData.NormalizedStamina = GetNormalizedStamina(OwnerActor);
 	SelfData.NormalizedPoise = GetNormalizedPoise(OwnerActor);
 	SelfData.ArmorRate = GetArmorRate(OwnerActor);

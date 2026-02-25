@@ -117,7 +117,7 @@ public:
 
 	// values - probabilities
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Actions")
-	TMap<FGameplayTag, float> ConsumablesProbabilities;
+	TMap<FGameplayTag, float> Consumables;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;

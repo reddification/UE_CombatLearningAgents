@@ -23,6 +23,7 @@ namespace CombatLearning
 	struct FCharacterDataBase
 	{
 		float NormalizedHealth = 1.f;
+		TWeakObjectPtr<const AActor> Actor = nullptr;
 		FVector WorldVelocity = FVector::ZeroVector;
 		ELACharacterStates CombatStates;
 		FWeaponData WeaponData;
@@ -36,7 +37,6 @@ namespace CombatLearning
 
 	struct FPerceivedCharacterData : public FCharacterDataBase
 	{
-		TWeakObjectPtr<const AActor> Actor = nullptr;
 		bool bAlive = true;
 		bool bAgentCanSeeCharacter = true;
 		bool bCharacterCanSeeAgent = true;

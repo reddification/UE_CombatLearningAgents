@@ -5,7 +5,6 @@
 #include "LearningAgentsRecorder.h"
 #include "Actors/MLTrainingManager.h"
 #include "Data/LearningAgentsDataTypes.h"
-#include "Data/TrainingDataTypes.h"
 #include "GameFramework/Actor.h"
 
 #include "ImitationLearningRecordingManager.generated.h"
@@ -18,7 +17,7 @@ class ULearningAgentsCombatController;
 
 namespace LearningAgentsImitationActions
 {
-	struct FAgentPendingActions;
+	struct FAgentPendingActionsBuffer;
 }
 
 class ULearningAgentsInteractor;
@@ -40,7 +39,7 @@ public:
 	void RegisterJump(AActor* Agent);
 	void RegisterMantle(AActor* Agent);
 	void RegisterAttack(AActor* Agent, uint8 AttackType, UEnum* AttackEnum);
-	void RegisterParry(AActor* Agent, float ParryAngle);
+	void RegisterParry(AActor* Agent);
 	void RegisterDodge(AActor* Agent, const FVector& DodgeDirectionWorld);
 	void RegisterGesture(AActor* Agent, const FGameplayTag& GestureTag);
 	void RegisterPhrase(AActor* Agent, const FGameplayTag& PhraseTag);
@@ -72,15 +71,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
 	float RecordInterval = 0.1f;
 	
-private:
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsCombatController> ILController;
 
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsRecorder> ILRecorder;
 	
-	LearningAgentsImitationActions::FAgentPendingActions& GetAgentActionsQueue(AActor* Agent);
-	LearningAgentsImitationActions::FAgentPendingActions& GetAgentActionsQueue(int AgentId);
+	LearningAgentsImitationActions::FAgentPendingActionsBuffer& GetAgentActionsQueue(AActor* Agent);
+	LearningAgentsImitationActions::FAgentPendingActionsBuffer& GetAgentActionsQueue(int AgentId);
 
 	void RecordImitations();
 	void OnActionAccumulated(int AgentId);
