@@ -655,12 +655,15 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifyDynamicBaseObser
 	auto AccumulatedDamageObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, 1.f, Key_Observation_Dynamic_AccumulatedDamage);
 	auto VelocityObservation = ULearningAgentsObservations::SpecifyVelocityObservation(InObservationSchema, Settings->MaxSpeed, Key_Observation_Dynamic_Velocity);
 	auto StatesObservation = ULearningAgentsObservations::SpecifyBitmaskObservation(InObservationSchema, StaticEnum<ELACharacterStates>(), Key_Observation_Dynamic_CombatStates);
+	auto ActiveAttackObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, GetAttackEnum(), Key_Observation_Dynamic_ActiveAttack);
+	
 	FObservationSchemasMap DynamicObservations =
 	{
 		{ Key_Observation_Dynamic_Health, HealthObservation },
 		{ Key_Observation_Dynamic_AccumulatedDamage, AccumulatedDamageObservation },
 		{ Key_Observation_Dynamic_Velocity, VelocityObservation },
 		{ Key_Observation_Dynamic_CombatStates, StatesObservation },
+		{ Key_Observation_Dynamic_ActiveAttack, ActiveAttackObservation }
 	};
 	
 	if (!Settings->Gestures.IsEmpty())
@@ -1024,6 +1027,10 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherDynamicBaseObserv
 	auto StatesObservation = ULearningAgentsObservations::MakeBitmaskObservation(GatheringParams.InObservationObject,
 		StaticEnum<ELACharacterStates>(), static_cast<int32>(CharacterData.CombatStates), Key_Observation_Dynamic_CombatStates,
 		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+	auto ActiveAttackObservation = ULearningAgentsObservations::MakeEnumObservation(GatheringParams.InObservationObject, 
+		GetAttackEnum(), CharacterData.ActiveAttack, Key_Observation_Dynamic_ActiveAttack,
+			GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
+		);
 	
 	FObservationObjectsMap DynamicObservations =
 	{
@@ -1031,6 +1038,7 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherDynamicBaseObserv
 		{ Key_Observation_Dynamic_AccumulatedDamage, AccumulatedDamageObservation },
 		{ Key_Observation_Dynamic_Velocity, VelocityObservation },
 		{ Key_Observation_Dynamic_CombatStates, StatesObservation },
+		{ Key_Observation_Dynamic_ActiveAttack, ActiveAttackObservation }
 	};
 	
 	if (!GatheringParams.Settings->Gestures.IsEmpty())

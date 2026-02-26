@@ -113,7 +113,7 @@ protected:
 	virtual bool GetSelfStates(const ULearningAgentsObservationObject* InObservationObject, const FObservationObjectItem& InObservationObjectElement,
 		ELACharacterStates& OutSelfStates) const;
 	
-	virtual const UEnum* GetAttackEnum() { return StaticEnum<ELAAttackType>(); }
+	virtual const UEnum* GetAttackEnum() const { return StaticEnum<ELAAttackType>(); }
 	virtual const UEnum* GetAgentObjectiveEnum() const { return StaticEnum<ELACurrentRoleplayObjective>(); };
 	virtual const UEnum* GetAgentPersonalityEnum() const { return StaticEnum<ELARoleplayPersonality>(); };
 	virtual const UEnum* GetAgentTemperEnum() const { return StaticEnum<ELARoleplayTemper>(); };

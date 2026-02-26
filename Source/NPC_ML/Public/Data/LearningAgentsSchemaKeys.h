@@ -27,6 +27,7 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Dynamic_Poise = FName("Observation.Dynamic.Poise");
 	inline const FName Key_Observation_Dynamic_Velocity = FName("Observation.Dynamic.Velocity");
 	inline const FName Key_Observation_Dynamic_CombatStates = FName("Observation.Dynamic.CombatStates");
+	inline const FName Key_Observation_Dynamic_ActiveAttack = FName("Observation.Dynamic.ActiveAttack");
 	
 	inline const FName Key_Observation_Dynamic_Gesture = FName("Observation.Dynamic.Gesture.");
 	inline const FName Key_Observation_Dynamic_Gesture_Optional = FName("Observation.Dynamic.Gesture.Optional");

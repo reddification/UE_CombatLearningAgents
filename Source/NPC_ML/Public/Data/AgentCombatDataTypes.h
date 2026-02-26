@@ -33,6 +33,7 @@ namespace CombatLearning
 		FGameplayTag ActiveGesture;
 		FGameplayTag ActivePhrase;
 		FRoleplayIdentity Identity;
+		uint8 ActiveAttack = 0;
 	};
 
 	struct FPerceivedCharacterData : public FCharacterDataBase

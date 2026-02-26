@@ -198,6 +198,7 @@ FSelfData ULACombatObservationComponent::GetSelfData() const
 	SelfData.ActivePhrase = GetActivePhrase(OwnerActor);
 	SelfData.AccumulatedNormalizedDamage = GetAccumulatedNormalizedDamage(OwnerActor);
 	SelfData.Identity = GetIdentity(OwnerActor);
+	SelfData.ActiveAttack = GetActiveAttack(OwnerActor);
 	return SelfData;
 }
 

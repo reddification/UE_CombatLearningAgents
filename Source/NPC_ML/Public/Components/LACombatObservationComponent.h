@@ -62,6 +62,7 @@ protected:
 	virtual const FGameplayTag& GetActivePhrase(const AActor* ForActor) const { return FGameplayTag::EmptyTag; }
 	virtual float GetAccumulatedNormalizedDamage(const AActor* ForActor) const { return 0.f; }
 	virtual FRoleplayIdentity GetIdentity(const AActor* ForActor) const { return FRoleplayIdentity(); };
+	virtual uint8 GetActiveAttack(AActor* Actor) const { return 0; };
 	
 	virtual TArray<TSharedRef<FPerceivedCharacterData>> GetEnemies() const;
 	virtual TArray<TSharedRef<FPerceivedCharacterData>> GetAllies() const;
