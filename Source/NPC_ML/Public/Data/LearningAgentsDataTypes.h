@@ -32,7 +32,8 @@ enum class ELACharacterStates
 	Swimming               		 = InAir << 1,
 	WalkingOnGround        		 = Swimming << 1,
 	Dying                  		 = WalkingOnGround << 1,
-	Gesturing              		 = Dying << 1,
+	Dead						 = Dying << 1,
+	Gesturing              		 = Dead << 1,
 	HasActiveRootMotionAnimation = Gesturing << 1,
 	Speaking                	 = HasActiveRootMotionAnimation << 1,
 	UsingConsumableItem     	 = Speaking << 1,
@@ -107,7 +108,6 @@ enum class ELARoleplayTemper : uint8
 	Aggressive,
 	Calm,
 	Passive,
-	Frightened,
 	Serious,
 	Quirky,
 	Arrogant,
@@ -120,7 +120,7 @@ enum class ELARoleplayPersonality : uint8
 {
 	None = 0,
 	Noble,
-	Scum,
+	Scumbag,
 	Civilian,
 	Military,
 	Criminal,
@@ -133,7 +133,7 @@ enum class ELACurrentRoleplayObjective : uint8
 {
 	None = 0,
 	Idle,
-	Relax,
+	Rest,
 	Duty,
 	Work,
 	CriminalActivity

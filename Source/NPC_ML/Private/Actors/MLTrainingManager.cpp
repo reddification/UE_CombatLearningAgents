@@ -139,13 +139,13 @@ void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& Traini
 	if (DebugPanelWidget.IsValid())
 		DebugPanelWidget->SetTrainingEpisodeData(TrainingPreset);
 	
-	if (StartRecordingDelay > 0.f)
+	if (StartEpisodeDelay > 0.f)
 	{
 		SetState(EMLTrainingSessionState::PreparingToStart);
-		TimerManager.SetTimer(StartEpisodeDelayTimer, this, &AMLTrainingManager::ResumeTraining, StartRecordingDelay);
+		TimerManager.SetTimer(StartEpisodeDelayTimer, this, &AMLTrainingManager::ResumeTraining, StartEpisodeDelay);
 		if (DebugPanelWidget.IsValid())
 		{
-			DebugPanelWidget->SetRemainingTime(StartRecordingDelay);
+			DebugPanelWidget->SetRemainingTime(StartEpisodeDelay);
 			DebugPanelWidget->SetTimerActive(true);
 		}
 	}

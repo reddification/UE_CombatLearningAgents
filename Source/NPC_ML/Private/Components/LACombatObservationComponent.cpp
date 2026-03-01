@@ -326,14 +326,14 @@ void ULACombatObservationComponent::ProcessTargetObservations(TArray<TSharedRef<
 	}
 }
 
-const TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetEnemiesObservationData()
+const FCharacterDataContainer& ULACombatObservationComponent::GetEnemiesObservationData()
 {
 	TArray<TSharedRef<FPerceivedCharacterData>> Targets = GetEnemies();
 	ProcessTargetObservations(MoveTemp(Targets), ELAAgentAttitude::Enemy);
 	return CachedEnemiesData;
 }
 
-const TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>& ULACombatObservationComponent::GetAlliesObservationData()
+const FCharacterDataContainer& ULACombatObservationComponent::GetAlliesObservationData()
 {
 	TArray<TSharedRef<FPerceivedCharacterData>> Targets = GetAllies();
 	ProcessTargetObservations(MoveTemp(Targets), ELAAgentAttitude::Ally);

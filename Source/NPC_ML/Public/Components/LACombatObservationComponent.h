@@ -17,6 +17,7 @@ namespace CombatLearning
 }
 
 using namespace CombatLearning;
+using FCharacterDataContainer = TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>;
 
 /*
  * Put a child component of this component on your agent actor
@@ -26,8 +27,6 @@ class NPC_ML_API ULACombatObservationComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-	using FCharacterDataContainer = TMap<TWeakObjectPtr<const AActor>, TSharedPtr<FOtherCharacterObservationData>>;
-	
 public:
 	ULACombatObservationComponent();
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;

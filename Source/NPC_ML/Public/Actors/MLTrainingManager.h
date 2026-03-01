@@ -51,7 +51,7 @@ protected:
 	TSoftClassPtr<UMLOverviewPanelWidget> DebugPanelWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
-	float StartRecordingDelay = 3.f;
+	float StartEpisodeDelay = 3.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	bool bAddDebugPanelWidget = true;
