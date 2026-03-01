@@ -22,7 +22,7 @@ public:
 	void SetState(EMLTrainingSessionState NewState);
 	void SetRemainingTime(float RemainingTime);
 	void SetTimerActive(bool bActive);
-	void SetTrainingEpisodeData(const FMLTrainingPreset& TrainingPreset);
+	void SetTrainingEpisodeData(const FMLTrainingEpisodeTemplate& TrainingPreset);
 	void OnEpisodeSetupActionChanged(ETrainingEpisodeSetupAction TrainingEpisodeSetupAction);
 	
 protected:

@@ -5,6 +5,7 @@
 
 #include "LearningAgentsInteractor.h"
 #include "Data/LearningAgentsTags_Combat.h"
+#include "Data/MLModelVersion.h"
 
 
 // Sets default values
@@ -17,9 +18,11 @@ AMLInferenceManager::AMLInferenceManager()
 void AMLInferenceManager::BeginPlay()
 {
 	Super::BeginPlay();
-	bool bAllSet = IsValid(InteractorClass) && IsValid(PolicyClass) && IsValid(EncoderNN) && IsValid(DecoderNN) && IsValid(PolicyNN);
+	if (Model.IsNull())
+		return;
 	
-	if (!ensure(bAllSet))
+	auto ModelVersion = Model.LoadSynchronous();
+	if (!ensure(ModelVersion->IsSet()))
 		return;
 	
 	// дебилы, блять. нахуя они просят рефом, притом не константным, поинтер кидать внутрь фреймворка?
@@ -27,17 +30,15 @@ void AMLInferenceManager::BeginPlay()
 	// как будто питоно-обезьян, умеющих только импортить МЛ-либы в питоне, посадили писать плагин для анриала на плюсах,
 	// и вот они на нормальном ЯП в первые раз жизни писали и нахуярили как получилось
 	ULearningAgentsManager* ManagerPtr = LearningAgentsManager;
-	Interactor = ULearningAgentsInteractor::MakeInteractor(ManagerPtr, InteractorClass, FName("CombatInteractor"));
+	Interactor = ModelVersion->MakeInteractor(LearningAgentsManager.Get());
 	auto InteractorPtr = Interactor.Get();
 	Policy = ULearningAgentsPolicy::MakePolicy(
-		ManagerPtr, InteractorPtr, PolicyClass, FName("CombatPolicy"),
-		EncoderNN, PolicyNN, DecoderNN,
+		ManagerPtr, InteractorPtr, ModelVersion->PolicyClass, FName("CombatPolicy"),
+		ModelVersion->EncoderNN, ModelVersion->PolicyNN, ModelVersion->DecoderNN,
 		false,  false,  false,
-		PolicySettings, Seed
-		);
+		ModelVersion->PolicySettings, Seed);
 }
 
-// Called every frame
 void AMLInferenceManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

@@ -12,11 +12,11 @@
 
 
 class ATrainingEpisodePCG;
-class UMLTrainingPresetsDataAsset;
+class UMLTrainingEpisodesPreset;
 struct FMLTrainingEpisodeActorSetupAction_Base;
 struct FMLTrainingActorSpawnDescriptor;
 struct FTrainingEpisodeSetupActionExternalMemoryBase;
-struct FMLTrainingPreset;
+struct FMLTrainingEpisodeTemplate;
 class UPCGComponent;
 class UEnvQuery;
 
@@ -26,7 +26,7 @@ class NPC_ML_API UTrainingEpisodeSetupComponent : public UActorComponent
 	GENERATED_BODY()
 
 private:
-	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeSetupCompletedEvent, const FMLTrainingPreset& Preset);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeSetupCompletedEvent, const FMLTrainingEpisodeTemplate& Preset);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FTrainingEpisodeSetupStepChangedEvent, ETrainingEpisodeSetupAction CurrentStep);
 	
 	using FExternalMemory = FTrainingEpisodeSetupActionExternalMemoryBase;
@@ -73,7 +73,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	const UMLTrainingPresetsDataAsset* TrainingPresetsDataAsset;
+	const UMLTrainingEpisodesPreset* TrainingPresetsDataAsset;
 
 	// 9 Feb 2026 (aki)
 	// just a convenient array of number to opt in and out certain code blocks. 

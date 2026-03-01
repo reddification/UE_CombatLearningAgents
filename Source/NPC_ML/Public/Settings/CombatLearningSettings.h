@@ -18,12 +18,6 @@ class NPC_ML_API UCombatLearningSettings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
-	FGameplayTagContainer RelevantObservations;	
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations", meta=(UIMin = 1.f, ClampMin = 1.f))
-	float LIDARDistanceScale = 2000.f;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations", meta=(UIMin = 1.f, ClampMin = 1.f))
 	float EnemyDistanceScale = 1000.f;
 
@@ -37,9 +31,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations", meta=(ClampMin = 1.f, UIMin = 1.f))
 	float MaxSpeed = 1000.f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations", meta=(ClampMin = 1.f, UIMin = 1.f))
-	float MaxJumpDistance = 250.f;
-	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations")
 	float RotationScale = 90.f;
 	
@@ -47,7 +38,7 @@ public:
 	float MaxLevel = 100.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations", meta=(ClampMin = 0.0001f, UIMin = 0.0001f))
-	float MaxMeleeAttackRange = 300.f;
+	float MaxMeleeAttackRange = 400.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations", meta=(ClampMin = 0.0001f, UIMin = 0.0001f))
 	float MaxRangedAttackRange = 3000.f;
@@ -60,18 +51,23 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, meta=(ClampMin = 1.f, UIMin = 1.f), Category="Observations")
 	float MaxExpectedCombatDuration = 120.f;
-	
+
+	// if true - then you must also specify combat history in interactor relevant observations in UMLModelVersion data asset
+	// 1 Mar 2026 (aki): this is bullshit. TODO refactor so that combat history observation relevancy is managed in one place 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	bool bKeepCombatObservationHistory = false;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History", meta=(EditCondition="bKeepCombatObservationHistory"))
 	float TranslationHistoryUpdateInterval = 0.3f;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History", meta=(EditCondition="bKeepCombatObservationHistory"))
 	int TranslationHistorySize = 20;
 	
 	// used for normalization. how much time on average passes between combat encounters
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History", meta=(EditCondition="bKeepCombatObservationHistory"))
 	float ExpectedCombatHistoryEventInterval = 10.f;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History", meta=(EditCondition="bKeepCombatObservationHistory"))
 	int CombatHistorySize = 10;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
@@ -121,6 +117,6 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;
-	
+
 	FORCEINLINE int GetRaindropToTargetResolution(ELAAgentAttitude Target) const { return RaindropParams[Target].GetResolution(); } ;
 };

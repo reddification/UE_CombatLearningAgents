@@ -70,6 +70,7 @@ namespace LAObservationKeys
 	
 	inline const FName Key_Observation_Actor_Dynamic_Location = FName("Observation.Actor.Dynamic.Location");
 	inline const FName Key_Observation_Actor_Dynamic_Orientation = FName("Observation.Actor.Dynamic.Orientation");
+	
 	inline const FName Key_Observation_Combat_State_Duration = FName("Observation.Combat.State.Duration");
 	inline const FName Key_Observation_Combat_State_EnemiesCount = FName("Observation.Combat.State.EnemiesCount");
 	inline const FName Key_Observation_Combat_State_AlliesCount = FName("Observation.Combat.State.AlliesCount");

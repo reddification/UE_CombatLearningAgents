@@ -56,21 +56,6 @@ protected:
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsCombatController> ILControllerClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsRecorder> ILRecorderClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsRecorderPathSettings RecorderPathSettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsRecording* RecordingAsset;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
-	float RecordInterval = 0.1f;
-	
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsCombatController> ILController;
 

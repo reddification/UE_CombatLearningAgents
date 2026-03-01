@@ -4,6 +4,8 @@
 #include "LearningAgentsManager.h"
 #include "Components/TrainingEpisodeManagerComponent.h"
 #include "Components/TrainingEpisodeSetupComponent.h"
+#include "Data/MLModelVersion.h"
+#include "Data/MLTrainingConfigurationBase.h"
 #include "GameFramework/GameStateBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "UI/MLOverviewPanelWidget.h"
@@ -24,10 +26,11 @@ void AMLTrainingManager::PostInitializeComponents()
 void AMLTrainingManager::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!IsValid(TrainingConfiguration) || TrainingConfiguration->ModelVersion.IsNull())
+		return;
 	
-	auto ManagerPtr = LearningAgentsManager.Get();
-	if (IsValid(InteractorClass))
-		Interactor = ULearningAgentsInteractor::MakeInteractor(ManagerPtr, InteractorClass, FName("Interactor yobana"));
+	auto ModelVersion = TrainingConfiguration->ModelVersion.LoadSynchronous();
+	Interactor = ModelVersion->MakeInteractor(LearningAgentsManager.Get());
 	
 	if (bAddDebugPanelWidget && ensure(!DebugPanelWidgetClass.IsNull()))
 	{
@@ -132,7 +135,7 @@ void AMLTrainingManager::RestartTraining(bool bUseNewSetup)
 		TrainingEpisodeSetupComponent->RepeatEpisode();
 }
 
-void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingPreset& TrainingPreset)
+void AMLTrainingManager::OnEpisodeSetupCompleted(const FMLTrainingEpisodeTemplate& TrainingPreset)
 {
 	auto& TimerManager = GetWorld()->GetTimerManager();
 	EpisodeTime = FMath::RandRange(TrainingPreset.DurationMin, TrainingPreset.DurationMax);

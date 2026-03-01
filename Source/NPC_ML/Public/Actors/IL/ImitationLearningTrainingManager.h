@@ -1,13 +1,11 @@
-﻿// 
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "LearningAgentsCommunicator.h"
 #include "LearningAgentsImitationTrainer.h"
 #include "LearningAgentsPolicy.h"
-#include "Actors/MLManagerBase.h"
 #include "Actors/MLTrainingManager.h"
+#include "Data/MLTrainingConfigurationBase.h"
 #include "GameFramework/Actor.h"
 #include "ImitationLearningTrainingManager.generated.h"
 
@@ -30,58 +28,24 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsPolicy> PolicyClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsNeuralNetwork* EncoderNN;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsNeuralNetwork* PolicyNN;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsNeuralNetwork* DecoderNN;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bReinitializeWeights = true;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsPolicySettings PolicySettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int32 Seed = 1234;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsTrainerProcessSettings TrainerProcessSettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsSharedMemoryCommunicatorSettings SharedMemorySettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsImitationTrainer> ImitationTrainerClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsImitationTrainer* ImitationTrainer;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	const ULearningAgentsRecording* RecordingAsset;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsImitationTrainerSettings ImitationTrainerSettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsImitationTrainerTrainingSettings ImitationTrainerTrainingSettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsTrainerProcessSettings ImitationTrainerPathSettings;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float AccumulationTimeInterval = 100.f;
+	virtual void OnTrainingFinished();
 	
 private:
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsPolicy> Policy;
 
+	UPROPERTY()
+	TObjectPtr<ULearningAgentsImitationTrainer> ImitationTrainer;
+	
+	UPROPERTY()
+	TObjectPtr<UMLTrainingConfiguration_IL> ILConfiguration = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<ULearningAgentsRecording> RecordingAsset = nullptr;
+	
 	FLearningAgentsSharedMemoryTrainerProcess SharedMemory;
 	FLearningAgentsCommunicator Communicator;
+	
+	float DelayTillNextInference = 0.f;
+	
 };

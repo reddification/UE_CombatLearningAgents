@@ -29,7 +29,7 @@ void UMLOverviewPanelWidget::SetTimerActive(bool bActive)
 		TimerManager.ClearTimer(StateTimer);
 }
 
-void UMLOverviewPanelWidget::SetTrainingEpisodeData(const FMLTrainingPreset& TrainingPreset)
+void UMLOverviewPanelWidget::SetTrainingEpisodeData(const FMLTrainingEpisodeTemplate& TrainingPreset)
 {
 	TrainingEpisodeTitleTextblock->SetText(FText::FromString(TrainingPreset.ConfigTitle));
 	TrainingEpisodeDescriptionTextblock->SetText(FText::FromString(TrainingPreset.ConfigDescription));

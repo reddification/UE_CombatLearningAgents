@@ -7,6 +7,7 @@
 #include "Interfaces/MLTrainingManagerPcgOwnerInterface.h"
 #include "MLTrainingManager.generated.h"
 
+class UMLTrainingConfigurationBase;
 class UTrainingEpisodeSetupComponent;
 class UPCGComponent;
 class ULearningAgentsInteractor;
@@ -43,13 +44,13 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UTrainingEpisodeSetupComponent> TrainingEpisodeSetupComponent;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsInteractor> InteractorClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSoftClassPtr<UMLOverviewPanelWidget> DebugPanelWidgetClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UMLTrainingConfigurationBase> TrainingConfiguration;	
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.001f, ClampMin = 0.001f))
 	float StartEpisodeDelay = 3.f;
 
@@ -61,11 +62,8 @@ protected:
 	EMLTrainingSessionState TrainingState = EMLTrainingSessionState::Inactive;
 	TWeakObjectPtr<UMLOverviewPanelWidget> DebugPanelWidget;
 	
-	UPROPERTY()
-	TObjectPtr<ULearningAgentsInteractor> Interactor;
-	
 	float EpisodeTime = 0.f;
-	virtual void OnEpisodeSetupCompleted(const FMLTrainingPreset& TrainingPreset);
+	virtual void OnEpisodeSetupCompleted(const FMLTrainingEpisodeTemplate& TrainingPreset);
 	virtual void OnEpisodeSetupStepChanged(ETrainingEpisodeSetupAction TrainingEpisodeSetupAction);
 	virtual void StartNextEpisode();
 

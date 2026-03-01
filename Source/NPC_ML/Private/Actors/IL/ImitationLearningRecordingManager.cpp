@@ -4,9 +4,12 @@
 #include "LearningAgentsInteractor.h"
 #include "LearningAgentsManager.h"
 #include "LearningAgentsRecorder.h"
+#include "LearningAgentsRecording.h"
 #include "Controllers/LearningAgentsCombatController.h"
 #include "Data/LearningAgentsTags_Combat.h"
 #include "Data/LogChannels.h"
+#include "Data/MLModelVersion.h"
+#include "Data/MLTrainingConfigurationBase.h"
 #include "Data/ILActions/ILAction_Attack.h"
 #include "Data/ILActions/ILAction_Base.h"
 #include "Data/ILActions/ILAction_Parry.h"
@@ -38,12 +41,21 @@ void AImitationLearningRecordingManager::BeginPlay()
 {
 	Super::BeginPlay();
 
+	auto IRConfiguration = Cast<UMLTrainingConfiguration_IR>(TrainingConfiguration);
+	if (!IRConfiguration || IRConfiguration->ModelVersion.IsNull())
+		{ ensure(false); return; }
+	
+	auto ModelVersion = IRConfiguration->ModelVersion.LoadSynchronous();
+	if (ModelVersion->RecordingAsset.IsNull())
+		{ ensure(false); return; }
+	
+	auto RecordingAsset = ModelVersion->RecordingAsset.LoadSynchronous();
 	auto ManagerPtr = LearningAgentsManager.Get();
 	auto InteractorPtr = Interactor.Get();
-	ILController = Cast<ULearningAgentsCombatController>(ULearningAgentsController::MakeController(ManagerPtr, InteractorPtr, ILControllerClass));
+	ILController = Cast<ULearningAgentsCombatController>(ULearningAgentsController::MakeController(ManagerPtr, InteractorPtr, IRConfiguration->ILControllerClass));
 	bool bReinitializeRecording = true;
-	ILRecorder = ULearningAgentsRecorder::MakeRecorder(ManagerPtr, InteractorPtr, ILRecorderClass, FName("IL Recorder"),
-		RecorderPathSettings, RecordingAsset, bReinitializeRecording);
+	ILRecorder = ULearningAgentsRecorder::MakeRecorder(ManagerPtr, InteractorPtr, IRConfiguration->ILRecorderClass, FName("IL Recorder"),
+		IRConfiguration->RecorderPathSettings, RecordingAsset, bReinitializeRecording);
 }
 
 void AImitationLearningRecordingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)

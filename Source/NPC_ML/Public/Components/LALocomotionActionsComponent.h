@@ -31,7 +31,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void UpdateLocomotionInputs();
+	virtual void UpdateLocomotionInputs(float DeltaTime);
 	
 	FVector CurrentMoveInput = FVector::ZeroVector;
 	FRotator CurrentRotationInput = FRotator::ZeroRotator;

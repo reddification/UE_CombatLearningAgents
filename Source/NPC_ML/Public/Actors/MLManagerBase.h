@@ -7,6 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "MLManagerBase.generated.h"
 
+class ULearningAgentsInteractor;
 class ULearningAgentsManager;
 
 UCLASS()
@@ -27,6 +28,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<ULearningAgentsManager> LearningAgentsManager;
 
+	UPROPERTY()
+	TObjectPtr<ULearningAgentsInteractor> Interactor;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGameplayTag BehaviorTag;
 

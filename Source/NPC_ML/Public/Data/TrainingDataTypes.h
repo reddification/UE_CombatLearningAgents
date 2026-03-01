@@ -126,7 +126,7 @@ struct FMLTrainingEpisodePCG
 };
 
 USTRUCT(BlueprintType)
-struct FMLTrainingPreset
+struct FMLTrainingEpisodeTemplate
 {
 	GENERATED_BODY()
 

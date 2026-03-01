@@ -8,6 +8,8 @@ namespace LearningAgentsTags_Combat
 	NPC_ML_API	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Observation_Ally);
 	NPC_ML_API	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Observation_CombatState);
 	NPC_ML_API	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Observation_Surrounding);
+
+	NPC_ML_API	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Observation_CombatHistory);
 	
 	NPC_ML_API	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Behavior_Combat_RL);
 	NPC_ML_API	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Behavior_Combat_IL_Recording);

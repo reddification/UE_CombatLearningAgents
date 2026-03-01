@@ -21,6 +21,11 @@ void ULAObservationHistorySubsystem::OnWorldEndPlay(UWorld& InWorld)
 	Super::OnWorldEndPlay(InWorld);
 }
 
+bool ULAObservationHistorySubsystem::ShouldCreateSubsystem(UObject* Outer) const
+{
+	return Super::ShouldCreateSubsystem(Outer) && GetDefault<UCombatLearningSettings>()->bKeepCombatObservationHistory;
+}
+
 void ULAObservationHistorySubsystem::RegisterAgent(AActor* Agent)
 {
 	if (!ensure(!TranslationHistories.Contains(Agent)))

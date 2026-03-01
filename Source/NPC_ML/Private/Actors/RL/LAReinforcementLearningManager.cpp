@@ -3,6 +3,8 @@
 #include "LearningAgentsInteractor.h"
 #include "LearningAgentsTrainingEnvironment.h"
 #include "Data/LearningAgentsTags_Combat.h"
+#include "Data/MLModelVersion.h"
+#include "Data/MLTrainingConfigurationBase.h"
 #include "Subsystems/MLSubsystem.h"
 
 ALAReinforcementLearningManager::ALAReinforcementLearningManager()
@@ -13,41 +15,44 @@ ALAReinforcementLearningManager::ALAReinforcementLearningManager()
 void ALAReinforcementLearningManager::BeginPlay()
 {
 	Super::BeginPlay();
-	bool bAllSet = IsValid(InteractorClass) && IsValid(TrainingEnvironmentClass)
-		&& IsValid(PolicyClass) && IsValid(EncoderNN) && IsValid(DecoderNN) && IsValid(PolicyNN)
-		&& IsValid(CriticClass) && IsValid(CriticNN);
 	
+	RLConfiguration = Cast<UMLTrainingConfiguration_RL>(TrainingConfiguration);
+	if (!RLConfiguration || RLConfiguration->ModelVersion.IsNull())
+		{ ensure(false); return; }
+	
+	UMLModelVersion* MLModelVersion = RLConfiguration->ModelVersion.LoadSynchronous(); 
+	bool bAllSet = MLModelVersion->IsSet() && !MLModelVersion->CriticNN.IsNull();
 	if (!ensure(bAllSet))
 		return;
 	
 	ULearningAgentsManager* LAM = LearningAgentsManager.Get();
 	auto InteractorPtr = Interactor.Get();
 	Policy = ULearningAgentsPolicy::MakePolicy(
-		LAM, InteractorPtr, PolicyClass, FName("CombatPolicy"),
-		EncoderNN, PolicyNN, DecoderNN,
-		bReinitializeWeights,  bReinitializeWeights,  bReinitializeWeights,
-		PolicySettings, Seed
-		);
+		LAM, InteractorPtr, MLModelVersion->PolicyClass, FName("CombatPolicy"),
+		MLModelVersion->EncoderNN, MLModelVersion->PolicyNN, MLModelVersion->DecoderNN,
+		false,  false,  false,
+		MLModelVersion->PolicySettings, RLConfiguration->Seed);
 
 	auto PolicyPtr = Policy.Get();
-	Critic = ULearningAgentsCritic::MakeCritic(LAM, InteractorPtr, PolicyPtr, CriticClass, FName("CombatCritic"),
-		CriticNN, bReinitializeWeights, CriticSettings, Seed);
+	auto CriticNN = MLModelVersion->CriticNN.LoadSynchronous();
+	Critic = ULearningAgentsCritic::MakeCritic(LAM, InteractorPtr, PolicyPtr, MLModelVersion->CriticClass, FName("CombatCritic"),
+		CriticNN, false, MLModelVersion->CriticSettings, RLConfiguration->Seed);
 	auto CriticPtr = Critic.Get();
 
 	TrainingEnvironment = ULearningAgentsTrainingEnvironment::MakeTrainingEnvironment(LAM,
-		TrainingEnvironmentClass, FName("CombatTrainingEnvironment"));
+		RLConfiguration->TrainingEnvironmentClass, FName("CombatTrainingEnvironment"));
 	auto TrainingEnvironmentPtr = TrainingEnvironment.Get();
 
-	SharedMemory = ULearningAgentsCommunicatorLibrary::SpawnSharedMemoryTrainingProcess(TrainerProcessSettings, SharedMemorySettings);
+	SharedMemory = ULearningAgentsCommunicatorLibrary::SpawnSharedMemoryTrainingProcess(RLConfiguration->TrainerProcessSettings, RLConfiguration->SharedMemorySettings);
 	Communicator = ULearningAgentsCommunicatorLibrary::MakeSharedMemoryCommunicator(SharedMemory);
 
 	PPOTrainer = ULearningAgentsPPOTrainer::MakePPOTrainer(LAM, InteractorPtr, TrainingEnvironmentPtr, PolicyPtr,
-		CriticPtr, Communicator, PPOTrainerClass, FName("Combat PPO Trainer"), PPOTrainerSettings);
+		CriticPtr, Communicator, RLConfiguration->PPOTrainerClass, FName("Combat PPO Trainer"), RLConfiguration->PPOTrainerSettings);
 }
 
 void ALAReinforcementLearningManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	PPOTrainer->RunTraining(TrainerTrainingSettings, TrainingGameSettings);
+	PPOTrainer->RunTraining(RLConfiguration->TrainerTrainingSettings, RLConfiguration->TrainingGameSettings);
 }
 

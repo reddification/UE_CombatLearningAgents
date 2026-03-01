@@ -2,20 +2,20 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "MLTrainingPresetsDataAsset.generated.h"
+#include "MLTrainingEpisodesPreset.generated.h"
 
-struct FMLTrainingPreset;
+struct FMLTrainingEpisodeTemplate;
 /**
  * 
  */
 UCLASS()
-class NPC_ML_API UMLTrainingPresetsDataAsset : public UDataAsset
+class NPC_ML_API UMLTrainingEpisodesPreset : public UDataAsset
 {
 	GENERATED_BODY()
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<FMLTrainingPreset> TrainingPresets;
+	TArray<FMLTrainingEpisodeTemplate> TrainingPresets;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bUseRandomEpisodeSetup = false;

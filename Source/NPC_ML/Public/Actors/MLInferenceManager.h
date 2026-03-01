@@ -1,13 +1,11 @@
-﻿// 
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "LearningAgentsPolicy.h"
 #include "MLManagerBase.h"
 #include "MLInferenceManager.generated.h"
 
-class ULearningAgentsNeuralNetwork;
+class UMLModelVersion;
 class ULearningAgentsPolicy;
 class ULearningAgentsInteractor;
 
@@ -28,31 +26,13 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsInteractor> InteractorClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<ULearningAgentsPolicy> PolicyClass;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsNeuralNetwork* EncoderNN;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsNeuralNetwork* PolicyNN;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	ULearningAgentsNeuralNetwork* DecoderNN;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	FLearningAgentsPolicySettings PolicySettings;
-
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSoftObjectPtr<UMLModelVersion> Model;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	int32 Seed = 1234;
 
 private:
-	UPROPERTY()
-	TObjectPtr<ULearningAgentsInteractor> Interactor;
-
 	UPROPERTY()
 	TObjectPtr<ULearningAgentsPolicy> Policy;
 };

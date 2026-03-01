@@ -4,7 +4,7 @@
 #include "PCGGraph.h"
 #include "Actors/TrainingEpisodePCG.h"
 #include "Data/LogChannels.h"
-#include "Data/MLTrainingPresetsDataAsset.h"
+#include "Data/MLTrainingEpisodesPreset.h"
 #include "Data/TrainingDataTypes.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryManager.h"

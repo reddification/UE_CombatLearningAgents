@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "LearningAgentsInteractor.h"
+#include "LearningAgentsInteractor_Base.h"
 #include "Components/LAObservationHistoryComponent.h"
 #include "Components/LACombatActionsComponent.h"
 #include "Components/LACombatObservationComponent.h"
@@ -10,10 +11,12 @@
 #include "LearningAgentsInteractor_Combat.generated.h"
 
 /**
- * 
+ * TODO's 
+ * 1. Implement some form of reserving and obsoleting observations and actions to prevent the necessity of having a new interactor subclass 
+ *		(and hence training from the fresh start all NN DAs) for whatever subtle observation/action schema changes
  */
 UCLASS()
-class NPC_ML_API ULearningAgentsInteractor_Combat : public ULearningAgentsInteractor
+class NPC_ML_API ULearningAgentsInteractor_Combat : public ULearningAgentsInteractor_Base
 {
 	GENERATED_BODY()
 
@@ -69,7 +72,7 @@ public:
 	                                                    const FObservationObjectItem& InObservationObjectElement, const int32 AgentId) override;
 	virtual void PerformAgentAction_Implementation(const ULearningAgentsActionObject* InActionObject,
 	                                               const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
-	
+
 protected:
 	virtual FObservationSchemasMap SpecifySelfObservations(ULearningAgentsObservationSchema* InObservationSchema,
 		const UCombatLearningSettings* Settings) const;

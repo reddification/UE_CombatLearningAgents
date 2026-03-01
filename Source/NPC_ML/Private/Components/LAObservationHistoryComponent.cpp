@@ -10,8 +10,11 @@
 void ULAObservationHistoryComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	OwnerPawn = Cast<APawn>(GetOwner());
 	Settings = GetDefault<UCombatLearningSettings>();
+	if (!Settings->bKeepCombatObservationHistory)
+		return;
+	
+	OwnerPawn = Cast<APawn>(GetOwner());
 	
 	FCombatEventData DefaultCombatEvent(0.f, ELACombatEvent::None, true, ELAAgentAttitude::Self);
 	CombatHistory.SetNumUninitialized(Settings->CombatHistorySize);
@@ -62,6 +65,10 @@ TArray<FTranslationHistory> ULAObservationHistoryComponent::GetTranslationHistor
 
 void ULAObservationHistoryComponent::SetHistoryActive(bool bNewActive)
 {
+	Settings = GetDefault<UCombatLearningSettings>();
+	if (!Settings->bKeepCombatObservationHistory)
+		return;
+	
 	if (bNewActive == bActive)
 		return;
 	

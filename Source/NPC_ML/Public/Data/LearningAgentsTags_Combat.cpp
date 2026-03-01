@@ -7,6 +7,7 @@ namespace LearningAgentsTags_Combat
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Observation_Ally, "LearningAgents.Combat.Observation.Ally", "");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Observation_CombatState, "LearningAgents.Combat.Observation.Combat.State", "");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Observation_Surrounding, "LearningAgents.Combat.Observation.Surrounding", "");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Observation_CombatHistory, "LearningAgents.Combat.Observation.History", "");
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Behavior_Combat_RL, "LearningAgents.Behavior.Combat.RL", "");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Behavior_Combat_IL_Recording, "LearningAgents.Behavior.Combat.IL.Recording", "");

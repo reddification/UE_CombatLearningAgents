@@ -16,6 +16,7 @@ class NPC_ML_API UBTDecorator_SetCombatHistoryActive : public UBTDecorator
 	
 public:
 	UBTDecorator_SetCombatHistoryActive();
+	virtual void PostInitProperties() override;
 	virtual void OnNodeActivation(FBehaviorTreeSearchData& SearchData) override;
 	virtual void OnNodeDeactivation(FBehaviorTreeSearchData& SearchData, EBTNodeResult::Type NodeResult) override;
 };

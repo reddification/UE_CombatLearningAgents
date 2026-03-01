@@ -1,11 +1,11 @@
-﻿#include "Data/MLTrainingPresetsDataAsset.h"
+﻿#include "Data/MLTrainingEpisodesPreset.h"
 
 #include "Data/TrainingDataTypes.h"
 #include "EnvironmentQuery/EnvQuery.h"
 
 #if WITH_EDITOR
 
-void UMLTrainingPresetsDataAsset::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+void UMLTrainingEpisodesPreset::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	for (auto& TrainingPreset : TrainingPresets)
