@@ -5,7 +5,7 @@ using namespace LAActionKeys;
 namespace LearningAgentsImitationActions
 {
 	FLearningAgentsActionObjectElement FAction_Dodge::GetAction(ULearningAgentsActionObject* InActionObject,
-																AActor* AgentActor) const
+	    AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const
 	{
 		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, DodgeDirectionWorld.GetSafeNormal2D(), AgentActor->GetActorTransform(), GetActionName());
 		auto CombatExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 

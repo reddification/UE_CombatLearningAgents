@@ -15,15 +15,13 @@ class NPC_ML_API AMLInferenceManager : public AMLManagerBase
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this actor's properties
 	AMLInferenceManager();
-
+	virtual void SetManagerActive(bool bNewActive) override;
+	
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 public:
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

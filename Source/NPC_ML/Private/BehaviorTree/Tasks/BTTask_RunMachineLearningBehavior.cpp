@@ -1,6 +1,7 @@
 ﻿#include "BehaviorTree/Tasks/BTTask_RunMachineLearningBehavior.h"
 
 #include "AIController.h"
+#include "Components/LACombatObservationComponent.h"
 #include "Subsystems/MLSubsystem.h"
 
 UBTTask_RunMachineLearningBehavior::UBTTask_RunMachineLearningBehavior()
@@ -18,8 +19,12 @@ EBTNodeResult::Type UBTTask_RunMachineLearningBehavior::ExecuteTask(UBehaviorTre
 	if (!MLS)
 		return EBTNodeResult::Failed;
 
-	if (MLS->RegisterMLAgent(OwnerComp.GetAIOwner()->GetPawn(), BehaviorTag))
+	auto Pawn = OwnerComp.GetAIOwner()->GetPawn();
+	if (MLS->RegisterMLAgent(Pawn, BehaviorTag))
 	{
+		if (auto LACombatObservationComponent = Pawn->FindComponentByClass<ULACombatObservationComponent>())
+			LACombatObservationComponent->SetComponentTickEnabled(true);
+		
 		WaitForMessage(OwnerComp, FName("StopInference"));
 		return EBTNodeResult::InProgress;
 	}
@@ -43,6 +48,9 @@ void UBTTask_RunMachineLearningBehavior::OnTaskFinished(UBehaviorTreeComponent& 
 	
 	auto Pawn = AIController->GetPawn();
 	if (!IsValid(Pawn)) return;
+	
+	if (auto LACombatObservationComponent = Pawn->FindComponentByClass<ULACombatObservationComponent>())
+		LACombatObservationComponent->SetComponentTickEnabled(false);
 	
 	MLS->UnregisterMLAgent(Pawn, BehaviorTag);
 	

@@ -10,7 +10,9 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_AnimationBase::GetActionInternal(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		return ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetAnimationActionName(),
+		auto Action = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetAnimationActionName(),
 			GetAnimationAction(InActionObject, AgentActor), Key_Action_Locomotion_NonBlocking_Animation);
+		auto ActionOptional = ULearningAgentsActions::MakeOptionalValidAction(InActionObject, Action, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		return ActionOptional;
 	}
 }

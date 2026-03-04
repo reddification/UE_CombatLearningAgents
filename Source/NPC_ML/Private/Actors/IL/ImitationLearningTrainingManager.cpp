@@ -9,6 +9,7 @@
 #include "Data/LearningAgentsTags_Combat.h"
 #include "Data/MLModelVersion.h"
 #include "Data/MLTrainingConfigurationBase.h"
+#include "LearningEntities/Interactors/LearningAgentsInteractor_Base.h"
 #include "Subsystems/MLSubsystem.h"
 
 AImitationLearningTrainingManager::AImitationLearningTrainingManager()
@@ -31,7 +32,7 @@ void AImitationLearningTrainingManager::BeginPlay()
 		
 	RecordingAsset = ModelVersion->RecordingAsset.LoadSynchronous();
 	auto ManagerPtr = LearningAgentsManager.Get();
-	auto InteractorPtr = Interactor.Get();
+	ULearningAgentsInteractor* InteractorPtr = Interactor.Get();
 
 	Policy = ULearningAgentsPolicy::MakePolicy(
 		ManagerPtr, InteractorPtr, ModelVersion->PolicyClass, FName("CombatPolicy"),

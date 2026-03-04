@@ -22,6 +22,7 @@
 #include "Data/ILActions/ILAction_Locomotion_SetSpeed.h"
 #include "Data/ILActions/ILAction_Phrase.h"
 #include "Data/ILActions/ILAction_UseConsumableItem.h"
+#include "LearningEntities/Interactors/LearningAgentsInteractor_Base.h"
 
 using namespace LearningAgentsImitationActions;
 
@@ -51,11 +52,12 @@ void AImitationLearningRecordingManager::BeginPlay()
 	
 	auto RecordingAsset = ModelVersion->RecordingAsset.LoadSynchronous();
 	auto ManagerPtr = LearningAgentsManager.Get();
-	auto InteractorPtr = Interactor.Get();
+	ULearningAgentsInteractor* InteractorPtr = Interactor.Get();
 	ILController = Cast<ULearningAgentsCombatController>(ULearningAgentsController::MakeController(ManagerPtr, InteractorPtr, IRConfiguration->ILControllerClass));
 	bool bReinitializeRecording = true;
 	ILRecorder = ULearningAgentsRecorder::MakeRecorder(ManagerPtr, InteractorPtr, IRConfiguration->ILRecorderClass, FName("IL Recorder"),
 		IRConfiguration->RecorderPathSettings, RecordingAsset, bReinitializeRecording);
+	Interactor->SetImitationRecordingModeActive(true);
 }
 
 void AImitationLearningRecordingManager::EndPlay(const EEndPlayReason::Type EndPlayReason)

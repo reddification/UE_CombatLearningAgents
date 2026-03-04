@@ -20,8 +20,11 @@ void ULACombatObservationComponent::BeginPlay()
 	const int BackwardRaindropsResolution = Settings->BackwardRaindropsParams.GetResolution();
 	
 	SelfDownwardRaindrop.Variables.TraceDistance = Settings->DownwardRaindropsParams.TraceDistance;
+	SelfDownwardRaindrop.BufferHandle.RaindropBufferIndex = 0;
 	SelfForwardRaindrop.Variables.TraceDistance = Settings->ForwardRaindropsParams.TraceDistance;
+	SelfForwardRaindrop.BufferHandle.RaindropBufferIndex = 1;
 	SelfBackwardRaindrop.Variables.TraceDistance = Settings->BackwardRaindropsParams.TraceDistance;
+	SelfBackwardRaindrop.BufferHandle.RaindropBufferIndex = 2;
 
 	FRaindropBuffer SelfDownwardRaindropBuffer(DownwardRaindropsResolution * DownwardRaindropsResolution, SelfDownwardRaindrop.BufferHandle.GetOccupierId());
 	FRaindropBuffer SelfForwardRaindropBuffer(ForwardRaindropsResolution * ForwardRaindropsResolution, SelfForwardRaindrop.BufferHandle.GetOccupierId());
@@ -356,7 +359,7 @@ void ULACombatObservationComponent::OnCombatStarted()
 {
 	CombatStartTime = GetWorld()->GetTimeSeconds();
 	LidarCancellationToken.store(false);
-	SetComponentTickEnabled(true);
+	// SetComponentTickEnabled(true);
 	if (ResetRaindropBuffersTimer.IsValid())
 		GetWorld()->GetTimerManager().ClearTimer(ResetRaindropBuffersTimer);
 	
@@ -395,7 +398,7 @@ void ULACombatObservationComponent::OnCombatEnded()
 	for (auto& Character : CachedAlliesData)
 		StopRaindrop(Character.Value->RaindropData, ELAAgentAttitude::Ally);
 	
-	SetComponentTickEnabled(false);
+	// SetComponentTickEnabled(false);
 	// 2 seconds should be enough for all raindrops to stop
 	GetWorld()->GetTimerManager().SetTimer(ResetRaindropBuffersTimer, this, &ULACombatObservationComponent::ResetRaindropBuffers, 2.f);
 }
@@ -445,56 +448,6 @@ const TArray<float>* ULACombatObservationComponent::GetLidarDataTo(const AActor*
 	// return &RaindropsToCharacters[ForActor].Raindrops; 
 }
 
-// TODO use (and adjust if needed) Nav3D plugin to prepare same data as linetrace raindrops
-void ULACombatObservationComponent::CollectSpatialObservation_Octree()
-{
-	// const FVector Offset(SpatialAwarenessObservationRadiusXY, SpatialAwarenessObservationRadiusXY, SpatialAwarenessObservationRadiusZ);
-	// auto AgentLocation = GetOwner()->GetActorLocation();
-	// auto SpatialObservationsRoot = AgentLocation + (-Offset);
-	// ANav3DData* NavData = FNav3DUtils::GetNav3DData(GetWorld());
-	// const FNav3DVolumeNavigationData* Nav3DVolumeNavigationData = NavData->GetVolumeNavigationDataContainingPoints({ SpatialObservationsRoot  });
-	// const FNav3DVolumeNavigationData* Nav3DVolumeNavigationData_Test = NavData->GetVolumeNavigationDataContainingPoints({ AgentLocation });
-	// if (Nav3DVolumeNavigationData != Nav3DVolumeNavigationData_Test)
-	// {
-	// 	ensure(false); // idk what's going to happen	
-	// }
-	//
-	// FNav3DNodeAddress CurrentNodeAddress;
-	// bool bFound = Nav3DVolumeNavigationData->GetNodeAddressFromPosition(CurrentNodeAddress, AgentLocation, 0);
-	// if (!ensure(bFound))
-	// 	return;
-	//
-	// TArray<FNav3DNodeAddress> NeighborsNodesAddresses_Test;
-	// Nav3DVolumeNavigationData->GetNodeNeighbours(NeighborsNodesAddresses_Test, CurrentNodeAddress);
-	// const FNav3DNode& CurrentNode = Nav3DVolumeNavigationData->GetNodeFromAddress(CurrentNodeAddress);
-	// const auto& NeighborsAddresses = CurrentNode.Neighbours;
-	// ensure(NeighborsNodesAddresses_Test.Num() == 6);
-	// const float AgentRadius = 25.f; // TODO get from somewhere
-	// const int CountXY = FMath::CeilToInt32(SpatialAwarenessObservationRadiusXY * 2.f / AgentRadius);
-	// const int CountZ = FMath::CeilToInt32(SpatialAwarenessObservationRadiusZ * 2.f / AgentRadius);
-	// auto NextNodeAddress = CurrentNodeAddress;
-	// 	// TODO paralellize by vertical component
-	//
-	// // directions are taken from GNeighbourDirections array (Nav3DTypes.h)
-	// const int DirectionUp = 4;
-	// const int DirectionForward = 0;
-	// const int DirectionRight = 2;
-	// for (int i = 0; i < CountXY; i++)
-	// {
-	// 	const auto& StartNode = CurrentNode;
-	// 	for (int j = 0; j < CountXY; j++)
-	// 	{
-	// 		for (int k = 0; k < CountZ; k++)
-	// 		{
-	// 			// bool IsOccluded = Nav3DVolumeNavigationData->IsPositionOccluded()				
-	// 		}
-	// 	}
-	// 	
-	// 	NextNodeAddress = CurrentNode.Neighbours[4];
-	// }		
-	
-}
-
 // raindrop approach is probably the most accurate, but also the least scalable
 // I can only excuse myself by saying that 
 // 1. it's async and won't stagger the game thread
@@ -503,6 +456,9 @@ void ULACombatObservationComponent::CollectSpatialObservation_Octree()
 void ULACombatObservationComponent::LidarRaindropAsync(const FLidarRaindropVariables* RaindropVariables,
                                                                   const FLidarRaindropParams* RaindropParams, const FRaindropBufferHandle* RaindropBufferHandle, ELAAgentAttitude TargetType)
 {
+	if (!bRaindropEnabled)
+		return;
+	
 #if WITH_EDITOR
 	UE_LOG(LogLA_Combat_Observations_Raindrop, Log, TEXT("Starting raindrop [%s]"), *RaindropVariables->LogInfo);
 #endif		
@@ -551,15 +507,31 @@ void ULACombatObservationComponent::LidarRaindropAsync(const FLidarRaindropVaria
 				return;
 			}
 			
-			auto& Buffer = RaindropBuffers[RowData.TargetType][RowData.RaindropBufferIndex];
-			if (Buffer.OccupierId != RowData.OccupierId)
+			if (RaindropBuffers.Contains(RowData.TargetType))
 			{
-				UE_VLOG(this, LogNpcMl, Warning, TEXT("Attempt to store raindrop data when there's an occupier mismatch: %s tried to put data for %s"),
-					*RowData.OccupierId.ToString(), *Buffer.OccupierId.ToString());
-				return;
+				if (RowData.RaindropBufferIndex < RaindropBuffers[RowData.TargetType].Num() && ensure(RowData.RaindropBufferIndex >= 0))
+				{
+					auto& Buffer = RaindropBuffers[RowData.TargetType][RowData.RaindropBufferIndex];
+					if (Buffer.OccupierId != RowData.OccupierId)
+					{
+						UE_VLOG(GetOwner(), LogNpcMl, Warning, TEXT("Attempt to store raindrop data when there's an occupier mismatch: %s tried to put data for %s"),
+							*RowData.OccupierId.ToString(), *Buffer.OccupierId.ToString());
+						return;
+					}
+					
+					Buffer.RawData = RaindropBatch;
+				}
+				else
+				{
+					UE_VLOG(GetOwner(), LogNpcMl, Warning, TEXT("Incorrect raindrop buffer index %d for buffer type %d"), RowData.RaindropBufferIndex, RowData.TargetType);	
+				}
+			}
+			else 
+			{
+				UE_VLOG(GetOwner(), LogNpcMl, Warning, TEXT("Attempt to store raindrop data when there's no buffer with address [%d][%d]"),
+					RowData.TargetType, RowData.RaindropBufferIndex);
 			}
 			
-			Buffer.RawData = RaindropBatch;
 			// float* RawData = Buffer.RawData.GetData();
 			// memcpy(RawData, RaindropBatch.GetData(), RowData.RaindropResolution * sizeof(float));
 		});
@@ -651,12 +623,14 @@ void ULACombatObservationComponent::RaindropToArray(const FLidarRaindropVariable
 	const FVector StartPoint = ActualOriginVector 
 		+ ActualDirectionX * (RowData.Row * RaindropParams->Density - RaindropParams->Radius)  
 		+ (-ActualDirectionY * RaindropParams->Radius);
+	FCollisionQueryParams CollisionQueryParams;
+	CollisionQueryParams.AddIgnoredActor(GetOwner());
 	for (int y = 0; y < RowData.RaindropResolution; y++)
 	{
 		FHitResult HitResult;
 		const FVector TraceStart = StartPoint + ActualDirectionY * RaindropParams->Density * y;
 		const FVector TraceEnd = TraceStart + ActualTraceDirection * RaindropParams->TraceDistance;
-		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, Settings->RaindropCollisionChannel);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, Settings->RaindropCollisionChannel, CollisionQueryParams);
 		Array[RowData.Row * RowData.RaindropResolution + y] = HitResult.Distance / RaindropParams->TraceDistance;
 	}
 }

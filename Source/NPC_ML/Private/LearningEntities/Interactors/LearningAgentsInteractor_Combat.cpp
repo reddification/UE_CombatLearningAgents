@@ -100,14 +100,22 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	
-	FActionSchemaCategoryData ExclusiveNonBlockingLocomotionAnimationActionsCategory = SpecifyExclusiveNonBlockingLocomotionAnimationActionsCategory(InActionSchema, Settings);
+	FActionSchemaCategoryData ExclusiveNonBlockingLocomotionAnimationActionsCategory = 
+		SpecifyExclusiveNonBlockingLocomotionAnimationActionsCategory(InActionSchema, Settings);
 	
 	FActionSchemaCategoryData NonBlockingLocomotionActionsCategory = SpecifyNonBlockingLocomotionActionsCategory(InActionSchema, Settings,
 		ExclusiveNonBlockingLocomotionAnimationActionsCategory);
 	
-	auto NonBlockingLocomotionActionsUnion = ULearningAgentsActions::SpecifyInclusiveUnionAction(InActionSchema, 
-		NonBlockingLocomotionActionsCategory.Elements, NonBlockingLocomotionActionsCategory.Probabilities,
-		Key_Action_Locomotion_NonBlocking);
+	LocomotionNonBlockingActionNames.Empty();
+	NonBlockingLocomotionActionsCategory.Elements.GetKeys(LocomotionNonBlockingActionNames);
+	
+	// auto NonBlockingLocomotionActionsUnion = ULearningAgentsActions::SpecifyInclusiveUnionAction(InActionSchema, 
+	// 	NonBlockingLocomotionActionsCategory.Elements, NonBlockingLocomotionActionsCategory.Probabilities,
+	// 	Key_Action_Locomotion_NonBlocking);
+	auto NonBlockingLocomotionActionsUnion = ULearningAgentsActions::SpecifyStructAction(InActionSchema, 
+		NonBlockingLocomotionActionsCategory.Elements, Key_Action_Locomotion_NonBlocking);
+	
+	ULearningAgentsActions::SpecifyStructAction(InActionSchema, NonBlockingLocomotionActionsCategory.Elements, Key_Action_Locomotion_NonBlocking);
 	
 	FLearningAgentsActionSchemaElement BlockingLocomotionAction = SpecifyBlockingLocomotionActions(InActionSchema);
 	
@@ -211,19 +219,28 @@ FActionSchemaCategoryData ULearningAgentsInteractor_Combat::SpecifyNonBlockingLo
 {
 	FActionSchemaCategoryData NonBlockingLocomotionActionsCategory;
 	auto SetSpeedAction = ULearningAgentsActions::SpecifyFloatAction(InActionSchema, Settings->MaxSpeed, Key_Action_Locomotion_SetSpeed);
+	auto SetSpeedActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, SetSpeedAction,
+		0.2f, Key_Action_Locomotion_NonBlocking_OptionalElement);
 	auto MoveAction = ULearningAgentsActions::SpecifyDirectionAction(InActionSchema, Key_Action_Locomotion_Move);
+	auto MoveActionOptilnal = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, MoveAction, 
+		0.7f, Key_Action_Locomotion_NonBlocking_OptionalElement);
 	auto RotateAction = ULearningAgentsActions::SpecifyRotationAction(InActionSchema, Settings->RotationScale, Key_Action_Locomotion_Rotate);
+	auto RotateActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, RotateAction, 
+		0.5f,Key_Action_Locomotion_NonBlocking_OptionalElement);
+
 	auto AnimationNonBlockingAction = ULearningAgentsActions::SpecifyExclusiveUnionAction(InActionSchema, 
 		ExclusiveNonBlockingLocomotionAnimationActionsCategory.Elements,
 		ExclusiveNonBlockingLocomotionAnimationActionsCategory.Probabilities,
 		Key_Action_Locomotion_NonBlocking_Animation);
+	auto AnimationNonBlockingActionOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema, AnimationNonBlockingAction,
+		0.2f, Key_Action_Locomotion_NonBlocking_OptionalElement); 
 	
 	NonBlockingLocomotionActionsCategory.Elements = 
 	{
-		{ Key_Action_Locomotion_SetSpeed, SetSpeedAction },
-		{ Key_Action_Locomotion_Move, MoveAction },
-		{ Key_Action_Locomotion_Rotate, RotateAction },
-		{ Key_Action_Locomotion_NonBlocking_Animation, AnimationNonBlockingAction }
+		{ Key_Action_Locomotion_SetSpeed, SetSpeedActionOptional },
+		{ Key_Action_Locomotion_Move, MoveActionOptilnal },
+		{ Key_Action_Locomotion_Rotate, RotateActionOptional },
+		{ Key_Action_Locomotion_NonBlocking_Animation, AnimationNonBlockingActionOptional }
 	};
 	
 	// i'm not sure if probabilities should sum up to exactly 1 or not 
@@ -239,9 +256,12 @@ FActionSchemaCategoryData ULearningAgentsInteractor_Combat::SpecifyNonBlockingLo
 	{
 		FLearningAgentsActionSchemaElement SayPhraseAction = GetNamedOptionsActionSchemaElement(InActionSchema, Settings->Phrases,
 			Key_Action_SayPhrase);
-		NonBlockingLocomotionActionsCategory.Elements.Emplace(Key_Action_SayPhrase, SayPhraseAction);
+		auto SayPhraseOptional = ULearningAgentsActions::SpecifyOptionalAction(InActionSchema,
+			SayPhraseAction, 0.2f, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		NonBlockingLocomotionActionsCategory.Elements.Emplace(Key_Action_SayPhrase, SayPhraseOptional);
 		NonBlockingLocomotionActionsCategory.Probabilities.Emplace(Key_Action_SayPhrase, 0.2f);
 	}
+
 	return NonBlockingLocomotionActionsCategory;
 }
 
@@ -327,10 +347,13 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	FActionModifierMap NonBlockingLocomotionActionModifiersMap = MakeActionModifier_NonBlockingLocomotion(InActionModifier, SelfStates, Settings, AllMaskedActions);
 	TSet<FName> NonBlockingActionKeys;
 	NonBlockingLocomotionActionModifiersMap.GetKeys(NonBlockingActionKeys);
-	auto NonBlockingLocomotionUnionActionModifier = ULearningAgentsActions::MakeInclusiveUnionActionModifier(InActionModifier, 
-		NonBlockingLocomotionActionModifiersMap, AllMaskedActions.Intersect(NonBlockingActionKeys).Array(),
-		Key_Action_Locomotion_NonBlocking);
-	
+	// auto NonBlockingLocomotionUnionActionModifier = ULearningAgentsActions::MakeInclusiveUnionActionModifier(InActionModifier, 
+	// 	NonBlockingLocomotionActionModifiersMap, AllMaskedActions.Intersect(NonBlockingActionKeys).Array(),
+	// 	Key_Action_Locomotion_NonBlocking);
+
+	auto NonBlockingLocomotionUnionActionModifier = ULearningAgentsActions::MakeStructActionModifier(InActionModifier, 
+		NonBlockingLocomotionActionModifiersMap,Key_Action_Locomotion_NonBlocking);
+
 	// ===================================
 	
 	auto BlockingLocomotionActionsModifier = ULearningAgentsActions::MakeEnumActionModifier(InActionModifier, 
@@ -497,7 +520,7 @@ void ULearningAgentsInteractor_Combat::GatherAgentObservation_Implementation(
 	{
 		auto SelfData = CombatObservationComponent->GetSelfData();
 		auto SelfObservationMap = GatherSelfObservations(InObservationObject, AgentId, SelfData);
-		auto SelfObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, Observations, Key_Observation_Self);
+		auto SelfObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, SelfObservationMap, Key_Observation_Self);
 		Observations.Add(Key_Observation_Self, SelfObservation);
 	}
 	
@@ -512,7 +535,7 @@ void ULearningAgentsInteractor_Combat::GatherAgentObservation_Implementation(
 	{
 		auto CombatStateData = CombatObservationComponent->GetCombatStateData();
 		auto CombatStateObservationsMap = GatherCombatStateObservation(InObservationObject, AgentId, CombatStateData);
-		auto CombatStateObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, Observations, Key_Observation_Combat_State);
+		auto CombatStateObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, CombatStateObservationsMap, Key_Observation_Combat_State);
 		Observations.Add(Key_Observation_Combat_State, CombatStateObservation);
 	}
 	
@@ -536,6 +559,8 @@ void ULearningAgentsInteractor_Combat::PerformAgentAction_Implementation(
 	const int32 AgentId)
 {
 	Super::PerformAgentAction_Implementation(InActionObject, InActionObjectElement, AgentId);
+	if (bImitationRecordingMode)
+		return;
 	
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
 	
@@ -1028,8 +1053,8 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherStaticObservation
 	auto IdentityObservationsMap = FObservationObjectsMap
 	{
 		{ Key_Observation_Static_Identity_Objective, ObjectiveObservation },
-		{ Key_Observation_Static_Identity_Personality, TemperObservation },
-		{ Key_Observation_Static_Identity_Temper, PersonalityObservation }
+		{ Key_Observation_Static_Identity_Temper, TemperObservation },
+		{ Key_Observation_Static_Identity_Personality, PersonalityObservation }
 	};
 	
 	auto IdentityObservation = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, IdentityObservationsMap,
@@ -1770,8 +1795,10 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const FActionSampl
 	else if (LocomotionActionName == Key_Action_Locomotion_NonBlocking)
 	{
 		TMap<FName, FLearningAgentsActionObjectElement> NonBlockingLocomotionActionObjectElements;
-		bool bGotNonBlockingActions = ULearningAgentsActions::GetInclusiveUnionAction(NonBlockingLocomotionActionObjectElements, SamplingParams.ActionObject,
-			RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
+		// bool bGotNonBlockingActions = ULearningAgentsActions::GetInclusiveUnionAction(NonBlockingLocomotionActionObjectElements, SamplingParams.ActionObject,
+		// 	RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
+		bool bGotNonBlockingActions = ULearningAgentsActions::GetStructAction(NonBlockingLocomotionActionObjectElements, 
+			SamplingParams.ActionObject, RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
 		if (ensure(bGotNonBlockingActions && !NonBlockingLocomotionActionObjectElements.IsEmpty()))
 			SampleNonBlockingLocomotionActions(SamplingParams, NonBlockingLocomotionActionObjectElements);
 	}
@@ -1782,60 +1809,95 @@ void ULearningAgentsInteractor_Combat::SampleNonBlockingLocomotionActions(const 
 {
 	if (auto SetSpeedAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_SetSpeed))
 	{
-		float SpeedNormalized = 0.f;
-		bool bSuccess = ULearningAgentsActions::GetFloatAction(SpeedNormalized, SamplingParams.ActionObject, *SetSpeedAction, Key_Action_Locomotion_SetSpeed,
-		    SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId, SamplingParams.AgentLocation);
-		// TODO consider clamping low values of sampled value
-		if (ensure(bSuccess))
-			SamplingParams.LocomotionActionsComponent->SetSpeed(SpeedNormalized * SamplingParams.Settings->MaxSpeed);
+		ELearningAgentsOptionalAction OptionalActionState;
+		FActionObjectItem OptionalAction;
+		bool bHasOptional = ULearningAgentsActions::GetOptionalAction(OptionalActionState, OptionalAction, 
+			SamplingParams.ActionObject,*SetSpeedAction, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		if (bHasOptional && OptionalActionState == ELearningAgentsOptionalAction::Valid)
+		{
+			float SpeedNormalized = 0.f;
+			bool bSuccess = ULearningAgentsActions::GetFloatAction(SpeedNormalized, SamplingParams.ActionObject, *SetSpeedAction, Key_Action_Locomotion_SetSpeed,
+				SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId, SamplingParams.AgentLocation);
+			// TODO consider clamping low values of sampled value
+			if (ensure(bSuccess))
+				SamplingParams.LocomotionActionsComponent->SetSpeed(SpeedNormalized * SamplingParams.Settings->MaxSpeed);
+		}
 	}
 			
 	if (auto MoveAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Move))
 	{
-		FVector MoveDirection = FVector::ZeroVector;
-		bool bSuccess = ULearningAgentsActions::GetDirectionAction(MoveDirection, SamplingParams.ActionObject, *MoveAction, SamplingParams.AgentTransform, 
-			Key_Action_Locomotion_Move, 
-           SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId);
-		if (ensure(bSuccess))
-			SamplingParams.LocomotionActionsComponent->AddMoveInput(MoveDirection);
+		ELearningAgentsOptionalAction OptionalActionState;
+		FActionObjectItem OptionalAction;
+		bool bHasOptional = ULearningAgentsActions::GetOptionalAction(OptionalActionState, OptionalAction, 
+			SamplingParams.ActionObject,*MoveAction, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		if (bHasOptional && OptionalActionState == ELearningAgentsOptionalAction::Valid)
+		{
+			FVector MoveDirection = FVector::ZeroVector;
+			bool bSuccess = ULearningAgentsActions::GetDirectionAction(MoveDirection, SamplingParams.ActionObject, *MoveAction, SamplingParams.AgentTransform, 
+				Key_Action_Locomotion_Move, 
+	           SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId);
+			if (ensure(bSuccess))
+				SamplingParams.LocomotionActionsComponent->AddMoveInput(MoveDirection);
+		}
 	}
 			
 	if (auto RotateAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_Rotate))
 	{
-		FRotator Rotator;
-		bool bSuccess = ULearningAgentsActions::GetRotationAction(Rotator, 
-			SamplingParams.ActionObject, *RotateAction,SamplingParams.AgentTransform.GetRotation().Rotator(), Key_Action_Locomotion_Rotate,
-			SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId, SamplingParams.AgentLocation);
-		if (ensure(bSuccess))
-			SamplingParams.LocomotionActionsComponent->AddRotationInput(Rotator);
+		ELearningAgentsOptionalAction OptionalActionState;
+		FActionObjectItem OptionalAction;
+		bool bHasOptional = ULearningAgentsActions::GetOptionalAction(OptionalActionState, OptionalAction, 
+			SamplingParams.ActionObject,*RotateAction, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		if (bHasOptional && OptionalActionState == ELearningAgentsOptionalAction::Valid)
+		{
+			FRotator Rotator;
+			bool bSuccess = ULearningAgentsActions::GetRotationAction(Rotator, 
+				SamplingParams.ActionObject, *RotateAction,SamplingParams.AgentTransform.GetRotation().Rotator(), Key_Action_Locomotion_Rotate,
+				SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId, SamplingParams.AgentLocation);
+			if (ensure(bSuccess))
+				SamplingParams.LocomotionActionsComponent->AddRotationInput(Rotator);
+		}
 	}
 			
 	if (auto SayPhraseAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_SayPhrase))
 	{
-		FName PhraseName;
-		bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(PhraseName, SamplingParams.ActionObject, *SayPhraseAction, Key_Action_SayPhrase,
-			SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId, SamplingParams.AgentLocation);
-		if (ensure(bSuccess))
+		ELearningAgentsOptionalAction OptionalActionState;
+		FActionObjectItem OptionalAction;
+		bool bHasOptional = ULearningAgentsActions::GetOptionalAction(OptionalActionState, OptionalAction, 
+			SamplingParams.ActionObject,*SayPhraseAction, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		if (bHasOptional && OptionalActionState == ELearningAgentsOptionalAction::Valid)
 		{
-			FGameplayTag PhraseTag = FGameplayTag::RequestGameplayTag(PhraseName);
-			SamplingParams.LocomotionActionsComponent->SayPhrase(PhraseTag);
+			FName PhraseName;
+			bool bSuccess = ULearningAgentsActions::GetNamedExclusiveDiscreteAction(PhraseName, SamplingParams.ActionObject, *SayPhraseAction, Key_Action_SayPhrase,
+				SamplingParams.Settings->bVisLogEnabled, this, SamplingParams.AgentId, SamplingParams.AgentLocation);
+			if (ensure(bSuccess))
+			{
+				FGameplayTag PhraseTag = FGameplayTag::RequestGameplayTag(PhraseName);
+				SamplingParams.LocomotionActionsComponent->SayPhrase(PhraseTag);
+			}
 		}
 	}
 			
 	if (auto AnimationAction = NonBlockingLocomotionActionObjectElements.Find(Key_Action_Locomotion_NonBlocking_Animation))
 	{
-		FName AnimationActionName; 
-		FLearningAgentsActionObjectElement AnimationActionObjectElement;
-		bool bGotAnimationAction = ULearningAgentsActions::GetExclusiveUnionAction(AnimationActionName, AnimationActionObjectElement,
-			SamplingParams.ActionObject,*AnimationAction, Key_Action_Locomotion_NonBlocking_Animation);
-				
-		if (ensure(bGotAnimationAction))
-			SampleLocomotionAnimationAction(SamplingParams, AnimationActionName, AnimationActionObjectElement);	
+		ELearningAgentsOptionalAction OptionalActionState;
+		FActionObjectItem OptionalAction;
+		bool bHasOptional = ULearningAgentsActions::GetOptionalAction(OptionalActionState, OptionalAction, 
+			SamplingParams.ActionObject,*AnimationAction, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		if (bHasOptional && OptionalActionState == ELearningAgentsOptionalAction::Valid)
+		{
+			FName AnimationActionName; 
+			FLearningAgentsActionObjectElement AnimationActionObjectElement;
+			bool bGotAnimationAction = ULearningAgentsActions::GetExclusiveUnionAction(AnimationActionName, AnimationActionObjectElement,
+				SamplingParams.ActionObject,*AnimationAction, Key_Action_Locomotion_NonBlocking_Animation);
+					
+			if (ensure(bGotAnimationAction))
+				SampleLocomotionAnimationAction(SamplingParams, AnimationActionName, AnimationActionObjectElement);	
+		}
 	}
 }
 
-void ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const FActionSamplingParams& SamplingParams, const FName& AnimationActionName,
-                                                                       const FLearningAgentsActionObjectElement& AnimationActionObjectElement)
+bool ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const FActionSamplingParams& SamplingParams, const FName& AnimationActionName,
+	const FLearningAgentsActionObjectElement& AnimationActionObjectElement)
 {
 	if (AnimationActionName == Key_Action_Gesture)
 	{
@@ -1848,6 +1910,8 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const FAc
 			FGameplayTag GestureTag = FGameplayTag::RequestGameplayTag(GestureName);
 			SamplingParams.LocomotionActionsComponent->Gesture(GestureTag);
 		}
+		
+		return true;
 	}
 	else if (AnimationActionName == Key_Action_UseConsumableItem)
 	{
@@ -1860,6 +1924,8 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const FAc
 			FGameplayTag ItemId = FGameplayTag::RequestGameplayTag(ItemIdName);
 			SamplingParams.LocomotionActionsComponent->UseItem(ItemId);
 		}
+		
+		return true;
 	}
 	else if (AnimationActionName == Key_Action_ChangeWeaponState)
 	{
@@ -1872,5 +1938,9 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAnimationAction(const FAc
 			ELAWeaponStateChange WeaponStateChange = static_cast<ELAWeaponStateChange>(WeaponStateChangeRaw);
 			SamplingParams.LocomotionActionsComponent->SetWeaponReady(WeaponStateChange == ELAWeaponStateChange::Ready);
 		}
+		
+		return true;
 	}
+	
+	return false;
 }

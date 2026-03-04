@@ -18,13 +18,16 @@ namespace LearningAgentsImitationActions
 			};
 		
 			virtual ~FAction_Locomotion_NonBlocking() override;
-			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const override final; 
 			virtual FLearningAgentsActionObjectElement GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const = 0;
 			virtual bool CanCombine(FAction* OtherAction) const override;
 			virtual void Combine(const TSharedPtr<FAction>& OtherAction) override;
 			virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Locomotion_NonBlocking; }
 		
 		private:
-			TMap<FName, TSharedPtr<FAction>> PendingSimultaneousActions;
+			mutable TMap<FName, TSharedPtr<FAction>> PendingSimultaneousActions;
+
+			// TArray<FName> GetAllPossibleInclusiveActionsNames() const;
+		
 	};	
 }

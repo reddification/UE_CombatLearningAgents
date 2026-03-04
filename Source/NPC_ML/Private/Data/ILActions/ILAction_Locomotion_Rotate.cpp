@@ -28,7 +28,9 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_Locomotion_Rotate::GetActionInternal(ULearningAgentsActionObject* InActionObject,
 		AActor* AgentActor) const
 	{
-		return ULearningAgentsActions::MakeRotationAction(InActionObject, AccumulatedRotationInput,
+		auto Action = ULearningAgentsActions::MakeRotationAction(InActionObject, AccumulatedRotationInput,
 			FRotator::ZeroRotator, GetActionName());
+		auto ActionOptional = ULearningAgentsActions::MakeOptionalValidAction(InActionObject, Action, LAActionKeys::Key_Action_Locomotion_NonBlocking_OptionalElement);
+		return ActionOptional;
 	}
 }

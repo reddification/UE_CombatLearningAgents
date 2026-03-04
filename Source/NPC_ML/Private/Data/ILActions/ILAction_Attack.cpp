@@ -3,7 +3,7 @@
 namespace LearningAgentsImitationActions
 {
 	FLearningAgentsActionObjectElement FAction_Attack::GetAction(ULearningAgentsActionObject* InActionObject,
-																 AActor* AgentActor) const
+		AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const
 	{
 		auto Action = ULearningAgentsActions::MakeEnumAction(InActionObject, AttackEnum.Get(), AttackIndex, GetActionName());
 		auto CombatExclusiveUnionAction = ULearningAgentsActions::MakeExclusiveUnionAction(InActionObject, GetActionName(), 

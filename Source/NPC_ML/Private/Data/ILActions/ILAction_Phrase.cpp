@@ -14,6 +14,8 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_Phrase::GetActionInternal(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		return ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, PhraseTag.GetTagName(), LAActionKeys::Key_Action_SayPhrase);
+		auto Action = ULearningAgentsActions::MakeNamedExclusiveDiscreteAction(InActionObject, PhraseTag.GetTagName(), LAActionKeys::Key_Action_SayPhrase);
+		auto ActionOptional = ULearningAgentsActions::MakeOptionalValidAction(InActionObject, Action, LAActionKeys::Key_Action_Locomotion_NonBlocking_OptionalElement);
+		return ActionOptional;
 	}
 }

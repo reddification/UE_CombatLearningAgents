@@ -6,6 +6,7 @@
 #include "LearningAgentsInteractor.h"
 #include "Data/LearningAgentsTags_Combat.h"
 #include "Data/MLModelVersion.h"
+#include "LearningEntities/Interactors/LearningAgentsInteractor_Base.h"
 
 
 // Sets default values
@@ -31,12 +32,19 @@ void AMLInferenceManager::BeginPlay()
 	// и вот они на нормальном ЯП в первые раз жизни писали и нахуярили как получилось
 	ULearningAgentsManager* ManagerPtr = LearningAgentsManager;
 	Interactor = ModelVersion->MakeInteractor(LearningAgentsManager.Get());
-	auto InteractorPtr = Interactor.Get();
+	ULearningAgentsInteractor* InteractorPtr = Interactor.Get();
 	Policy = ULearningAgentsPolicy::MakePolicy(
 		ManagerPtr, InteractorPtr, ModelVersion->PolicyClass, FName("CombatPolicy"),
 		ModelVersion->EncoderNN, ModelVersion->PolicyNN, ModelVersion->DecoderNN,
 		false,  false,  false,
 		ModelVersion->PolicySettings, Seed);
+}
+
+void AMLInferenceManager::SetManagerActive(bool bNewActive)
+{
+	Super::SetManagerActive(bNewActive);
+	if (Policy)
+		SetActorTickEnabled(bActive);
 }
 
 void AMLInferenceManager::Tick(float DeltaTime)

@@ -38,5 +38,4 @@ void AMLManagerBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AMLManagerBase::SetManagerActive(bool bNewActive)
 {
 	bActive = bNewActive;
-	SetActorTickEnabled(bActive);
 }

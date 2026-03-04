@@ -15,9 +15,9 @@ public:
 		ULearningAgentsActionObject* InActionObject, const ULearningAgentsObservationObject* InObservationObject, 
 		const FLearningAgentsObservationObjectElement& InObservationObjectElement, const int32 AgentId) override;
 
-	FORCEINLINE TMap<int, LearningAgentsImitationActions::FAgentPendingActionsBuffer>& GetPendingActionBuffer() { return PendingActionQueues; }
-	
+	FORCEINLINE TMap<int, LearningAgentsImitationActions::FAgentPendingActionsBuffer>& GetPendingActionBuffer() { return PendingActionBuffers; }
+
 private:
 	// key = agent id
-	TMap<int, LearningAgentsImitationActions::FAgentPendingActionsBuffer> PendingActionQueues;
+	TMap<int, LearningAgentsImitationActions::FAgentPendingActionsBuffer> PendingActionBuffers;
 };

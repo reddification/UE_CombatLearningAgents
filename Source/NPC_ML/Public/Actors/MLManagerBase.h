@@ -7,6 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "MLManagerBase.generated.h"
 
+class ULearningAgentsInteractor_Base;
 class ULearningAgentsInteractor;
 class ULearningAgentsManager;
 
@@ -19,7 +20,7 @@ public:
 	AMLManagerBase();
 	
 	ULearningAgentsManager* GetLearningAgentsManager() const { return LearningAgentsManager; };
-	void SetManagerActive(bool bNewActive);
+	virtual void SetManagerActive(bool bNewActive);
 
 protected:
 	virtual void BeginPlay() override;
@@ -29,7 +30,7 @@ protected:
 	TObjectPtr<ULearningAgentsManager> LearningAgentsManager;
 
 	UPROPERTY()
-	TObjectPtr<ULearningAgentsInteractor> Interactor;
+	TObjectPtr<ULearningAgentsInteractor_Base> Interactor;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FGameplayTag BehaviorTag;

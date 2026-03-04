@@ -52,7 +52,7 @@ namespace LearningAgentsImitationActions
 	TSharedPtr<FAction> FAgentPendingActionsBuffer::GetAction()
 	{
 		bool bGotAction = AccumulatingAction.IsValid();
-		TSharedPtr<FAction> Result = ensure(bGotAction) ? AccumulatingAction : nullptr;
+		TSharedPtr<FAction> Result = bGotAction ? AccumulatingAction : nullptr;
 		AccumulatingAction.Reset();
 		if (PendingAction.IsValid())
 		{

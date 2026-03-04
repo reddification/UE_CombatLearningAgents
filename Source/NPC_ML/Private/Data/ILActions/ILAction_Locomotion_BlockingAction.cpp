@@ -6,7 +6,7 @@
 namespace LearningAgentsImitationActions
 {
 	FLearningAgentsActionObjectElement FAction_Locomotion_BlockingLocomotion::GetAction(
-		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
+		ULearningAgentsActionObject* InActionObject, AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const
 	{
 		auto Action = ULearningAgentsActions::MakeEnumAction(InActionObject, StaticEnum<ELALocomotionAction>(),
 			static_cast<uint8>(LocomotionAction), GetActionName());

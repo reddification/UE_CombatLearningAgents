@@ -6,7 +6,10 @@ namespace LearningAgentsImitationActions
 	FLearningAgentsActionObjectElement FAction_Locomotion_SetSpeed::GetActionInternal(
 		ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
 	{
-		return ULearningAgentsActions::MakeFloatAction(InActionObject, Speed, GetActionName());
+		auto Action = ULearningAgentsActions::MakeFloatAction(InActionObject, Speed, GetActionName());
+		auto ActionOptional = ULearningAgentsActions::MakeOptionalValidAction(InActionObject, Action,
+			LAActionKeys::Key_Action_Locomotion_NonBlocking_OptionalElement);
+		return ActionOptional;
 	}
 
 	bool FAction_Locomotion_SetSpeed::CanCombine(FAction* OtherAction) const

@@ -4,6 +4,8 @@
 #include "Data/ILActions/ILAction_Base.h"
 #include "Data/ILActions/ILAction_Locomotion_NonBlocking.h"
 
+using namespace LAActionKeys;
+
 namespace LearningAgentsImitationActions
 {
 	FLearningAgentsActionObjectElement FAction_Locomotion_Move::GetActionInternal(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const
@@ -11,9 +13,11 @@ namespace LearningAgentsImitationActions
 		// auto Transform = FTransform::Identity; 
 		auto Transform = AgentActor->GetActorTransform();
 		// i think it should be identity and not agent's transform, because direction here is an input and input is already relative to the agent
-		return ULearningAgentsActions::MakeDirectionAction(InActionObject, DirectionWorld, Transform, GetActionName());
+		auto Action = ULearningAgentsActions::MakeDirectionAction(InActionObject, DirectionWorld, Transform, GetActionName());
+		auto ActionOptional = ULearningAgentsActions::MakeOptionalValidAction(InActionObject, Action, Key_Action_Locomotion_NonBlocking_OptionalElement);
+		return ActionOptional;
 	}
-
+	
 	bool FAction_Locomotion_Move::CanCombine(FAction* OtherAction) const
 	{
 		bool bMergeBase = Super::CanCombine(OtherAction);

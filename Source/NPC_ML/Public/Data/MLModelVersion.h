@@ -66,7 +66,7 @@ protected:
 	FGameplayTagContainer RelevantActions;
 	
 public:
-	ULearningAgentsInteractor* MakeInteractor(ULearningAgentsManager* LAM) const;
+	ULearningAgentsInteractor_Base* MakeInteractor(ULearningAgentsManager* LAM) const;
 	
 	bool IsSet() const;
 	

@@ -21,7 +21,7 @@ namespace LearningAgentsImitationActions
 		virtual bool IsImmediate() const override { return true; }
 		virtual bool CanCombine(FAction* OtherAction) const override { return false; }
 		virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Combat_Dodge; }
-		virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+		virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const override;
 								
 	private:
 		FVector DodgeDirectionWorld = FVector::ZeroVector;

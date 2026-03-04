@@ -5,6 +5,7 @@
 #include "Data/LearningAgentsTags_Combat.h"
 #include "Data/MLModelVersion.h"
 #include "Data/MLTrainingConfigurationBase.h"
+#include "LearningEntities/Interactors/LearningAgentsInteractor_Base.h"
 #include "Subsystems/MLSubsystem.h"
 
 ALAReinforcementLearningManager::ALAReinforcementLearningManager()
@@ -26,7 +27,7 @@ void ALAReinforcementLearningManager::BeginPlay()
 		return;
 	
 	ULearningAgentsManager* LAM = LearningAgentsManager.Get();
-	auto InteractorPtr = Interactor.Get();
+	ULearningAgentsInteractor* InteractorPtr = Interactor.Get();
 	Policy = ULearningAgentsPolicy::MakePolicy(
 		LAM, InteractorPtr, MLModelVersion->PolicyClass, FName("CombatPolicy"),
 		MLModelVersion->EncoderNN, MLModelVersion->PolicyNN, MLModelVersion->DecoderNN,

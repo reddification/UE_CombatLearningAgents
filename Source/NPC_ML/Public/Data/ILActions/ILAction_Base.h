@@ -2,6 +2,8 @@
 
 #include "LearningAgentsActions.h"
 
+class ULearningAgentsInteractor_Combat;
+
 namespace LearningAgentsImitationActions
 {
 	class NPC_ML_API FAction
@@ -25,7 +27,7 @@ namespace LearningAgentsImitationActions
 			virtual bool CanCombine(FAction* OtherAction) const;
 			virtual void Combine(const TSharedPtr<FAction>& OtherAction) { }
 			
-			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const = 0;
+			virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const = 0;
 			virtual FName GetActionName() const = 0;
 		
 		protected:

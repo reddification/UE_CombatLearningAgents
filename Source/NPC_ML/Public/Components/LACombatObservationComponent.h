@@ -65,14 +65,15 @@ protected:
 	
 	virtual TArray<TSharedRef<FPerceivedCharacterData>> GetEnemies() const;
 	virtual TArray<TSharedRef<FPerceivedCharacterData>> GetAllies() const;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bRaindropEnabled = false;
 	
 private:
 	float CombatStartTime = 0.f;
 	
 	std::atomic<bool> LidarCancellationToken = false;
 	std::atomic<int> ActiveRaindropsCount { 0 };
-	
-	void CollectSpatialObservation_Octree();
 
 	void ProcessTargetObservations(TArray<TSharedRef<FPerceivedCharacterData>>&& Targets, ELAAgentAttitude RaindropTarget);
 	void LidarRaindropAsync(const FLidarRaindropVariables* RaindropVariables, const FLidarRaindropParams* RaindropParams, 

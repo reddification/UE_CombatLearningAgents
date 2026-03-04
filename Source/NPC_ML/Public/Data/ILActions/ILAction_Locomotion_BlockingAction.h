@@ -20,7 +20,7 @@ namespace LearningAgentsImitationActions
 		virtual bool IsImmediate() const override { return true; }
 		virtual FName GetActionName() const override { return LAActionKeys::Key_Action_Locomotion_Blocking; }
 		virtual bool CanCombine(FAction* OtherAction) const override { return false; }
-		virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor) const override;
+		virtual FLearningAgentsActionObjectElement GetAction(ULearningAgentsActionObject* InActionObject, AActor* AgentActor, ULearningAgentsInteractor_Combat* Interactor) const override;
 					
 	private:
 		ELALocomotionAction LocomotionAction;

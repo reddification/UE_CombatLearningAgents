@@ -73,6 +73,8 @@ public:
 	virtual void PerformAgentAction_Implementation(const ULearningAgentsActionObject* InActionObject,
 	                                               const FLearningAgentsActionObjectElement& InActionObjectElement, const int32 AgentId) override;
 
+	virtual const TArray<FName>& GetLocomotionNonBlockingActionNames() const { return LocomotionNonBlockingActionNames; }
+	
 protected:
 	virtual FObservationSchemasMap SpecifySelfObservations(ULearningAgentsObservationSchema* InObservationSchema,
 		const UCombatLearningSettings* Settings) const;
@@ -148,8 +150,11 @@ protected:
 	                                    const FActionObjectItem& RootActionObjectElement);
 	virtual void SampleNonBlockingLocomotionActions(const FActionSamplingParams& SamplingParams,
 	                                                const FActionObjectsMap& NonBlockingLocomotionActionObjectElements);
-	virtual void SampleLocomotionAnimationAction(const FActionSamplingParams& SamplingParams, const FName& AnimationActionName,
+	virtual bool SampleLocomotionAnimationAction(const FActionSamplingParams& SamplingParams,
+	                                             const FName& AnimationActionName,
 	                                             const FActionObjectItem& AnimationActionObjectElement);
+
+	TArray<FName> LocomotionNonBlockingActionNames;
 
 private:
 	FObservationSchemaItem SpecifyNamedExclusiveDiscreteObservation(ULearningAgentsObservationSchema* InObservationSchema,

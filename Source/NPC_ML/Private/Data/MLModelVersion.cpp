@@ -33,14 +33,18 @@ void UMLModelVersion::Reset()
 	}
 }
 
-ULearningAgentsInteractor* UMLModelVersion::MakeInteractor(ULearningAgentsManager* LAM) const
+ULearningAgentsInteractor_Base* UMLModelVersion::MakeInteractor(ULearningAgentsManager* LAM) const
 {
 	if (!IsValid(InteractorClass))
 		return nullptr;
 	
-	auto Interactor = Cast<ULearningAgentsInteractor_Base>(ULearningAgentsInteractor::MakeInteractor(LAM, InteractorClass, FName("Interactor")));
-	Interactor->SetRelevantObservations(RelevantObservations);
-	Interactor->SetRelevantActions(RelevantActions);
+	auto Interactor = ULearningAgentsInteractor_Base::MakeUninitializedInteractor(LAM, InteractorClass, FName("Interactor"));
+	if (ensure(Interactor))
+	{
+		Interactor->SetRelevantObservations(RelevantObservations);
+		Interactor->SetRelevantActions(RelevantActions);
+		Interactor->SetupInteractor(LAM);
+	}
 	
-	return Interactor;
+	return Interactor && Interactor->IsSetup() ? Interactor : nullptr;
 }
