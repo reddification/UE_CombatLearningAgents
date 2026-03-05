@@ -194,7 +194,6 @@ FSelfData ULACombatObservationComponent::GetSelfData() const
 	SelfData.NormalizedPoise = GetNormalizedPoise(OwnerActor);
 	SelfData.ArmorRate = GetArmorRate(OwnerActor);
 	SelfData.CombatStates = GetCombatStates(OwnerActor);
-	SelfData.Level = GetLevel(OwnerActor);
 	SelfData.WeaponData = GetWeaponData(OwnerActor);
 	SelfData.WorldVelocity = OwnerActor->GetVelocity();
 	SelfData.ActiveGesture = GetActiveGesture(OwnerActor);

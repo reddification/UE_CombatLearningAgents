@@ -27,7 +27,6 @@ namespace CombatLearning
 		FVector WorldVelocity = FVector::ZeroVector;
 		ELACharacterStates CombatStates;
 		FWeaponData WeaponData;
-		int Level = 0;
 		float ArmorRate = 0.f;
 		float AccumulatedNormalizedDamage = 0.f;
 		FGameplayTag ActiveGesture;

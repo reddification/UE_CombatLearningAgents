@@ -35,7 +35,6 @@ namespace LAObservationKeys
 	inline const FName Key_Observation_Dynamic_Phrase_Optional = FName("Observation.Dynamic.Phrase.Optional");
 	
 	inline const FName Key_Observation_Static = FName("Observation.Static");
-	inline const FName Key_Observation_Static_Level = FName("Observation.Static.Level");
 	inline const FName Key_Observation_Static_ArmorRate = FName("Observation.Static.ArmorRate");
 	
 	inline const FName Key_Observation_Static_Identity = FName("Observation.Static.Identity");

@@ -312,7 +312,7 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	Super::MakeAgentActionModifier_Implementation(OutActionModifierElement, InActionModifier, InObservationObject,
 	                                              InObservationObjectElement, AgentId);
 
-	ELACharacterStates SelfStates = ELACharacterStates::None;
+	ELACharacterStates SelfStates = LACharacterStates::None;
 	bool bGotSelfStates = GetSelfStates(InObservationObject, InObservationObjectElement, SelfStates);
 	if (!bGotSelfStates)
 		return;
@@ -709,7 +709,6 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifyDynamicBaseObser
 FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifyStaticBaseObservations(
 	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
 {
-	auto LevelObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxLevel, Key_Observation_Static_Level);
 	auto ArmorRateObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxArmorRate, Key_Observation_Static_ArmorRate);
 	
 	auto ObjectiveEnumObservation = ULearningAgentsObservations::SpecifyEnumObservation(InObservationSchema, GetAgentObjectiveEnum(), Key_Observation_Static_Identity_Objective);
@@ -728,7 +727,6 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifyStaticBaseObserv
 	auto WeaponObservation = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, WeaponObservationsMap, Key_Observation_Static_ActiveWeapon);
 	FObservationSchemasMap StaticObservations =
 	{
-		{ Key_Observation_Static_Level, LevelObservation },
 		{ Key_Observation_Static_ArmorRate, ArmorRateObservation },
 		{ Key_Observation_Static_ActiveWeapon, WeaponObservation },
 		{ Key_Observation_Static_Identity, IdentityObservation }
@@ -1036,8 +1034,6 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherStaticObservation
 	// 18 Feb 2026 (aki): TODO think about caching some of that stuff if it takes noticeable time
 	TRACE_CPUPROFILER_EVENT_SCOPE(LA::GatherStaticObservations)
 	
-	auto LevelObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject, CharacterData.Level, Key_Observation_Static_Level,
-	    GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
 	auto ArmorRateObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject, CharacterData.ArmorRate, Key_Observation_Static_ArmorRate,
 		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, GatheringParams.AgentWorldLocation);
 	
@@ -1063,7 +1059,6 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherStaticObservation
 	auto WeaponObservation = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, WeaponObservationsMap, Key_Observation_Static_ActiveWeapon);
 	FObservationObjectsMap StaticObservations =
 	{
-		{ Key_Observation_Static_Level, LevelObservation },
 		{ Key_Observation_Static_ArmorRate, ArmorRateObservation },
 		{ Key_Observation_Static_ActiveWeapon, WeaponObservation },
 		{ Key_Observation_Static_Identity, IdentityObservation },
@@ -1072,8 +1067,7 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherStaticObservation
 	return StaticObservations; 
 }
 
-FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherDynamicBaseObservations(
-	const FObservationGatherParams& GatheringParams,
+FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherDynamicBaseObservations(const FObservationGatherParams& GatheringParams,
 	const FCharacterDataBase& CharacterData)
 {
 	auto HealthObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject, CharacterData.NormalizedHealth, Key_Observation_Dynamic_Health,
@@ -1583,7 +1577,7 @@ bool ULearningAgentsInteractor_Combat::GetSelfStates(const ULearningAgentsObserv
 		return false;
 	}
 
-	OutSelfStates = ELACharacterStates::None;
+	OutSelfStates = LACharacterStates::None;
 	int32 RawSelfStates = 0;
 	bool bFoundSelfStates = ULearningAgentsObservations::GetBitmaskObservation(RawSelfStates, InObservationObject, *SelfStatesObservation,
 																			   StaticEnum<ELACharacterStates>(), Key_Observation_Dynamic_CombatStates);
@@ -1601,70 +1595,70 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 {
 	TSet<FName> Result;
 	Result.Reserve(16);
-	if ((SelfStates & ELACharacterStates::Attacking) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Attacking) != LACharacterStates::None)
 	{
 		// idk, it can actually depend on the archetype 
 		Result.Emplace(Key_Action_Combat_Dodge);
 		Result.Emplace(Key_Action_Locomotion);
 	}
 	
-	if ((SelfStates & ELACharacterStates::InStagger) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::InStagger) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion);
 		Result.Emplace(Key_Action_Combat);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Blocking) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Blocking) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_UseConsumableItem);
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Dodging) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Dodging) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);
 		Result.Emplace(Key_Action_Locomotion);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Dying) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Dying) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_Blocking);
 		Result.Emplace(Key_Action_Combat_Parry);
 		Result.Emplace(Key_Action_Combat_Dodge);
 	}
 	
-	if ((SelfStates & ELACharacterStates::InAir) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::InAir) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Dodge);
 		Result.Emplace(Key_Action_Locomotion_SetSpeed);
 		Result.Emplace(Key_Action_Locomotion_Move);
 	}
 	
-	if ((SelfStates & ELACharacterStates::Swimming) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Swimming) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat);
 		Result.Emplace(Key_Action_Gesture);
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::WeaponNotReady) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::WeaponNotReady) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Combat_Attack);	
 		Result.Emplace(Key_Action_Combat_Parry);	
 	}
 	
-	if ((SelfStates & ELACharacterStates::Gesturing) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Gesturing) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Gesture);
 	}
 
-	if ((SelfStates & ELACharacterStates::Speaking) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Speaking) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_SayPhrase);
 	}
 	
-	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_SayPhrase);
 		Result.Emplace(Key_Action_Gesture);
@@ -1672,20 +1666,20 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 		Result.Emplace(Key_Action_ChangeWeaponState);
 	}
 	
-	if ((SelfStates & ELACharacterStates::HasActiveRootMotionAnimation) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::HasActiveRootMotionAnimation) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_Move);
 		Result.Emplace(Key_Action_Locomotion_SetSpeed);
 		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
 	
-	if ((SelfStates & ELACharacterStates::InteractingWithObject) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::InteractingWithObject) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion);
 		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
 	
-	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != LACharacterStates::None)
 	{
 		Result.Emplace(Key_Action_Locomotion_NonBlocking_Animation);
 	}
@@ -1696,13 +1690,13 @@ TSet<FName> ULearningAgentsInteractor_Combat::GetMaskedActions(ELACharacterState
 TArray<uint8> ULearningAgentsInteractor_Combat::GetBlockingLocomotionActionsMask(ELACharacterStates SelfStates) const
 {
 	TSet<uint8> Result;
-	if ((SelfStates & ELACharacterStates::Swimming) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Swimming) != LACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELALocomotionAction::Jump));	
 	
-	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::ChangingWeaponState) != LACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELALocomotionAction::Mantle));
 	
-	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::UsingConsumableItem) != LACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELALocomotionAction::Mantle));
 	
 	return Result.Array();
@@ -1711,13 +1705,13 @@ TArray<uint8> ULearningAgentsInteractor_Combat::GetBlockingLocomotionActionsMask
 TArray<uint8> ULearningAgentsInteractor_Combat::GetWeaponStateChangeMask(ELACharacterStates SelfStates) const
 {
 	TSet<uint8> Result;
-	if ((SelfStates & ELACharacterStates::Swimming) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::Swimming) != LACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Ready));	
 	
-	if ((SelfStates & ELACharacterStates::WeaponReady) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::WeaponReady) != LACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Ready));
 	
-	if ((SelfStates & ELACharacterStates::WeaponNotReady) != ELACharacterStates::None)
+	if ((SelfStates & ELACharacterStates::WeaponNotReady) != LACharacterStates::None)
 		Result.Add(static_cast<uint8>(ELAWeaponStateChange::Unready));
 	
 	return Result.Array();

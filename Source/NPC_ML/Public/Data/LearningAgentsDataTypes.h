@@ -12,12 +12,10 @@ enum class ELAAgentAttitude : uint8
 };
 
 // will be used as bitflag so can't be uint8
-UENUM()
-enum class ELACharacterStates
+UENUM(meta=(BitFlags))
+enum class ELACharacterStates : int32
 {
-	None = 0,
-
-	Attacking              		 = 1u << None,
+	Attacking              		 = 1,
 	RecoveringAfterAttack  		 = Attacking << 1,
 	Dodging                		 = RecoveringAfterAttack << 1,
 	Blocking               		 = Dodging << 1,
@@ -41,6 +39,11 @@ enum class ELACharacterStates
 };
 
 ENUM_CLASS_FLAGS(ELACharacterStates);
+
+namespace LACharacterStates
+{
+	constexpr ELACharacterStates None = static_cast<ELACharacterStates>(0);
+}
 
 UENUM()
 enum class ELACombatEvent : uint8
