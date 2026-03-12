@@ -5,10 +5,12 @@
 #include "Components/LACombatActionsComponent.h"
 #include "Components/LACombatObservationComponent.h"
 #include "Components/LALocomotionActionsComponent.h"
+#include "Components/SpatialObservationComponent.h"
 #include "Data/LearningAgentsDataTypes.h"
 #include "Data/LearningAgentsSchemaKeys.h"
 #include "Data/LearningAgentsTags_Combat.h"
 #include "Settings/CombatLearningSettings.h"
+#include "Settings/RaindropSettings.h"
 
 using namespace LAActionKeys;
 using namespace LAObservationKeys;
@@ -40,7 +42,7 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	if (RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Surrounding))
 	{
 		auto LidarObservations = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema,
-		SpecifyLidarSelfObservations(InObservationSchema, Settings), Key_Observation_Surrounding_LIDAR);
+		SpecifySelfLIDARObservations(InObservationSchema, Settings), Key_Observation_Surrounding_LIDAR);
 		ObservationsSchema.Add(Key_Observation_Surrounding_LIDAR, LidarObservations);
 	}
 
@@ -73,25 +75,6 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentObservation_Implementation(
 	
 	OutObservationSchemaElement = ULearningAgentsObservations::SpecifyStructObservation(InObservationSchema, ObservationsSchema, Key_CombatObservations);
 }
-
-/*
- * Actions:
- * Move
- * Rotate
- * Set move speed
- * Jump
- *		optional
- * Attack
- * Feint
- * Dodge
- * Parry
- * Block (for shields only?)
- * Consume item
- * Gesture
- * Say phrase
- * Sheathe weapon
- * Unsheathe weapon
- */
 
 void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	FLearningAgentsActionSchemaElement& OutActionSchemaElement, ULearningAgentsActionSchema* InActionSchema)
@@ -515,7 +498,6 @@ void ULearningAgentsInteractor_Combat::GatherAgentObservation_Implementation(
 
 	FObservationObjectsMap Observations;
 	
-	auto Settings = GetDefault<UCombatLearningSettings>();
 	if (RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Self))
 	{
 		auto SelfData = CombatObservationComponent->GetSelfData();
@@ -526,7 +508,8 @@ void ULearningAgentsInteractor_Combat::GatherAgentObservation_Implementation(
 	
 	if (RelevantObservations.HasTag(LearningAgentsTags_Combat::Observation_Surrounding))
 	{
-		auto SurroundingsObservationMap = GatherSurroundingsObservations(InObservationObject, AgentId, CombatObservationComponent);
+		auto SpatialObservationComponent = Agent->FindComponentByClass<USpatialObservationComponent>();
+		auto SurroundingsObservationMap = GatherSelfLIDARObservations(InObservationObject, AgentId, SpatialObservationComponent);
 		auto SurroundingsObservation = ULearningAgentsObservations::MakeStructObservation(InObservationObject, SurroundingsObservationMap, Key_Observation_Surrounding_LIDAR);
 		Observations.Add(Key_Observation_Surrounding_LIDAR, SurroundingsObservation);
 	}
@@ -777,55 +760,36 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifySelfObservations
 	return Result;
 }
 
-FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifyLidarSelfObservations(
+FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifySelfLIDARObservations(
 	ULearningAgentsObservationSchema* InObservationSchema, const UCombatLearningSettings* Settings) const
 {
 	// welp, until there's no conv3d, LAs will observe convolved "heightmaps" in different plains 
 	
-	auto CeilingObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema, Settings->MaxCeilingHeight,
-		Key_Observation_Surrounding_LIDAR_Ceiling);
-	
-	auto RaindropDownwardObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema,
-		Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Item);
-	int RaindropDownwardResolution = Settings->DownwardRaindropsParams.GetResolution();
-	auto DownwardRaindropConvParams = Settings->LidarRaindropDownwardConv2dParams;
-	DownwardRaindropConvParams.InputHeight = RaindropDownwardResolution;
-	DownwardRaindropConvParams.InputWidth = RaindropDownwardResolution;
-	auto RaindropDownwardObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
-		RaindropDownwardObservation, RaindropDownwardResolution * RaindropDownwardResolution, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Array);
-	auto RaindropDownwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
-		RaindropDownwardObservations, DownwardRaindropConvParams, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved);
-	
-	auto RaindropForwardObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema,
-		Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Item);
-	int RaindropForwardResolution = Settings->ForwardRaindropsParams.GetResolution();
-	auto RaindropForwardConvParams = Settings->LidarRaindropForwardConv2dParams;
-	RaindropForwardConvParams.InputHeight = RaindropForwardResolution;
-	RaindropForwardConvParams.InputWidth = RaindropForwardResolution;
-	auto RaindropForwardObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
-		RaindropForwardObservation, RaindropForwardResolution * RaindropForwardResolution, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Array);
-	auto RaindropForwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
-		RaindropForwardObservations, RaindropForwardConvParams, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved);
-	
-	auto RaindropBackwardObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema,
-		Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Item);
-	int RaindropBackwardResolution = Settings->BackwardRaindropsParams.GetResolution();
-	auto RaindropBackwardConvParams = Settings->LidarRaindropBackwardConv2dParams;
-	RaindropBackwardConvParams.InputHeight = RaindropBackwardResolution;
-	RaindropBackwardConvParams.InputWidth = RaindropBackwardResolution;
-	auto RaindropBackwardObservations = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
-		RaindropBackwardObservation, RaindropBackwardResolution * RaindropBackwardResolution, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Array);
-	auto RaindropBackwardObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
-		RaindropBackwardObservations, RaindropBackwardConvParams, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved);
-
-	// TODO primary target observation. perhaps with lesser density
-	
-	FObservationSchemasMap Result = {
-		{Key_Observation_Surrounding_LIDAR_Ceiling, CeilingObservation},
-		{Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved, RaindropDownwardObservationsConvolved},
-		{Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved, RaindropForwardObservationsConvolved},
-		{Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved, RaindropBackwardObservationsConvolved},
-	};
+	FObservationSchemasMap Result;
+	auto RaindropSettings = GetDefault<URaindropSettings>();
+	for (const auto& Config : RaindropSettings->Configs)
+	{
+		if (!Config.IsValid())
+			continue;
+		
+		// Deliberately not using ULearningAgentsObservations::SpecifyLidarObservation because ULearningAgentsObservations::MakeLidarObservation does the actual trace inside
+		// auto RaindropObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,1.f, Key_Observation_Surrounding_LIDAR_Raindrop_Item);
+		
+		const int GridRowSize = Config.Params.Rows;
+		const int GridColumnSize = Config.Params.Columns;
+		auto Conv2DParamsLocal = Config.Conv2dParams;
+		Conv2DParamsLocal.InputWidth = GridRowSize;
+		Conv2DParamsLocal.InputHeight = GridColumnSize;
+		Conv2DParamsLocal.InChannels = Config.Grids.Num();
+		auto RaindropContinuousObservation = ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema,
+			GridRowSize * GridColumnSize * Config.Grids.Num(), 1.f, Key_Observation_Surrounding_LIDAR_Raindrop_Continuous);
+		// auto RaindropObservationsArray = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
+		// 	RaindropObservation, GridRowSize * GridRowSize * Preset.Configs.Num(), Key_Observation_Surrounding_LIDAR_Raindrop_Array);
+		auto RaindropObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
+			RaindropContinuousObservation, Conv2DParamsLocal, Key_Observation_Surrounding_LIDAR_Raindrop_Convolved);
+		
+		Result.Add(Config.ObservationKey, RaindropObservationsConvolved);
+	}
 	
 	return Result;
 }
@@ -837,27 +801,11 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifyOtherCharacterDy
 	auto CharacterOrientationObservation = ULearningAgentsObservations::SpecifyRotationObservation(InObservationSchema, Key_Observation_Actor_Dynamic_Orientation);
 	auto AgentCanSeeCharacterObservation = ULearningAgentsObservations::SpecifyBoolObservation(InObservationSchema, Key_Observation_Actor_Dynamic_AgentCanSeeActor);
 	
-	auto RaindropToTargetLidarObservation = ULearningAgentsObservations::SpecifyLidarObservation(InObservationSchema, 
-		Key_Observation_Actor_Dynamic_RaindropTo_Lidar);
-	const int RaindropToTargetResolution = Settings->GetRaindropToTargetResolution(RaindropTarget);
-	auto RaindropToTargetArrayObservation = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema, RaindropToTargetLidarObservation,
-		RaindropToTargetResolution, Key_Observation_Actor_Dynamic_RaindropTo_Array);
-	auto ConvParams = Settings->LidarRaindropToTargetConv2dParams[RaindropTarget];
-	ConvParams.InputHeight = RaindropToTargetResolution;
-	ConvParams.InputWidth = RaindropToTargetResolution;
-	auto Conv2dRaindropObservation = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema, RaindropToTargetArrayObservation,
-		ConvParams, Key_Observation_Actor_Dynamic_RaindropTo_Convolved);
-	int ConvolvedRaindropOptionalEncodingSize = ConvParams.InChannels * ConvParams.InputHeight * ConvParams.InputWidth;
-	ConvolvedRaindropOptionalEncodingSize = FMath::Clamp(FMath::RoundUpToPowerOfTwo(ConvolvedRaindropOptionalEncodingSize), 128, 512);
-	auto Conv2dRaindropObservationOptional = ULearningAgentsObservations::SpecifyOptionalObservation(InObservationSchema, Conv2dRaindropObservation, 
-		ConvolvedRaindropOptionalEncodingSize, Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional);
-	
 	FObservationSchemasMap OtherCharacterDynamicObservations =
 	{
 		{ Key_Observation_Actor_Dynamic_Location, CharacterLocationObservation },
 		{ Key_Observation_Actor_Dynamic_Orientation, CharacterOrientationObservation },
 		{ Key_Observation_Actor_Dynamic_AgentCanSeeActor, AgentCanSeeCharacterObservation },
-		{ Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional, Conv2dRaindropObservationOptional }
 	};
 	
 	auto BaseDynamicObservations = SpecifyDynamicBaseObservations(InObservationSchema, Settings);
@@ -1244,65 +1192,40 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherSelfObservations(
 	return Observations;
 }
 
-FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject,
-	int32 AgentId, ULACombatObservationComponent* LAObservationComponent)
+FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherSelfLIDARObservations(ULearningAgentsObservationObject* InObservationObject,
+	int32 AgentId, USpatialObservationComponent* SpatialObservationComponent)
 {
 	// welp, until there's no conv3d, LAs will observe convolved "heightmaps" in different plains 
 	FObservationObjectsMap ResultMap;
 	
-	const FLidarSelfObservationCache& LidarData = LAObservationComponent->GetSelfLidarData();
-	auto CeilingObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject, LidarData.AverageCeilingHeight,
-		Key_Observation_Surrounding_LIDAR_Ceiling);
-	
-	TArray<FObservationObjectItem> RaindropDownwardObservations;
-	RaindropDownwardObservations.SetNum(LidarData.DownwardRaindrops->Num());
-	for (int i = 0; i < LidarData.DownwardRaindrops->Num(); i++)
+	auto RaindropSettings = GetDefault<URaindropSettings>();
+	for (int i = 0; i < RaindropSettings->Configs.Num(); i++)
 	{
-		auto RaindropDownHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
-			(*LidarData.DownwardRaindrops)[i], Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Item);
-		RaindropDownwardObservations[i] = RaindropDownHeightmapItemObservation;
+		const auto& Config = RaindropSettings->Configs[i];
+		if (!Config.IsValid())
+			continue;
+		
+		const TArray<float>* RaindropData = SpatialObservationComponent->GetRaindropData(i);
+		// TArray<FObservationObjectItem> RaindropObservations;
+		// RaindropObservations.SetNumUninitialized(Preset.Params.GetResolution() * Preset.Configs.Num());
+		// for (int i = 0; i < RaindropData->Num(); i++)
+		// {
+		// 	auto RaindropHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
+		// 		(*RaindropData)[i], Key_Observation_Surrounding_LIDAR_Raindrop_Item);
+		// 	RaindropObservations[i] = RaindropHeightmapItemObservation;
+		// }	
+		//
+		// auto RaindropObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
+		// 	RaindropObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Array);
+		
+		// brother I NEED quantization brother encoding size is 50k brother i don't need more that 2 digits in my LIDAR floats brother PLEASE brother give quantization please
+		auto RaindropObservationsObservation = ULearningAgentsObservations::MakeContinuousObservation(InObservationObject, *RaindropData,
+			Key_Observation_Surrounding_LIDAR_Raindrop_Continuous); 
+		auto RaindropObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
+			RaindropObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Convolved);
+		
+		ResultMap.Add(Config.ObservationKey, RaindropObservationsConvolved);
 	}
-	
-	auto RaindropDownwardObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
-		RaindropDownwardObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Array);
-	auto RaindropDownwardObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
-		RaindropDownwardObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved);
-	
-	TArray<FObservationObjectItem> RaindropForwardObservations;
-	RaindropForwardObservations.SetNum(LidarData.ForwardRaindrops->Num());
-	for (int i = 0; i < LidarData.ForwardRaindrops->Num(); i++)
-	{
-		auto RaindropForwardHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
-			(*LidarData.ForwardRaindrops)[i], Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Item);
-		RaindropForwardObservations[i] = RaindropForwardHeightmapItemObservation;
-	}
-	
-	auto RaindropForwardObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
-		RaindropForwardObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Array);
-	auto RaindropForwardObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
-		RaindropForwardObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved);
-	
-	TArray<FObservationObjectItem> RaindropBackwardObservations;
-	RaindropBackwardObservations.SetNum(LidarData.BackwardRaindrops->Num());
-	for (int i = 0; i < LidarData.BackwardRaindrops->Num(); i++)
-	{
-		auto RaindropBackwardHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
-			(*LidarData.BackwardRaindrops)[i], Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Item);
-		RaindropBackwardObservations[i] = RaindropBackwardHeightmapItemObservation;
-	}
-	
-	auto RaindropBackwardObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
-		RaindropBackwardObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Array);
-	auto RaindropBackwardObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(InObservationObject,
-		RaindropBackwardObservationsObservation, Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved);
-	
-	ResultMap = 
-	{
-		{ Key_Observation_Surrounding_LIDAR_Ceiling, CeilingObservation },
-		{ Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved, RaindropDownwardObservationsConvolved },
-		{ Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved, RaindropForwardObservationsConvolved },
-		{ Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved, RaindropBackwardObservationsConvolved },
-	};
 	
 	return ResultMap;
 }
@@ -1335,7 +1258,7 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherCombatStateObserv
 
 FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherOtherCharacterDynamicObservations(
 	const FObservationGatherParams& GatheringParams,
-	const TArray<float>* RaindropsTo, const FPerceivedCharacterData& ActorState)
+	const FPerceivedCharacterData& ActorState)
 {
 	auto ActorCanSeeEnemyObservation = ULearningAgentsObservations::MakeBoolObservation(GatheringParams.InObservationObject, ActorState.bAgentCanSeeCharacter,
 		Key_Observation_Actor_Dynamic_AgentCanSeeActor,
@@ -1351,37 +1274,11 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherOtherCharacterDyn
 		Key_Observation_Actor_Dynamic_Orientation,
 		GatheringParams.Settings->bVisLogEnabled, this, GatheringParams.AgentId, ActorState.Actor->GetActorLocation());
 	
-	FObservationObjectItem RaindropToActorOptionalObservation;
-	if (RaindropsTo != nullptr)
-	{
-		TArray<FObservationObjectItem> RaindropToActorLidarObservations;
-		RaindropToActorLidarObservations.SetNum(RaindropsTo->Num());
-		for (int i = 0; i < RaindropsTo->Num(); i++)
-		{
-			auto RaindropToEnemyLidarObservation = ULearningAgentsObservations::MakeFloatObservation(GatheringParams.InObservationObject,
-				(*RaindropsTo)[i], Key_Observation_Actor_Dynamic_RaindropTo_Lidar);
-			RaindropToActorLidarObservations[i] = RaindropToEnemyLidarObservation;
-		}
-	
-		auto RaindropToEnemyArrayObservation = ULearningAgentsObservations::MakeStaticArrayObservation(GatheringParams.InObservationObject, 
-			RaindropToActorLidarObservations, Key_Observation_Actor_Dynamic_RaindropTo_Array);
-		auto RaindropToEnemyObservationsConvolved = ULearningAgentsObservations::MakeConv2dObservation(GatheringParams.InObservationObject,
-			RaindropToEnemyArrayObservation, Key_Observation_Actor_Dynamic_RaindropTo_Convolved);
-		RaindropToActorOptionalObservation = ULearningAgentsObservations::MakeOptionalValidObservation(GatheringParams.InObservationObject, RaindropToEnemyObservationsConvolved, 
-			Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional);
-	}
-	else
-	{
-		RaindropToActorOptionalObservation = ULearningAgentsObservations::MakeOptionalNullObservation(GatheringParams.InObservationObject,
-			Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional);
-	}
-
 	FObservationObjectsMap OtherCharacterDynamicObservations = 
 	{
 		{ Key_Observation_Actor_Dynamic_Location, ActorLocationObservation },
 		{ Key_Observation_Actor_Dynamic_Orientation, ActorOrientationObservation },
 		{ Key_Observation_Actor_Dynamic_AgentCanSeeActor, ActorCanSeeEnemyObservation },
-		{ Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional, RaindropToActorOptionalObservation }
 	};
 		
 	auto DynamicObservationsBase = GatherDynamicBaseObservations(GatheringParams, ActorState);
@@ -1417,7 +1314,6 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherEnemiesObservatio
 	auto AgentActor = Cast<AActor>(GetAgent(AgentId));
 	auto AgentWorldLocation = AgentActor->GetActorLocation();
 	auto AgentTransform = AgentActor->GetActorTransform();
-	auto AgentRotation = AgentActor->GetActorRotation();
 
 	FObservationGatherParams GatheringParams 
 	{
@@ -1429,7 +1325,7 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherEnemiesObservatio
 	
 	for (const auto& EnemyObservationData : EnemiesObservationData)
 	{
-		const auto EnemyState = StaticCastSharedRef<FEnemyData>(EnemyObservationData.Value->CharacterState);
+		const auto EnemyState = StaticCastSharedRef<FEnemyData>(EnemyObservationData);
 
 		auto EnemyCanSeeAgentObservation = ULearningAgentsObservations::MakeBoolObservation(InObservationObject, EnemyState->bCharacterCanSeeAgent,
 			Key_Observation_Actor_Dynamic_ActorCanSeeAgent,
@@ -1440,8 +1336,7 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherEnemiesObservatio
 			{ Key_Observation_Actor_Dynamic_ActorCanSeeAgent, EnemyCanSeeAgentObservation },
 		};
 
-		const TArray<float>* RaindropsTo = CombatObservationComponent->GetLidarDataTo(EnemyState->Actor.Get(), ELAAgentAttitude::Enemy);
-		FObservationObjectsMap DynamicObservationsMap = GatherOtherCharacterDynamicObservations(GatheringParams, RaindropsTo, EnemyState.Get());
+		FObservationObjectsMap DynamicObservationsMap = GatherOtherCharacterDynamicObservations(GatheringParams, EnemyState.Get());
 		DynamicObservationsMap.Append(AdditionalEnemyObservations);
 		FObservationObjectItem DynamicObservationsObservation = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, DynamicObservationsMap, Key_Observation_Dynamic);
 		
@@ -1493,10 +1388,9 @@ FObservationObjectItem ULearningAgentsInteractor_Combat::GatherAlliesObservation
 	
 	for (const auto& AllyObservationData : AlliesObservationData)
 	{
-		const auto AllyState = StaticCastSharedRef<FAllyData>(AllyObservationData.Value->CharacterState);
-		const TArray<float>* RaindropsTo = CombatObservationComponent->GetLidarDataTo(AllyState->Actor.Get(), ELAAgentAttitude::Ally);
+		const auto AllyState = StaticCastSharedRef<FAllyData>(AllyObservationData);
 		
-		auto DynamicObservationsMap = GatherOtherCharacterDynamicObservations(GatheringParams, RaindropsTo, AllyState.Get());
+		auto DynamicObservationsMap = GatherOtherCharacterDynamicObservations(GatheringParams, AllyState.Get());
 		auto DynamicObservationsObservation = ULearningAgentsObservations::MakeStructObservation(GatheringParams.InObservationObject, DynamicObservationsMap, Key_Observation_Dynamic);
 		
 		auto StaticObservationsMap = GatherOtherCharacterStaticObservations(GatheringParams, AllyState.Get());

@@ -1,165 +1,151 @@
 ﻿#pragma once
 
-#include "LearningAgentsDataTypes.h"
 #include "RaindropDataTypes.generated.h"
 
+UENUM()
+enum class ERaindropTraceMode : uint8
+{
+	Linetrace = 0,
+	BoxSweep,
+	SphereSweep
+};
+
 USTRUCT(BlueprintType)
-struct FLidarRaindropParams
+struct FRaindropGridDescriptor
 {
 	GENERATED_BODY()
 
-	FLidarRaindropParams() : Radius(1000), Density(15) { }
-	FLidarRaindropParams(int InRadius, int InDensity) : Radius(InRadius), Density(InDensity) {  }
-	
-	// in unreal units (cantimeters). int as data type is chosen for internal calculation convenience
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int Radius = 1000;
+	FString UserDescription;
 	
-	// in unreal units (cantimeters). int as data type is chosen for internal calculation convenience
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	int Density = 15;
+	bool Debug_DumpGridToLog = false;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool Debug_DrawGridShapes = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FVector Offset = FVector::ZeroVector;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FRotator Rotation = FRotator::ZeroRotator;
+	
+	// Bigger span -> less line traces/shape sweeps. e.g. if cell span is 3, then a single trace/sweep will be made from the center of the area (that is 1 cell forward horizontally and vertically)
+	// If shape sweep is used, then shape size is adjusted for the cell area to encompass it. LIDAR value for each cell of combined cell area will be the same. 
+	// Currently edge cases with sweeping out of bounds are not handled, so there could be overboard sweeps for right and bottom edges because pivot is top left corner.
+	// For example, start sweep at [row size - 2] column with cell span of 5 -> sweep will be made full-size with cell span of 5,
+	// hence 5-2 = 3 -> an area of 3 cells are swept overboard, potentially stopping at geometry which is overboard of raindrop grid. 
+	// It will not crash, but it will catch some redundant exceeding geometry for right and bottom sides of grid in some cases, so keep that in mind 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int CellSpan = 1;
+};
 
+USTRUCT(BlueprintType)
+struct FRaindropParams
+{
+	GENERATED_BODY()
+
+	// length of a side of a square that will be used as a LIDAR spatial cellularization unit
 	// in unreal units (cantimeters).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float TraceDistance = 2000.f;
+	float CellDimension = 25.f;
 	
-	FORCEINLINE int GetResolution() const { return Radius * 2 / Density; }
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int Rows = 15;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	int Columns = 15;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TEnumAsByte<ECollisionChannel> TraceChannel;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	ERaindropTraceMode TraceMode = ERaindropTraceMode::Linetrace;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(UIMin = 0.f, ClampMin = 0.f, EditCondition="TraceMode != ERaindropTraceMode::Linetrace"))
+	float SweepShapeScale = 1.f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(UIMin = 0.f, ClampMin = 0.f))
+	float TraceDistance = 1500.f;
+	
+	FORCEINLINE int GetResolution() const { return Rows * Columns; }
 };
 
-USTRUCT(BlueprintType)
-struct FRaindropRelevancyParams
+struct FRaindropData
 {
-	GENERATED_BODY()
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float IrrelevancyTimeDelay = 5.f;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float DotProductThreshold = 0.2f;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float DistanceAttenuatedDotProductThreshold = 0.5f;
+	FRaindropData() = default;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float DistanceThreshold = 800.f;
-};
+	int GridsCount = 0;
+	int GridSize = 0;
 
-struct FRaindropBuffer
-{
-	TArray<float> RawData;
-	FGuid OccupierId = {};
-	
-	FORCEINLINE bool IsOccupied() const { return OccupierId.IsValid(); }
-	
-	FRaindropBuffer() = default;
-	
-	explicit FRaindropBuffer(int Size)
+	explicit FRaindropData(int InGridsCount, int InGridSize)
 	{
-		RawData.SetNumZeroed(Size);
-	}
-	
-	explicit FRaindropBuffer(int Size, FGuid InOccupierId)
-	{
-		RawData.SetNumZeroed(Size);
-		OccupierId = InOccupierId;
-	}
-	
-	FRaindropBuffer(const FRaindropBuffer&) = default;
-	FRaindropBuffer& operator=(const FRaindropBuffer&) = default;
-
-	FRaindropBuffer(FRaindropBuffer&& Other) noexcept : RawData(MoveTemp(Other.RawData)), OccupierId(Other.OccupierId)
-	{
-		Other.OccupierId = {};
+		Data.SetNumZeroed(InGridsCount * InGridSize);
+		GridsCount = InGridsCount;
+		GridSize = InGridSize;
 	}
 
-	FRaindropBuffer& operator=(FRaindropBuffer&& Other) noexcept
+	FRaindropData(const FRaindropData& Other)
+		: GridsCount(Other.GridsCount), GridSize(Other.GridSize), Data(Other.Data)
 	{
-		if (this != &Other)
-		{
-			RawData = MoveTemp(Other.RawData);
-			OccupierId = Other.OccupierId;
-			Other.OccupierId = {};
-		}
+	}
+
+	FRaindropData(FRaindropData&& Other) noexcept
+		: GridsCount(Other.GridsCount), GridSize(Other.GridSize), Data(std::move(Other.Data))
+	{
+		Other.GridsCount = 0;
+		Other.GridSize = 0;
+	}
+
+	FRaindropData& operator=(const FRaindropData& Other)
+	{
+		if (this == &Other)
+			return *this;
 		
+		Data = Other.Data;
+		GridSize = Other.GridSize;
+		GridsCount = Other.GridsCount;
 		return *this;
 	}
 
-	~FRaindropBuffer() = default;
-};
-
-struct FRaindropRowData
-{
-	FRaindropRowData(int RaindropResolution, int Row, int RaindropBufferIndex, ELAAgentAttitude TargetType,
-		const FGuid& OccupierId)
-		: RaindropResolution(RaindropResolution),
-		  Row(Row),
-		  RaindropBufferIndex(RaindropBufferIndex),
-		  TargetType(TargetType),
-		  OccupierId(OccupierId)
+	FRaindropData& operator=(FRaindropData&& Other) noexcept
 	{
+		if (this == &Other)
+			return *this;
+		
+		Data = MoveTemp(Other.Data);
+		GridSize = Other.GridSize;
+		GridsCount = Other.GridsCount;
+		Other.GridsCount = 0;
+		Other.GridSize = 0;
+		return *this;
+	}
+	
+	const TArray<float>* GetData() const { return &Data; }
+	
+	TArrayView<float> GetArrayView(int GridIndex)
+	{
+		return MakeArrayView(Data).Slice(GridIndex * GridSize, GridSize);	
 	}
 
-	int RaindropResolution = 0;
-	int Row = 0;
-	int RaindropBufferIndex = 0;
-	ELAAgentAttitude TargetType;
-	FGuid OccupierId;
-};
-
-struct FRaindropSynchronizationUnit
-{
-	std::atomic<bool> bActive { false };
-	FCriticalSection CriticalSection;
-};
-
-struct FLidarRaindropVariables
-{
-	FLidarRaindropVariables() : SynchronizationUnit(MakeShared<FRaindropSynchronizationUnit>()) { }
+	bool StoreData(int GridIndex, const TArray<float>& Array, int Offset = 0);
 	
-	TSharedRef<FRaindropSynchronizationUnit> SynchronizationUnit;
-	FVector OriginVector = FVector::ZeroVector;
-	FVector DirectionVectorX = FVector::ZeroVector;
-	FVector DirectionVectorY = FVector::ZeroVector;
-	FVector TraceDirection = FVector::ZeroVector;
-	double TraceDistance = 2000.0;
-		
-#if WITH_EDITOR
-	FString LogInfo;
-#endif
-};
-
-struct FRaindropBufferHandle
-{
-	friend struct FRaindrop;
-	
-	int RaindropBufferIndex = -1;
-	
-	FORCEINLINE const FGuid& GetOccupierId() const { return OccupierId; }
-	FORCEINLINE bool IsValid() const { return RaindropBufferIndex >= 0 && OccupierId.IsValid(); }
 	
 private:
-	FGuid OccupierId = {};
+	TArray<float> Data;
 };
 
-struct FRaindrop
+struct FRaindropVariables
 {
-	FRaindrop()
-	{
-		BufferHandle.OccupierId = FGuid::NewGuid();
-	}
-	
-	FLidarRaindropVariables Variables;	
-	FRaindropBufferHandle BufferHandle;
-	float LastRelevantAt = 0.f;
-	bool bRelevant = false;
-};
-
-struct FLidarSelfObservationCache
-{
-	float AverageCeilingHeight = 500.f;
-	// essentially, matrices, but since I'm going to shove them into conv2d observations as static arrays,
-	// it's more convenient to store them as 1d array from the get-go
-	TArray<float>* DownwardRaindrops = nullptr; 
-	TArray<float>* ForwardRaindrops = nullptr;
-	TArray<float>* BackwardRaindrops = nullptr;
+	FVector OriginLocation = FVector::ZeroVector;
+	FVector RightVector = FVector::ZeroVector;
+	FVector UpVector = FVector::ZeroVector;
+	FVector TraceDirection = FVector::ZeroVector;
+	FCollisionShape SweepShape;
+	FQuat SweepRotation = FQuat::Identity;
+	float TraceDistance = 2000.0;
+	float BaseOffsetH = 0.f;
+	float BaseOffsetV = 0.f;
+	float CellCenterOffset = 0.f;
+	int CellSpan = 1;
 };

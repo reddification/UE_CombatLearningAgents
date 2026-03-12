@@ -7,17 +7,11 @@ namespace LAObservationKeys
 
 	inline const FName Key_Observation_Surrounding = FName("Observation.Surrounding");
 	inline const FName Key_Observation_Surrounding_LIDAR = FName("Observation.Surrounding.LIDAR");
-	inline const FName Key_Observation_Surrounding_LIDAR_Ceiling = FName("Observation.Surrounding.LIDAR.Ceiling");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Downward.Item");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Downward.Array");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Downward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Downward.Convolved");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Forward.Item");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Forward.Array");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Forward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Forward.Convolved");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Item");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Array");
-	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Backward_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Backward.Convolved");
-
+	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Item = FName("Observation.Surrounding.LIDAR.Raindrop.Item");
+	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Array = FName("Observation.Surrounding.LIDAR.Raindrop.Array");
+	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Continuous = FName("Observation.Surrounding.LIDAR.Raindrop.Continuous");
+	inline const FName Key_Observation_Surrounding_LIDAR_Raindrop_Convolved = FName("Observation.Surrounding.LIDAR.Raindrop.Convolved");
+	
 	inline const FName Key_Observation_Combat_State = FName("Observation.Combat.State");
 
 	inline const FName Key_Observation_Dynamic = FName("Observation.Dynamic");
@@ -64,8 +58,8 @@ namespace LAObservationKeys
 
 	inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Lidar = FName("Observation.Actor.Dynamic.RaindropTo.Lidar");
 	inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Array = FName("Observation.Actor.Dynamic.RaindropTo.Array");
-	inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Convolved = FName("Observation.Actor.Dynamic.RaindropTo.Convolved");
-	inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional = FName("Observation.Actor.Dynamic.RaindropTo.Convolved.Optional");
+	// inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Convolved = FName("Observation.Actor.Dynamic.RaindropTo.Convolved");
+	// inline const FName Key_Observation_Actor_Dynamic_RaindropTo_Convolved_Optional = FName("Observation.Actor.Dynamic.RaindropTo.Convolved.Optional");
 	
 	inline const FName Key_Observation_Actor_Dynamic_Location = FName("Observation.Actor.Dynamic.Location");
 	inline const FName Key_Observation_Actor_Dynamic_Orientation = FName("Observation.Actor.Dynamic.Orientation");

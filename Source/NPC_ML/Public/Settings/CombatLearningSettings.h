@@ -1,12 +1,11 @@
-﻿// 
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DeveloperSettings.h"
 #include "LearningAgentsObservations.h"
 #include "Data/RaindropDataTypes.h"
+#include "Data/LearningAgentsDataTypes.h"
 #include "CombatLearningSettings.generated.h"
 
 /**
@@ -70,23 +69,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|History", meta=(EditCondition="bKeepCombatObservationHistory"))
 	int CombatHistorySize = 10;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
-	FLidarRaindropParams DownwardRaindropsParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
-	FLidarRaindropParams ForwardRaindropsParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR|Self")
-	FLidarRaindropParams BackwardRaindropsParams;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
+	FRaindropParams RaindropParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TMap<ELAAgentAttitude, FLidarRaindropParams> RaindropParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TEnumAsByte<ECollisionChannel> RaindropCollisionChannel;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TMap<ELAAgentAttitude, FRaindropRelevancyParams> RaindropRelevanceParams;
+	FConv2dObservationParams LidarCommonConv2DParams;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	FConv2dObservationParams LidarRaindropDownwardConv2dParams;
@@ -117,6 +104,4 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config)
 	bool bVisLogEnabled = true;
-
-	FORCEINLINE int GetRaindropToTargetResolution(ELAAgentAttitude Target) const { return RaindropParams[Target].GetResolution(); } ;
 };

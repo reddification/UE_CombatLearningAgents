@@ -10,6 +10,7 @@
 #include "Settings/CombatLearningSettings.h"
 #include "LearningAgentsInteractor_Combat.generated.h"
 
+class USpatialObservationComponent;
 /**
  * TODO's 
  * 1. Implement some form of reserving and obsoleting observations and actions to prevent the necessity of having a new interactor subclass 
@@ -78,7 +79,7 @@ public:
 protected:
 	virtual FObservationSchemasMap SpecifySelfObservations(ULearningAgentsObservationSchema* InObservationSchema,
 		const UCombatLearningSettings* Settings) const;
-	virtual FObservationSchemasMap SpecifyLidarSelfObservations(ULearningAgentsObservationSchema* InObservationSchema, 
+	virtual FObservationSchemasMap SpecifySelfLIDARObservations(ULearningAgentsObservationSchema* InObservationSchema, 
 		const UCombatLearningSettings* Settings) const;
 	virtual FObservationSchemasMap SpecifyOtherCharacterDynamicObservations(ULearningAgentsObservationSchema* InObservationSchema,
 		const UCombatLearningSettings* Settings, ELAAgentAttitude RaindropTarget) const;
@@ -100,8 +101,8 @@ protected:
 		const FWeaponData& WeaponData, const FObservationGatherParams& GatheringParams);
 	virtual FObservationObjectsMap GatherSelfObservations(ULearningAgentsObservationObject* InObservationObject,
 	                                                      int AgentId, const FSelfData& SelfData);
-	virtual FObservationObjectsMap GatherSurroundingsObservations(ULearningAgentsObservationObject* InObservationObject,
-		int32 AgentId, ULACombatObservationComponent* LAObservationComponent);
+	virtual FObservationObjectsMap GatherSelfLIDARObservations(ULearningAgentsObservationObject* InObservationObject,
+	                                                              int32 AgentId, USpatialObservationComponent* SpatialObservationComponent);
 	virtual FObservationObjectsMap GatherCombatStateObservation(ULearningAgentsObservationObject* InObservationObject,
 		int32 AgentId, const FCombatStateData& CombatStateData);
 
@@ -110,7 +111,7 @@ protected:
 	virtual FObservationObjectsMap GatherDynamicBaseObservations(const FObservationGatherParams& GatheringParams,
 		const FCharacterDataBase& CharacterData);
 	virtual FObservationObjectsMap GatherOtherCharacterDynamicObservations(
-		const FObservationGatherParams& GatheringParams, const TArray<float>* RaindropsTo,
+		const FObservationGatherParams& GatheringParams,
 		const FPerceivedCharacterData& ActorState);
 	virtual FObservationObjectsMap GatherOtherCharacterStaticObservations(const FObservationGatherParams& GatheringParams,
 		const FPerceivedCharacterData& ActorState);

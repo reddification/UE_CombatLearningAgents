@@ -51,14 +51,12 @@ namespace CombatLearning
 
 	struct FEnemyData : public FPerceivedCharacterData
 	{
-		// this is not personal attention to enemy at this moment of time but "how important in general for the agent to kill the target"
-		// so for example a wanderer would have 0.25 kill desire against rabid dog,
-		//		like if the dog is likely to kill the agent then fuck it lets run, or don't really push it and approach carefully
-		// and if you just killed agent's "wife" then it will be furious with kill desire == 1 
+		// empty for now as of 8 Mar 2026
 	};
 
 	struct FAllyData : public FPerceivedCharacterData
 	{
+		// empty for now as of 8 Mar 2026
 	};
 	
 	struct FCombatStateData
