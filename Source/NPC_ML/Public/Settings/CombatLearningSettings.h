@@ -70,24 +70,6 @@ public:
 	int CombatHistorySize = 10;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FRaindropParams RaindropParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FConv2dObservationParams LidarCommonConv2DParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FConv2dObservationParams LidarRaindropDownwardConv2dParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FConv2dObservationParams LidarRaindropForwardConv2dParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	FConv2dObservationParams LidarRaindropBackwardConv2dParams;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
-	TMap<ELAAgentAttitude, FConv2dObservationParams> LidarRaindropToTargetConv2dParams;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Config, Category="Observations|LIDAR")
 	float MaxCeilingHeight = 1500.f;
 	
 	// values - probabilities
