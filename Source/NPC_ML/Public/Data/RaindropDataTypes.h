@@ -148,4 +148,7 @@ struct FRaindropVariables
 	float BaseOffsetV = 0.f;
 	float CellCenterOffset = 0.f;
 	int CellSpan = 1;
+#if WITH_EDITOR
+	bool bNeedsTraces = false;
+#endif
 };

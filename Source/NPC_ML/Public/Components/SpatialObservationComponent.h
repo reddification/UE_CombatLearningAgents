@@ -43,27 +43,32 @@ protected:
 	{
 		FRaindropGridDebugData() = default;
 		
-		FRaindropGridDebugData(const FRaindropParams& RaindropParams, double InRequestedAt, int CellSpan)
+		FRaindropGridDebugData(const FRaindropParams& RaindropParams, double InRequestedAt, int CellSpan, bool bInNeedsTraces)
 		{
 			RequestedAt = InRequestedAt;
 			StartTime = FPlatformTime::Seconds();
 			TraceMode = RaindropParams.TraceMode;
 			Rows = RaindropParams.Rows;
 			Columns = RaindropParams.Columns;
-			if (CellSpan == 1)
+			bNeedsTraces = bInNeedsTraces;
+			if (bNeedsTraces)
 			{
-				Traces.Reserve(Rows * Columns);
-			}
-			else
-			{
-				int TraceRows = Rows / CellSpan + Rows % CellSpan == 0 ? 0 : 1;
-				int TraceColumns = Columns / CellSpan + Columns % CellSpan == 0 ? 0 : 1;
-				Traces.Reserve(TraceRows * TraceColumns);
+				if (CellSpan == 1)
+				{
+					Traces.Reserve(Rows * Columns);
+				}
+				else
+				{
+					int TraceRows = Rows / CellSpan + Rows % CellSpan == 0 ? 0 : 1;
+					int TraceColumns = Columns / CellSpan + Columns % CellSpan == 0 ? 0 : 1;
+					Traces.Reserve(TraceRows * TraceColumns);
+				}
 			}
 		};
 	
 		void Reset()
 		{
+			TracesCount = 0;
 			Traces.Reset();
 		};
 
@@ -71,19 +76,22 @@ protected:
 		double RequestedAt = 0;
 		double StartTime = 0;
 		double FinishedAt = 0;
+		int TracesCount = 0;
 		int Rows = 0;
 		int Columns = 0;
 		ERaindropTraceMode TraceMode = ERaindropTraceMode::Linetrace;
-		
+		bool bNeedsTraces;
+
 #pragma region boilerplate
 		FRaindropGridDebugData(const FRaindropGridDebugData& Other)
 			: Traces(Other.Traces),
 			  RequestedAt(Other.RequestedAt),
 			  StartTime(Other.StartTime),
 			  FinishedAt(Other.FinishedAt),
+			  TracesCount(Other.TracesCount),
 			  Rows(Other.Rows),
 			  Columns(Other.Columns),
-			  TraceMode(Other.TraceMode)
+			  TraceMode(Other.TraceMode), bNeedsTraces(Other.bNeedsTraces)
 		{
 		}
 
@@ -92,9 +100,10 @@ protected:
 			  RequestedAt(Other.RequestedAt),
 			  StartTime(Other.StartTime),
 			  FinishedAt(Other.FinishedAt),
+			  TracesCount(Other.TracesCount),
 			  Rows(Other.Rows),
 			  Columns(Other.Columns),
-			  TraceMode(Other.TraceMode)
+			  TraceMode(Other.TraceMode), bNeedsTraces(Other.bNeedsTraces)
 		{
 		}
 
@@ -102,13 +111,16 @@ protected:
 		{
 			if (this == &Other)
 				return *this;
+			
 			Traces = Other.Traces;
 			RequestedAt = Other.RequestedAt;
 			StartTime = Other.StartTime;
 			FinishedAt = Other.FinishedAt;
+			TracesCount = Other.TracesCount;
 			Rows = Other.Rows;
 			Columns = Other.Columns;
 			TraceMode = Other.TraceMode;
+			bNeedsTraces = Other.bNeedsTraces;
 			return *this;
 		}
 
@@ -116,13 +128,16 @@ protected:
 		{
 			if (this == &Other)
 				return *this;
+			
 			Traces = std::move(Other.Traces);
 			RequestedAt = Other.RequestedAt;
 			StartTime = Other.StartTime;
 			FinishedAt = Other.FinishedAt;
+			TracesCount = Other.TracesCount;
 			Rows = Other.Rows;
 			Columns = Other.Columns;
 			TraceMode = Other.TraceMode;
+			bNeedsTraces = Other.bNeedsTraces;
 			return *this;
 		}
 		

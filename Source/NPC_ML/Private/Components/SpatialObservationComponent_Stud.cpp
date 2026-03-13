@@ -5,6 +5,10 @@
 #include "Settings/CombatLearningSettings.h"
 #include "Settings/RaindropSettings.h"
 
+#if WITH_EDITOR
+	static bool FORCEINLINE HasDebugOption(const TMap<FName, bool>& DebugOptions, FName Name) { return DebugOptions.Contains(Name) && DebugOptions[Name]; };
+#endif
+
 void USpatialObservationComponent_Stud::BeginPlay()
 {
 	Super::BeginPlay();
@@ -124,38 +128,10 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic(FRaindropVaria
 			CollisionQueryParams = CollisionQueryParams, RequestedAt,
 			DebugOptions = DebugOptions] () mutable
 	{
-// 		auto IsCancelled = [=]()
-// 		{
-// 			TRACE_CPUPROFILER_EVENT_SCOPE(USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic::CancellationCheck);
-// 			// return CapturedRunId != RunId->load(std::memory_order_relaxed) || !ThisWeak.IsValid() || !WorldWeak.IsValid();
-// #if WITH_EDITOR
-// 			uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
-// 			uint64 CurrentRunId = RunIdRef->load(std::memory_order_relaxed);
-// 			UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Checking is cancelled [Thread %u] Captured Run id = %llu, Current run id = %llu"), ThreadId, CapturedRunId, CurrentRunId)
-// 			return CurrentRunId != CapturedRunId;
-// #else
-// 			return CapturedRunId != RunIdRef->load(std::memory_order_relaxed);
-// #endif
-// 		};
-// 			
-		auto CanTrace2 = [=]()
-		{
-			TRACE_CPUPROFILER_EVENT_SCOPE(USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic::CanTrace2);
-			return WorldWeak.IsValid() && !WorldWeak->bIsTearingDown;
-		};
-		
 #if WITH_EDITOR
-			auto HasDebugOption = [=](FName Name){ return DebugOptions.Contains(Name) && DebugOptions[Name]; };
-			uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
-			UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Starting async raindrop for [%d, %d]. Thread ID: %u"), ConfigIndex, GridIndex, ThreadId);
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Starting async raindrop for [%d, %d]. Thread ID: %u"), ConfigIndex, GridIndex, ThreadId);
 #endif			
-		// TFunctionRef<bool()> CanTrace = IsCancelled;
-		TFunctionRef<bool()> CanTraceFunc = CanTrace2;
-		
-		// bool bCancellationRequested = IsCancelled();
-		// if (IsCancelled())
-		// 	return;
-			
 		bool bCancellationRequested = CapturedRunId != RunIdRef->load(std::memory_order_relaxed);
 		if (bCancellationRequested)
 			return;
@@ -163,7 +139,7 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic(FRaindropVaria
 		AsyncRaindropsActiveCount->fetch_add(1);
 			
 #if WITH_EDITOR
-		FRaindropGridDebugData DebugData(RaindropParams, RequestedAt, RaindropVariables.CellSpan);
+		FRaindropGridDebugData DebugData(RaindropParams, RequestedAt, RaindropVariables.CellSpan, RaindropVariables.bNeedsTraces);
 #endif
 			
 		TArray<float> Array;
@@ -174,26 +150,11 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic(FRaindropVaria
 		for (int Row = 0; Row < RaindropCellsPerRow && !bCancellationRequested; Row += RaindropVariables.CellSpan)
 		{
 #if WITH_EDITOR
-			RaindropToArray(WorldWeak, RaindropVariables, RaindropParams, CollisionQueryParams,  Array, Row, CanTraceFunc, 
-				DebugData, DebugOptions);
-			if (!bCancellationRequested)
-			{
-				Debug_StressTest(DebugOptions, FName("TryBreak_OpenLevel_AtIteration"), WorldWeak, ThisWeak);
-				Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtIteration"), WorldWeak, ThisWeak);
-				Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtIteration_Delayed"), WorldWeak, ThisWeak);
-				Debug_StressTest(DebugOptions, FName("TryBreak_SpawnActorInfront"), WorldWeak, ThisWeak);
-			}
-			
-			bool* WantStallThreadPtr = DebugOptions.Find(FName("TryBreak_StallThread_Iterations"));
-			if (WantStallThreadPtr && *WantStallThreadPtr)
-			{
-				FPlatformProcess::Sleep(0.01f);
-				UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Woke up after sleeping at iteration yay [%d, %d]. Thread %u"), ConfigIndex, GridIndex, ThreadId);
-			}
+			RaindropToArray(WorldWeak, RaindropVariables, RaindropParams, CollisionQueryParams,  Array, Row, DebugData, DebugOptions);
+			Debug_StressTestIteration(WorldWeak, ThisWeak, ConfigIndex, GridIndex, ThreadId, DebugOptions);	
 #else
 			RaindropToArray(WorldWeak, RaindropVariables, RaindropParams, CollisionQueryParams,  Array, Row, CanTraceFunc);
 #endif
-			// bCancellationRequested = IsCancelled(); 
 			{
 				TRACE_CPUPROFILER_EVENT_SCOPE(LidarRaindropAsync::CheckCancelled)
 				bCancellationRequested = CapturedRunId != RunIdRef->load(std::memory_order_relaxed);
@@ -210,46 +171,26 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic(FRaindropVaria
 		if (!bCancellationRequested)
 		{
 #if WITH_EDITOR
-			if (HasDebugOption(FName("StressTest_BeforePublishRequested")))
-			{
-				Debug_StressTest(DebugOptions, FName("TryBreak_OpenLevel_AtPublish"), WorldWeak, ThisWeak);
-				Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish"), WorldWeak, ThisWeak);
-				Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish_Delayed"), WorldWeak, ThisWeak);
-				bool* WantStallThreadPtr = DebugOptions.Find(FName("TryBreak_StallThread_AtPublish"));
-				if (WantStallThreadPtr && *WantStallThreadPtr)
-					FPlatformProcess::Sleep(0.5f);
-				
-				Debug_StressTest(DebugOptions, FName("TryBreak_CancelAtPublish"), WorldWeak, ThisWeak);
-			}
+			Debug_StressTest_PrePublish(WorldWeak, ThisWeak, DebugOptions);
 #endif
 			
-			UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Requesting publishing lambda for [%d, %d] (Thread %u)"), ConfigIndex, GridIndex, ThreadId);
+			UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Requesting publishing lambda for [%d, %d] (Thread %u)"), ConfigIndex, GridIndex, ThreadId);
 			AsyncTask(ENamedThreads::Type::GameThread,
 #if WITH_EDITOR
 	[ThisWeak, ConfigIndex, GridIndex, RaindropBatch = MoveTemp(Array), DebugData = MoveTemp(DebugData), CapturedRunId, RunIdRef] ()
 				{
-					UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Entered publishing lambda for [%d, %d]"), ConfigIndex, GridIndex);
+					UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Entered publishing lambda for [%d, %d]"), ConfigIndex, GridIndex);
 					if (ThisWeak.IsValid() && CapturedRunId == RunIdRef->load(std::memory_order::relaxed))
 					{
 						ThisWeak->ProcessAsyncResult(RaindropBatch, ConfigIndex, GridIndex, DebugData);
 					}
 					else
 					{
-						UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Can't publishing for [%d, %d] (already in game thread)"), ConfigIndex, GridIndex);
+						UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Can't publishing for [%d, %d] (already in game thread)"), ConfigIndex, GridIndex);
 					}
 				});
 			
-				if (HasDebugOption(FName("StressTest_AfterPublishRequested")))
-				{
-					Debug_StressTest(DebugOptions, FName("TryBreak_OpenLevel_AtPublish"), WorldWeak, ThisWeak);
-					Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish"), WorldWeak, ThisWeak);
-					Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish_Delayed"), WorldWeak, ThisWeak);
-					bool* WantStallThreadPtr = DebugOptions.Find(FName("TryBreak_StallThread_AtPublish"));
-					if (WantStallThreadPtr && *WantStallThreadPtr)
-						FPlatformProcess::Sleep(0.5f);
-								
-					Debug_StressTest(DebugOptions, FName("TryBreak_CancelAtPublish"), WorldWeak, ThisWeak);
-				}
+				Debug_StessTest_PostPublish(WorldWeak, ThisWeak, DebugOptions);
 			
 #else
 				[ThisWeak, ConfigIndex, GridIndex, RaindropBatch = MoveTemp(Array), CapturedRunId, RunIdRef] ()
@@ -268,7 +209,7 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic(FRaindropVaria
 		else if (ThisWeak.IsValid())
 		{
 #if WITH_EDITOR
-			UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Completed async raindrop for [%d, %d] but not publishing data because task was cancelled. Thread %u"), ConfigIndex, GridIndex, ThreadId);
+			UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Completed async raindrop for [%d, %d] but not publishing data because task was cancelled. Thread %u"), ConfigIndex, GridIndex, ThreadId);
 #endif
 		}
 	});
@@ -290,12 +231,11 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Stripes(FRaindropVari
 // ATM I don't really know what to do about it and should I even care, because currently I expect grids to be like ~32x32 with cell size of 25 uu and cell spans 1 to 4, 5 at max 
 // so yeah well it might be overboard for right and bottom size by 1 extra cell, but is it an issue worth spending time on? idk... 
 void USpatialObservationComponent_Stud::RaindropToArray(TWeakObjectPtr<UWorld> WorldWeak, const FRaindropVariables& Variables,
-	const FRaindropParams& Params, const FCollisionQueryParams& CollisionQueryParams, TArray<float>& Array, int RowIndex,
-	const TFunctionRef<bool()>& CanTraceFunc, 
+    const FRaindropParams& Params, const FCollisionQueryParams& CollisionQueryParams, TArray<float>& Array, int RowIndex,
 #if WITH_EDITOR
 	FRaindropGridDebugData& DebugData, TMap<FName, bool>& DebugOptions
 #endif
-	)
+)
 {
 	// contract: starting from top left corner and going to bottom right corner
 	const FVector StartPoint = Variables.OriginLocation 
@@ -304,9 +244,6 @@ void USpatialObservationComponent_Stud::RaindropToArray(TWeakObjectPtr<UWorld> W
 	
 	for (int ColumnIndex = 0; ColumnIndex < Params.Columns; ColumnIndex += Variables.CellSpan)
 	{
-		// if (!CanTraceFunc())
-		// 	return;
-	
 		{
 			TRACE_CPUPROFILER_EVENT_SCOPE(LidarRaindropAsync::CheckCanTrace)
 			if (!WorldWeak.IsValid() || WorldWeak->bIsTearingDown)
@@ -336,31 +273,26 @@ void USpatialObservationComponent_Stud::RaindropToArray(TWeakObjectPtr<UWorld> W
 #if WITH_EDITOR
 		{
 			TRACE_CPUPROFILER_EVENT_SCOPE(LidarRaindropAsync::RaindropToArray::TraceCollection)
-		FRaindropDebugData_Trace NewDebugTrace = { TraceStart, bHit ? HitResult.Location : TraceEnd, Variables.SweepRotation, Variables.SweepShape.GetSphereRadius() };
-		DebugData.Traces.Add( NewDebugTrace );
-		bool* StressTestKey1Ptr = DebugOptions.Find(FName("DestroyTracedObject_Instant"));
-		bool* StressTestKey2Ptr = DebugOptions.Find(FName("DestroyTracedObject_Delayed"));
-		bool StressTestKey1 = StressTestKey1Ptr != nullptr ? *StressTestKey1Ptr : false;
-		bool StressTestKey2 = StressTestKey2Ptr != nullptr ? *StressTestKey2Ptr : false;
-		if (StressTestKey1 || StressTestKey2)
-		{
-			if (auto Actor = HitResult.GetActor())
+			DebugData.TracesCount++;
+			if (DebugData.bNeedsTraces)
 			{
-				if (Actor->ActorHasTag(FName("RaindropStressTest")))
+				float ShapeSize = Variables.SweepShape.IsBox() ? Variables.SweepShape.Box.HalfExtentY : Variables.SweepShape.GetSphereRadius();
+				FRaindropDebugData_Trace NewDebugTrace = 
 				{
-					TWeakObjectPtr ActorWeak = Actor;
-					if (StressTestKey1)
-						AsyncTask(ENamedThreads::Type::GameThread, [ActorWeak](){ if (ActorWeak.IsValid()) ActorWeak->Destroy(); });
-					else 
-						AsyncTask(ENamedThreads::Type::GameThread, [ActorWeak](){ if (ActorWeak.IsValid()) ActorWeak->SetLifeSpan(0.0005f); });
-				}
+					TraceStart, bHit ? HitResult.ImpactPoint : TraceEnd,
+					Variables.SweepRotation, ShapeSize
+				};
+			
+				DebugData.Traces.Add( NewDebugTrace );
 			}
-		}
+			
+			Debug_StressTestTraceResult(DebugOptions, HitResult);
 		}
 #endif
 		
 		// kind of quantization but not yet. removing extra fp-digits
-		float RawValue = bHit ? HitResult.Distance / Variables.TraceDistance : 1.f;
+		float ExtraDistance = Params.TraceMode == ERaindropTraceMode::SphereSweep ? Variables.SweepShape.GetSphereRadius() : 0.f;
+		float RawValue = bHit ? (HitResult.Distance + ExtraDistance) / Variables.TraceDistance : 1.f;
 		const float UnifiedValue = bHit ? FMath::RoundToFloat(RawValue * 100000.f) / 100000.f : RawValue;
 		if (Variables.CellSpan == 1)
 		{
@@ -435,9 +367,9 @@ void USpatialObservationComponent_Stud::ProcessAsyncResult(const TArray<float>& 
 #if WITH_EDITOR
 	TArrayView<const float> DebugArrayView = MakeArrayView(RaindropBatch);
 	ProcessRaindropDebug(DebugData, DebugArrayView, ConfigIndex, GridIndex);
+	RaindropSchedules[ConfigIndex].TracesCount += DebugData.TracesCount;
 #endif
-					
-	// ThisWeak->RaindropData[GridIndex].Data = MoveTemp(RaindropBatch);
+	
 	RaindropData[ConfigIndex].StoreData(GridIndex, RaindropBatch);
 	RaindropSchedules[ConfigIndex].IncrementGridsCompleted();
 	if (RaindropSchedules[ConfigIndex].IsCompleted())
@@ -446,6 +378,7 @@ void USpatialObservationComponent_Stud::ProcessAsyncResult(const TArray<float>& 
 #if WITH_EDITOR
 		auto TotalTimeMs = (FPlatformTime::Seconds() - RaindropSchedules[ConfigIndex].StartTime) * 1000.0;
 		UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Raindrop for config %d took total %.2f ms"), ConfigIndex, TotalTimeMs);
+		UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Total traces: %d"), RaindropSchedules[ConfigIndex].TracesCount);
 #endif
 		const float TimeToNextUpdate =  Settings->Configs[ConfigIndex].UpdateInterval * FMath::RandRange(0.8f, 1.2f); //randomzing to prevent reduce thread pool pressure
 		GetWorld()->GetTimerManager().SetTimer(RaindropSchedules[ConfigIndex].CooldownTimer, RaindropSchedules[ConfigIndex].TimerDelegate,
@@ -478,6 +411,77 @@ void USpatialObservationComponent_Stud::Debug_StressTest(TMap<FName, bool>& Debu
 	
 	AsyncTask(ENamedThreads::Type::GameThread, FuncCall);
 	DebugOptions.Remove(StressTestKey);
+}
+
+void USpatialObservationComponent_Stud::Debug_StressTestTraceResult(TMap<FName, bool>& DebugOptions, const FHitResult& HitResult)
+{
+	bool* StressTestKey1Ptr = DebugOptions.Find(FName("DestroyTracedObject_Instant"));
+	bool* StressTestKey2Ptr = DebugOptions.Find(FName("DestroyTracedObject_Delayed"));
+	bool StressTestKey1 = StressTestKey1Ptr != nullptr ? *StressTestKey1Ptr : false;
+	bool StressTestKey2 = StressTestKey2Ptr != nullptr ? *StressTestKey2Ptr : false;
+	if (StressTestKey1 || StressTestKey2)
+	{
+		if (auto Actor = HitResult.GetActor())
+		{
+			if (Actor->ActorHasTag(FName("RaindropStressTest")))
+			{
+				TWeakObjectPtr ActorWeak = Actor;
+				if (StressTestKey1)
+					AsyncTask(ENamedThreads::Type::GameThread, [ActorWeak](){ if (ActorWeak.IsValid()) ActorWeak->Destroy(); });
+				else 
+					AsyncTask(ENamedThreads::Type::GameThread, [ActorWeak](){ if (ActorWeak.IsValid()) ActorWeak->SetLifeSpan(0.0005f); });
+			}
+		}
+	}
+}
+
+void USpatialObservationComponent_Stud::Debug_StressTestIteration(TWeakObjectPtr<UWorld> WorldWeak, TWeakObjectPtr<ThisClass> ThisWeak,
+	int ConfigIndex, int GridIndex, uint32 ThreadId, TMap<FName, bool>& DebugOptions)
+{
+	Debug_StressTest(DebugOptions, FName("TryBreak_OpenLevel_AtIteration"), WorldWeak, ThisWeak);
+	Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtIteration"), WorldWeak, ThisWeak);
+	Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtIteration_Delayed"), WorldWeak, ThisWeak);
+	Debug_StressTest(DebugOptions, FName("TryBreak_SpawnActorInfront"), WorldWeak, ThisWeak);
+		
+	bool* WantStallThreadPtr = DebugOptions.Find(FName("TryBreak_StallThread_Iterations"));
+	if (WantStallThreadPtr && *WantStallThreadPtr)
+	{
+		FPlatformProcess::Sleep(0.01f);
+		UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Woke up after sleeping at iteration yay [%d, %d]. Thread %u"), ConfigIndex, GridIndex, ThreadId);
+	}
+			
+}
+
+void USpatialObservationComponent_Stud::Debug_StressTest_PrePublish(TWeakObjectPtr<UWorld> WorldWeak,
+	TWeakObjectPtr<USpatialObservationComponent_Stud> ThisWeak, TMap<FName, bool>& DebugOptions)
+{
+	if (HasDebugOption(DebugOptions, FName("StressTest_BeforePublishRequested")))
+	{
+		Debug_StressTest(DebugOptions, FName("TryBreak_OpenLevel_AtPublish"), WorldWeak, ThisWeak);
+		Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish"), WorldWeak, ThisWeak);
+		Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish_Delayed"), WorldWeak, ThisWeak);
+		bool* WantStallThreadPtr = DebugOptions.Find(FName("TryBreak_StallThread_AtPublish"));
+		if (WantStallThreadPtr && *WantStallThreadPtr)
+			FPlatformProcess::Sleep(0.5f);
+				
+		Debug_StressTest(DebugOptions, FName("TryBreak_CancelAtPublish"), WorldWeak, ThisWeak);
+	}
+}
+
+void USpatialObservationComponent_Stud::Debug_StessTest_PostPublish(TWeakObjectPtr<UWorld> WorldWeak,
+	TWeakObjectPtr<USpatialObservationComponent_Stud> ThisWeak, TMap<FName, bool>& DebugOptions)
+{
+	if (HasDebugOption(DebugOptions, FName("StressTest_AfterPublishRequested")))
+	{
+		Debug_StressTest(DebugOptions, FName("TryBreak_OpenLevel_AtPublish"), WorldWeak, ThisWeak);
+		Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish"), WorldWeak, ThisWeak);
+		Debug_StressTest(DebugOptions, FName("TryBreak_DestroySelf_AtPublish_Delayed"), WorldWeak, ThisWeak);
+		bool* WantStallThreadPtr = DebugOptions.Find(FName("TryBreak_StallThread_AtPublish"));
+		if (WantStallThreadPtr && *WantStallThreadPtr)
+			FPlatformProcess::Sleep(0.5f);
+								
+		Debug_StressTest(DebugOptions, FName("TryBreak_CancelAtPublish"), WorldWeak, ThisWeak);
+	}
 }
 
 #endif

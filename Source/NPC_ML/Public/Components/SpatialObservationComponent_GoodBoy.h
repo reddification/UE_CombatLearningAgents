@@ -46,13 +46,17 @@ private:
 		FConfigExecutor(USpatialObservationComponent_GoodBoy* Owner, int ConfigIndex);
 		
 		int RequestAsyncTraces(int TracesBudget);
-		bool IsCompleted() const { return bCompleted; };
+		bool IsCompleted() const { return bCompleted; }
 		void Restart();
 
 		const FGridExecutor& operator [] (int i) const
 		{
 			return GridQueue[i];
 		}
+		
+#if WITH_EDITOR
+		int GetTotalTracesCount() const;
+#endif
 
 		double RequestedAt = 0;
 		

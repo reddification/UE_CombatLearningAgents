@@ -96,6 +96,8 @@ void USpatialObservationComponent_GoodBoy::TickComponent(float DeltaTime, enum E
 					auto ConfigQueueData = ThisWeak->Configs[ConfigIndex];
 					auto Duration = EndTime - ConfigQueueData.RequestedAt;
 					UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Frame %llu:: Finished traces for config %d (%s) in %.2f ms"), GFrameCounter, ConfigIndex, *ConfigInfo.UserDescription, Duration * 1000);
+					UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Traces count: %d"), ThisWeak->Configs[ConfigIndex].GetTotalTracesCount());
+					
 				});
 #endif
 			}
@@ -156,12 +158,13 @@ void USpatialObservationComponent_GoodBoy::AsyncTraceCallback(const FTraceHandle
 
 	UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("AsyncTraceCallback [%d, %d]: Row = %d, Column = %d"), ConfigIndex, GridIndex, TraceRowIndex, TraceColumnIndex);
 	
+	const float ShapeSize = Params.SweepShapeScale * Params.CellDimension / 2.f * Settings->Configs[ConfigIndex].Grids[GridIndex].CellSpan; 
 #if WITH_EDITOR
 	FRaindropDebugData_Trace DebugTrace;
 	DebugTrace.TraceStart = TraceDatum.Start;
 	DebugTrace.Orientation = TraceDatum.Rot;
 	DebugTrace.TraceEnd = TraceDatum.End;
-	DebugTrace.ShapeSize = Params.SweepShapeScale * Params.CellDimension / 2.f * Settings->Configs[ConfigIndex].Grids[GridIndex].CellSpan;
+	DebugTrace.ShapeSize = ShapeSize;
 #endif
 	
 	float TraceDistance = 0.f;
@@ -178,8 +181,9 @@ void USpatialObservationComponent_GoodBoy::AsyncTraceCallback(const FTraceHandle
 		TraceDistance = (TraceDatum.End - TraceDatum.Start).Size();
 	}
 
-	float RawValue = TraceDistance / Settings->Configs[ConfigIndex].Params.TraceDistance;
-	float UnifiedValue = FMath::RoundToFloat(RawValue * 100.f) / 100.f;
+	float ExtraDistance = Params.TraceMode == ERaindropTraceMode::SphereSweep ? ShapeSize : 0.f;
+	float RawValue = (TraceDistance + ExtraDistance) / Params.TraceDistance;
+	float UnifiedValue = FMath::RoundToFloat(RawValue * 1000000.f) / 1000000.f;
 	auto GridArrayView = RaindropData[ConfigIndex].GetArrayView(GridIndex);
 	
 	if (CellSpan == 1)
@@ -245,12 +249,13 @@ void USpatialObservationComponent_GoodBoy::FConfigExecutor::Restart()
 USpatialObservationComponent_GoodBoy::FGridExecutor::FGridExecutor(USpatialObservationComponent_GoodBoy* InOwner, int InConfigIndex, int InGridIndex) 
 	: Owner(InOwner), ConfigIndex(InConfigIndex), GridIndex(InGridIndex)
 {
-	const int CellSpan = InOwner->Settings->Configs[ConfigIndex].Grids[GridIndex].CellSpan;
+	const auto& GridDescriptor = InOwner->Settings->Configs[ConfigIndex].Grids[GridIndex];
 	TraceData |= (ConfigIndex << ConfigIndexMaskShift) & ConfigIndexMask;
 	TraceData |= (GridIndex << GridIndexMaskShift) & GridIndexMask;
-	TraceData |= (CellSpan << CellSpanMaskShift) & CellSpanMask;
+	TraceData |= (GridDescriptor.CellSpan << CellSpanMaskShift) & CellSpanMask;
 #if WITH_EDITOR
-	DebugData = FRaindropGridDebugData(Owner->Settings->Configs[ConfigIndex].Params, FPlatformTime::Seconds(), CellSpan);
+	DebugData = FRaindropGridDebugData(Owner->Settings->Configs[ConfigIndex].Params, FPlatformTime::Seconds(), 
+		GridDescriptor.CellSpan, GridDescriptor.Debug_DrawGridShapes);
 #endif
 }
 
@@ -318,6 +323,7 @@ int USpatialObservationComponent_GoodBoy::FGridExecutor::RequestAsyncTraces(int 
 			{
 				CountOfTraces++;
 #if WITH_EDITOR
+				DebugData.TracesCount++;
 				UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Requested async trace: Grid = %d, Row = %d, Column = %d"), GridIndex, CurrentRow, CurrentColumn);
 #endif
 			}
@@ -378,3 +384,16 @@ void USpatialObservationComponent_GoodBoy::FGridExecutor::Restart()
 	DebugData.RequestedAt = FPlatformTime::Seconds();
 #endif
 }
+
+#if WITH_EDITOR
+
+int USpatialObservationComponent_GoodBoy::FConfigExecutor::GetTotalTracesCount() const
+{
+	int Result = 0;
+	for (const auto& Grid : GridQueue)
+		Result += Grid.DebugData.TracesCount;
+	
+	return Result;
+}
+
+#endif

@@ -66,7 +66,6 @@ FRaindropVariables USpatialObservationComponent::GetVariables(int ConfigIndex, i
 	FVector FV = OwnerLocal->GetActorForwardVector();
 	FVector Origin = OwnerLocal->GetActorLocation() + FV.Rotation().RotateVector(GridDescriptor.Offset);
 	FQuat ActorQuat = OwnerLocal->GetActorQuat();
-	// FVector Origin = OwnerLocal->GetActorLocation() + ActorQuat.RotateVector(GridDescriptor.Offset);
 	if (!GridDescriptor.Offset.IsNearlyZero())
 	{
 		UE_VLOG_LOCATION(OwnerLocal, LogNpcMl_Raindrop, Verbose, OwnerLocal->GetActorLocation(), 12, FColor::White, TEXT("Actor location"));
@@ -81,9 +80,6 @@ FRaindropVariables USpatialObservationComponent::GetVariables(int ConfigIndex, i
 		FQuat FinalRotation = ActorQuat * GridDescriptor.Rotation.Quaternion();
 		ForwardVector = FinalRotation.GetForwardVector();
 		UpVector = FinalRotation.GetUpVector();
-		// RightVector = FinalRotation.GetRightVector();
-		// ForwardVector = GridDescriptor.Rotation.RotateVector(ForwardVector);
-		// UpVector = GridDescriptor.Rotation.RotateVector(UpVector);
 	}
 	
 	RightVector = FVector::CrossProduct(UpVector, ForwardVector);
@@ -98,7 +94,11 @@ FRaindropVariables USpatialObservationComponent::GetVariables(int ConfigIndex, i
 	Variables.CellCenterOffset = ConfigParams.CellDimension * Variables.CellSpan / 2.f;
 	Variables.BaseOffsetH = ConfigParams.CellDimension * ConfigParams.Columns / 2.f - Variables.CellCenterOffset;
 	Variables.BaseOffsetV = ConfigParams.CellDimension * ConfigParams.Rows / 2.f - Variables.CellCenterOffset;
-	Variables.SweepRotation = Variables.TraceDirection.ToOrientationQuat();
+	// Variables.SweepRotation = Variables.TraceDirection.ToOrientationQuat();
+	Variables.SweepRotation = FRotationMatrix::MakeFromXZ(Variables.TraceDirection,Variables.UpVector).ToQuat();
+#if WITH_EDITOR
+	Variables.bNeedsTraces = GridDescriptor.Debug_DrawGridShapes;
+#endif
 	switch (ConfigParams.TraceMode)
 	{
 		case ERaindropTraceMode::Linetrace:
@@ -108,7 +108,9 @@ FRaindropVariables USpatialObservationComponent::GetVariables(int ConfigIndex, i
 				Variables.CellCenterOffset * ConfigParams.SweepShapeScale, Variables.CellCenterOffset * ConfigParams.SweepShapeScale));
 			break;
 		case ERaindropTraceMode::SphereSweep:
-			Variables.SweepShape = FCollisionShape::MakeSphere(Variables.CellCenterOffset * ConfigParams.SweepShapeScale);
+			float Radius = Variables.CellCenterOffset * ConfigParams.SweepShapeScale;
+			Variables.SweepShape = FCollisionShape::MakeSphere(Radius);
+			Variables.OriginLocation += Variables.TraceDirection * Radius;
 			break;
 	}
 	
@@ -155,7 +157,6 @@ void USpatialObservationComponent::ProcessRaindropDebug(const FRaindropGridDebug
 					FVector BoxCenter = (DebugTrace.TraceStart + DebugTrace.TraceEnd) / 2.f;
 					FVector Extent = FVector((DebugTrace.TraceEnd - DebugTrace.TraceStart).Size() / 2, DebugTrace.ShapeSize * 2.f,
 						DebugTrace.ShapeSize * 2.f);
-					FRotator ForDebug = DebugTrace.Orientation.Rotator();
 					DrawDebugBox(WorldLocal, BoxCenter, Extent, DebugTrace.Orientation, FColor::Green, 
 						false, DebugDrawDuration, 0, 1.f);
 				}

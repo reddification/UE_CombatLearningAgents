@@ -49,12 +49,16 @@ private:
 		const int TotalGrids = 0;
 		double StartTime = 0;
 		FTimerDelegate TimerDelegate;
-
+		
+#if WITH_EDITOR
+		int TracesCount = 0;
+#endif
+		
 		bool IsCompleted() const { return CompletedGridsCount == TotalGrids; }
 		bool IsOnCooldown() const { return CompletedGridsCount == TotalGrids && CooldownTimer.IsValid(); };
 		
 		void IncrementGridsCompleted() { CompletedGridsCount++; }
-		void Reset(const UWorld* World) { CompletedGridsCount = 0; World->GetTimerManager().ClearTimer(CooldownTimer); }
+		void Reset(const UWorld* World) { CompletedGridsCount = 0; World->GetTimerManager().ClearTimer(CooldownTimer); TracesCount = 0; }
 		
 		// acts as a cancellation token
 		TSharedPtr<std::atomic<uint64>, ESPMode::ThreadSafe> RunHandle;
@@ -71,6 +75,7 @@ public:
 	
 #if WITH_EDITOR	
 	void Debug_CancelAsyncRaindrops();
+
 #endif
 	
 protected:
@@ -89,11 +94,11 @@ private:
 	void LidarRaindropAsync_Stripes(FRaindropVariables RaindropVariables, FRaindropParams RaindropParams, int ConfigIndex, int GridIndex, const FRunHandle& RunHandle);
 	static void RaindropToArray(TWeakObjectPtr<UWorld> WorldWeak, const FRaindropVariables& Variables,
 	                            const FRaindropParams& Params, const FCollisionQueryParams& CollisionQueryParams,
-	                            TArray<float>& Array, int RowIndex, const TFunctionRef<bool()>& CanTraceFunc,
+	                            TArray<float>& Array, int RowIndex,
 #if WITH_EDITOR
 	                            FRaindropGridDebugData& DebugData, TMap<FName, bool>& DebugOptions
 #endif
-	                            );
+	);
 
 	void RestartAsyncRaindrop(int ConfigIndex);
 	void StartAsyncRaindrop(FRaindropCategorySchedule& RaindropSchedule, int ConfigIndex);
@@ -108,6 +113,13 @@ private:
 #if WITH_EDITOR
 	static void Debug_StressTest(TMap<FName, bool>& DebugOptions, FName StressTestKey, TWeakObjectPtr<UWorld> WorldWeak,
 	                             TWeakObjectPtr<USpatialObservationComponent_Stud> ThisWeak);
+	static void Debug_StressTestTraceResult(TMap<FName, bool>& DebugOptions, const FHitResult& HitResult);
+	static void Debug_StressTestIteration(TWeakObjectPtr<UWorld> WorldWeak, TWeakObjectPtr<ThisClass> ThisWeak, int ConfigIndex, int GridIndex,
+		uint32 ThreadId, TMap<FName, bool>& DebugOptions);
+	static void Debug_StressTest_PrePublish(TWeakObjectPtr<UWorld> WorldWeak,
+		TWeakObjectPtr<USpatialObservationComponent_Stud> ThisWeak, TMap<FName, bool>& DebugOptions);
+	static void Debug_StessTest_PostPublish(TWeakObjectPtr<UWorld> World, TWeakObjectPtr<USpatialObservationComponent_Stud> ThisWeak,
+		TMap<FName, bool>& DebugOptions);
 #endif
 	
 	TMap<int, FRaindropCategorySchedule> RaindropSchedules;
