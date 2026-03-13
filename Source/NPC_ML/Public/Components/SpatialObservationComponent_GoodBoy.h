@@ -4,13 +4,6 @@
 #include "SpatialObservationComponent.h"
 #include "SpatialObservationComponent_GoodBoy.generated.h"
 
-UENUM()
-enum class EConfigAsyncRequestMode : uint8
-{
-	Sequential,
-	Parallel
-};
-
 /*
  * Missis Gipiti said that it is bad to do line traces in Async(EAsyncExecution::ThreadPool) amd i must use GetWorld()->AsyncLineTraceByChannel
  * becaus GetWorld()->LineTraceSingleByChannel is unsaef to call from background threds and good boyes don't do dangeres tings its not cool
@@ -24,41 +17,57 @@ class NPC_ML_API USpatialObservationComponent_GoodBoy : public USpatialObservati
 	GENERATED_BODY()
 	
 private:
-	friend struct FGridState;
-	
-	struct FGridState
+	struct FGridExecutor
 	{
-		FGridState(const FRaindropVariables& InVariables, const TSharedPtr<FTraceDelegate>& InDelegate)
-			: Delegate(InDelegate), Variables(InVariables) {}
+		FGridExecutor(USpatialObservationComponent_GoodBoy* Owner, int ConfigIndex, int GridIndex);
 		
 		int RequestAsyncTraces(int TracesBudget);
-		const FRaindropParams& GetParams();
-		
-		TSharedPtr<FTraceDelegate> Delegate;
-		FRaindropVariables Variables;
-		TWeakObjectPtr<USpatialObservationComponent_GoodBoy> Owner;
-		
+		void Restart();
+		FORCEINLINE bool IsCompleted() const { return bCompleted; }
+
 #if WITH_EDITOR
-		FRaindropGridDebugData DebugData;
+		mutable FRaindropGridDebugData DebugData;
 #endif
 		
 		private:
-			int Row = 0;
-			int Column = 0;
+			const TWeakObjectPtr<USpatialObservationComponent_GoodBoy> Owner;
+			FRaindropVariables Variables;
+			const int ConfigIndex = 0;
+			const int GridIndex = 0;
+		
+			int LastRow = 0;
+			int LastColumn = 0;
+			uint32 TraceData = 0;
 			bool bCompleted = false;
 	};
 	
-	struct FConfigState
+	struct FConfigExecutor
 	{
-		FConfigState() {  }
+		FConfigExecutor(USpatialObservationComponent_GoodBoy* Owner, int ConfigIndex);
 		
-		void RequestAsyncTraces(int TracesBudget) {};
+		int RequestAsyncTraces(int TracesBudget);
+		bool IsCompleted() const { return bCompleted; };
+		void Restart();
+
+		const FGridExecutor& operator [] (int i) const
+		{
+			return GridQueue[i];
+		}
+
+		double RequestedAt = 0;
 		
 	private:
-		TArray<FGridState> GridStates;
-		int ConfigIndex = 0;
-		int GridIndex = 0;
+		const TWeakObjectPtr<USpatialObservationComponent_GoodBoy> Owner;
+		const int ConfigIndex = 0;
+		int CurrentGridIndex = 0;
+		FTimerHandle RestartQueueTimer;
+		FTimerDelegate RestartTimerDelegate;
+		TArray<FGridExecutor, TInlineAllocator<6>> GridQueue;
+		bool bCompleted = false;
 	};
+	
+	friend struct FGridExecutor;
+	friend struct FConfigExecutor;
 	
 public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -75,22 +84,15 @@ protected:
 	int MaxCountOfRequests = 200;
 
 private:
-	int CurrentConfigIndex = 0;
-	int CurrentGridIndex = 0;
-	int RowIndex = 0;
-	int ColumnIndex = 0;
-	FRaindropVariables Variables;
-
+	TMap<int, FConfigExecutor> Configs;
+	TArray<int, TInlineAllocator<4>> ConfigsQueue;
 	FTraceDelegate TraceDelegate;
 	
 #if WITH_EDITOR
-	TMap<int, TArray<FRaindropGridDebugData>> GridsDebugDataMap;
 	bool bDebug_DoOnce = false;
 #endif
 
-	void RemoveCooldown(int ConfigIndex);
-	void OnGridLastTraceRequested(const float DeltaTime);
+	void RestartQueue(int ConfigIndex);
 	int GetMaxCountOfRequests() const;
-	int GetNextConfigIndex(int StartingFrom);
 	void AsyncTraceCallback(const FTraceHandle& TraceHandle, FTraceDatum& TraceDatum);
 };

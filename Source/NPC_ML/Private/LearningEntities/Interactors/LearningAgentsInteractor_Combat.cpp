@@ -92,9 +92,6 @@ void ULearningAgentsInteractor_Combat::SpecifyAgentAction_Implementation(
 	LocomotionNonBlockingActionNames.Empty();
 	NonBlockingLocomotionActionsCategory.Elements.GetKeys(LocomotionNonBlockingActionNames);
 	
-	// auto NonBlockingLocomotionActionsUnion = ULearningAgentsActions::SpecifyInclusiveUnionAction(InActionSchema, 
-	// 	NonBlockingLocomotionActionsCategory.Elements, NonBlockingLocomotionActionsCategory.Probabilities,
-	// 	Key_Action_Locomotion_NonBlocking);
 	auto NonBlockingLocomotionActionsUnion = ULearningAgentsActions::SpecifyStructAction(InActionSchema, 
 		NonBlockingLocomotionActionsCategory.Elements, Key_Action_Locomotion_NonBlocking);
 	
@@ -303,10 +300,6 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	auto Settings = GetDefault<UCombatLearningSettings>();
 	TSet<FName> AllMaskedActions = GetMaskedActions(SelfStates);
 	
-	// TODO 26.11.2025: think about the following questions
-	// 1. I'm not sure, but maybe I need to use separate set of tags for action modifiers instead of reusing tags of defined actions
-	// 2. Maybe instead of having separate masked action arrays for each element of action schema hierarchy just use single AllMaskedActions from GetMaskedActions ? 
-	//		I need to understand the source code better to answer this
 	TArray<FName> MaskedTopLevelActions;
 	if (AllMaskedActions.Contains(Key_Action_Locomotion))
 		MaskedTopLevelActions.Emplace(Key_Action_Locomotion);
@@ -330,9 +323,6 @@ void ULearningAgentsInteractor_Combat::MakeAgentActionModifier_Implementation(
 	FActionModifierMap NonBlockingLocomotionActionModifiersMap = MakeActionModifier_NonBlockingLocomotion(InActionModifier, SelfStates, Settings, AllMaskedActions);
 	TSet<FName> NonBlockingActionKeys;
 	NonBlockingLocomotionActionModifiersMap.GetKeys(NonBlockingActionKeys);
-	// auto NonBlockingLocomotionUnionActionModifier = ULearningAgentsActions::MakeInclusiveUnionActionModifier(InActionModifier, 
-	// 	NonBlockingLocomotionActionModifiersMap, AllMaskedActions.Intersect(NonBlockingActionKeys).Array(),
-	// 	Key_Action_Locomotion_NonBlocking);
 
 	auto NonBlockingLocomotionUnionActionModifier = ULearningAgentsActions::MakeStructActionModifier(InActionModifier, 
 		NonBlockingLocomotionActionModifiersMap,Key_Action_Locomotion_NonBlocking);
@@ -772,9 +762,6 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifySelfLIDARObserva
 		if (!Config.IsValid())
 			continue;
 		
-		// Deliberately not using ULearningAgentsObservations::SpecifyLidarObservation because ULearningAgentsObservations::MakeLidarObservation does the actual trace inside
-		// auto RaindropObservation = ULearningAgentsObservations::SpecifyFloatObservation(InObservationSchema,1.f, Key_Observation_Surrounding_LIDAR_Raindrop_Item);
-		
 		const int GridRowSize = Config.Params.Rows;
 		const int GridColumnSize = Config.Params.Columns;
 		auto Conv2DParamsLocal = Config.Conv2dParams;
@@ -783,8 +770,6 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifySelfLIDARObserva
 		Conv2DParamsLocal.InChannels = Config.Grids.Num();
 		auto RaindropContinuousObservation = ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema,
 			GridRowSize * GridColumnSize * Config.Grids.Num(), 1.f, Key_Observation_Surrounding_LIDAR_Raindrop_Continuous);
-		// auto RaindropObservationsArray = ULearningAgentsObservations::SpecifyStaticArrayObservation(InObservationSchema,
-		// 	RaindropObservation, GridRowSize * GridRowSize * Preset.Configs.Num(), Key_Observation_Surrounding_LIDAR_Raindrop_Array);
 		auto RaindropObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
 			RaindropContinuousObservation, Conv2DParamsLocal, Key_Observation_Surrounding_LIDAR_Raindrop_Convolved);
 		
@@ -1206,18 +1191,6 @@ FObservationObjectsMap ULearningAgentsInteractor_Combat::GatherSelfLIDARObservat
 			continue;
 		
 		const TArray<float>* RaindropData = SpatialObservationComponent->GetRaindropData(i);
-		// TArray<FObservationObjectItem> RaindropObservations;
-		// RaindropObservations.SetNumUninitialized(Preset.Params.GetResolution() * Preset.Configs.Num());
-		// for (int i = 0; i < RaindropData->Num(); i++)
-		// {
-		// 	auto RaindropHeightmapItemObservation = ULearningAgentsObservations::MakeFloatObservation(InObservationObject,
-		// 		(*RaindropData)[i], Key_Observation_Surrounding_LIDAR_Raindrop_Item);
-		// 	RaindropObservations[i] = RaindropHeightmapItemObservation;
-		// }	
-		//
-		// auto RaindropObservationsObservation = ULearningAgentsObservations::MakeStaticArrayObservation(InObservationObject, 
-		// 	RaindropObservations, Key_Observation_Surrounding_LIDAR_Raindrop_Array);
-		
 		// brother I NEED quantization brother encoding size is 50k brother i don't need more that 2 digits in my LIDAR floats brother PLEASE brother give quantization please
 		auto RaindropObservationsObservation = ULearningAgentsObservations::MakeContinuousObservation(InObservationObject, *RaindropData,
 			Key_Observation_Surrounding_LIDAR_Raindrop_Continuous); 
@@ -1683,8 +1656,6 @@ void ULearningAgentsInteractor_Combat::SampleLocomotionAction(const FActionSampl
 	else if (LocomotionActionName == Key_Action_Locomotion_NonBlocking)
 	{
 		TMap<FName, FLearningAgentsActionObjectElement> NonBlockingLocomotionActionObjectElements;
-		// bool bGotNonBlockingActions = ULearningAgentsActions::GetInclusiveUnionAction(NonBlockingLocomotionActionObjectElements, SamplingParams.ActionObject,
-		// 	RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
 		bool bGotNonBlockingActions = ULearningAgentsActions::GetStructAction(NonBlockingLocomotionActionObjectElements, 
 			SamplingParams.ActionObject, RootLocomotionActionObjectElement, Key_Action_Locomotion_NonBlocking);
 		if (ensure(bGotNonBlockingActions && !NonBlockingLocomotionActionObjectElements.IsEmpty()))

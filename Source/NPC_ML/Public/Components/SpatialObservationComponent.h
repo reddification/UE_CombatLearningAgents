@@ -43,48 +43,71 @@ protected:
 	{
 		FRaindropGridDebugData() = default;
 		
+		FRaindropGridDebugData(const FRaindropParams& RaindropParams, double InRequestedAt, int CellSpan)
+		{
+			RequestedAt = InRequestedAt;
+			StartTime = FPlatformTime::Seconds();
+			TraceMode = RaindropParams.TraceMode;
+			Rows = RaindropParams.Rows;
+			Columns = RaindropParams.Columns;
+			if (CellSpan == 1)
+			{
+				Traces.Reserve(Rows * Columns);
+			}
+			else
+			{
+				int TraceRows = Rows / CellSpan + Rows % CellSpan == 0 ? 0 : 1;
+				int TraceColumns = Columns / CellSpan + Columns % CellSpan == 0 ? 0 : 1;
+				Traces.Reserve(TraceRows * TraceColumns);
+			}
+		};
+	
+		void Reset()
+		{
+			Traces.Reset();
+		};
+
+		TArray<FRaindropDebugData_Trace> Traces;
+		double RequestedAt = 0;
+		double StartTime = 0;
+		double FinishedAt = 0;
+		int Rows = 0;
+		int Columns = 0;
+		ERaindropTraceMode TraceMode = ERaindropTraceMode::Linetrace;
+		
+#pragma region boilerplate
 		FRaindropGridDebugData(const FRaindropGridDebugData& Other)
-			: Arrows(Other.Arrows),
-			  Traces(Other.Traces),
+			: Traces(Other.Traces),
 			  RequestedAt(Other.RequestedAt),
 			  StartTime(Other.StartTime),
 			  FinishedAt(Other.FinishedAt),
-			  CellsCountPerRow(Other.CellsCountPerRow),
+			  Rows(Other.Rows),
+			  Columns(Other.Columns),
 			  TraceMode(Other.TraceMode)
 		{
 		}
 
 		FRaindropGridDebugData(FRaindropGridDebugData&& Other) noexcept
-			: Arrows(std::move(Other.Arrows)),
-			  Traces(std::move(Other.Traces)),
+			: Traces(std::move(Other.Traces)),
 			  RequestedAt(Other.RequestedAt),
 			  StartTime(Other.StartTime),
 			  FinishedAt(Other.FinishedAt),
-			  CellsCountPerRow(Other.CellsCountPerRow),
+			  Rows(Other.Rows),
+			  Columns(Other.Columns),
 			  TraceMode(Other.TraceMode)
 		{
 		}
-
-		FRaindropGridDebugData(const FRaindropParams& RaindropParams, double InRequestedAt)
-		{
-			RequestedAt = InRequestedAt;
-			StartTime = FPlatformTime::Seconds();
-			TraceMode = RaindropParams.TraceMode;
-			CellsCountPerRow = RaindropParams.Rows;
-			CellsCountPerColumn = RaindropParams.Columns;
-		};
 
 		FRaindropGridDebugData& operator=(const FRaindropGridDebugData& Other)
 		{
 			if (this == &Other)
 				return *this;
-			
-			Arrows = Other.Arrows;
 			Traces = Other.Traces;
 			RequestedAt = Other.RequestedAt;
 			StartTime = Other.StartTime;
 			FinishedAt = Other.FinishedAt;
-			CellsCountPerRow = Other.CellsCountPerRow;
+			Rows = Other.Rows;
+			Columns = Other.Columns;
 			TraceMode = Other.TraceMode;
 			return *this;
 		}
@@ -93,61 +116,20 @@ protected:
 		{
 			if (this == &Other)
 				return *this;
-			
-			Arrows = std::move(Other.Arrows);
 			Traces = std::move(Other.Traces);
 			RequestedAt = Other.RequestedAt;
 			StartTime = Other.StartTime;
 			FinishedAt = Other.FinishedAt;
-			CellsCountPerRow = Other.CellsCountPerRow;
+			Rows = Other.Rows;
+			Columns = Other.Columns;
 			TraceMode = Other.TraceMode;
 			return *this;
 		}
-
-		void Reset()
-		{
-			Arrows.Empty();
-			Traces.Empty();
-		};
-
-		TArray<FRaindropDebugData_Arrow> Arrows;
-		TArray<FRaindropDebugData_Trace> Traces;
-		double RequestedAt = 0;
-		double StartTime = 0;
-		double FinishedAt = 0;
-		int CellsCountPerRow = 0;
-		int CellsCountPerColumn = 0;
-		ERaindropTraceMode TraceMode = ERaindropTraceMode::Linetrace;
+		
+#pragma endregion
 	};
 	
 #endif
-
-	struct FRaindropCategorySchedule
-	{
-		FRaindropCategorySchedule(int InTotalGrids, float InUpdateInterval) : UpdateInterval(InUpdateInterval), TotalGrids(InTotalGrids)
-		{
-			RunHandle = MakeShared<std::atomic<uint64>, ESPMode::ThreadSafe>(0);
-		}
-
-		FTimerHandle CooldownTimer;
-		const float UpdateInterval = 0.f;
-		const int TotalGrids = 0;
-		double StartTime = 0;
-		
-		bool IsCompleted() const { return CompletedGridsCount == TotalGrids; }
-		bool IsOnCooldown() const { return CompletedGridsCount == TotalGrids && CooldownTimer.IsValid(); };
-		
-		void IncrementGridsCompleted() { CompletedGridsCount++; }
-		void Reset(const UWorld* World) { CompletedGridsCount = 0; World->GetTimerManager().ClearTimer(CooldownTimer); }
-		
-		// acts as a cancellation token
-		TSharedPtr<std::atomic<uint64>, ESPMode::ThreadSafe> RunHandle;
-		void IncrementRunHandle() { RunHandle->fetch_add(1); };
-		void ClearRunHandle() { RunHandle->store(0); };
-		
-	private:
-		int CompletedGridsCount = 0;
-	};
 
 public:
 	// Sets default values for this component's properties
@@ -156,7 +138,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetSpatialObservationActive(bool bActive);
 	
-	const TArray<float>* GetRaindropData(int ConfigIndex) { return RaindropConfigsData[ConfigIndex].GetData(); }
+	const TArray<float>* GetRaindropData(int ConfigIndex) { return RaindropData[ConfigIndex].GetData(); }
 
 #if WITH_EDITOR
 	void Debug_SpawnActorInfront();
@@ -170,8 +152,7 @@ protected:
 	
 	FRaindropVariables GetVariables(int ConfigIndex, int GridIndex) const;
 	
-	TMap<int, FRaindropData> RaindropConfigsData;
-	TMap<int, FRaindropCategorySchedule> RaindropSchedules;
+	TMap<int, FRaindropData> RaindropData;
 	
 	FCollisionQueryParams CollisionQueryParams;
 	TWeakObjectPtr<const URaindropSettings> Settings;

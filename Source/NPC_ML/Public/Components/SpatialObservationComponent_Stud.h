@@ -35,6 +35,36 @@ private:
 	using FRaindropGridKey = TPair<int, int>;
 	using FRunHandle = TSharedPtr<std::atomic<uint64>, ESPMode::ThreadSafe>;
 	
+	struct FRaindropCategorySchedule
+	{
+		FRaindropCategorySchedule(int InTotalGrids, float InUpdateInterval, USpatialObservationComponent_Stud* Owner, int ConfigIndex) 
+			: UpdateInterval(InUpdateInterval), TotalGrids(InTotalGrids)
+		{
+			RunHandle = MakeShared<std::atomic<uint64>, ESPMode::ThreadSafe>(0);
+			TimerDelegate = FTimerDelegate::CreateUObject(Owner, &USpatialObservationComponent_Stud::RestartAsyncRaindrop, ConfigIndex);
+		}
+
+		FTimerHandle CooldownTimer;
+		const float UpdateInterval = 0.f;
+		const int TotalGrids = 0;
+		double StartTime = 0;
+		FTimerDelegate TimerDelegate;
+
+		bool IsCompleted() const { return CompletedGridsCount == TotalGrids; }
+		bool IsOnCooldown() const { return CompletedGridsCount == TotalGrids && CooldownTimer.IsValid(); };
+		
+		void IncrementGridsCompleted() { CompletedGridsCount++; }
+		void Reset(const UWorld* World) { CompletedGridsCount = 0; World->GetTimerManager().ClearTimer(CooldownTimer); }
+		
+		// acts as a cancellation token
+		TSharedPtr<std::atomic<uint64>, ESPMode::ThreadSafe> RunHandle;
+		void IncrementRunHandle() { RunHandle->fetch_add(1); };
+		void ClearRunHandle() { RunHandle->store(0); };
+		
+	private:
+		int CompletedGridsCount = 0;
+	};
+	
 public:
 	UFUNCTION(BlueprintCallable, meta = (DevelopmentOnly))
 	void Debug_DoOnce();
@@ -48,7 +78,8 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual void SetSpatialObservationActive_Internal(bool bActive) override;
-
+	virtual void ResetRaindropData() override;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	ERaindropAsyncProcessMode AsyncProcessMode = ERaindropAsyncProcessMode::Atomic;
 	
@@ -64,7 +95,7 @@ private:
 #endif
 	                            );
 
-	void StartAsyncRaindrop(int ConfigIndex);
+	void RestartAsyncRaindrop(int ConfigIndex);
 	void StartAsyncRaindrop(FRaindropCategorySchedule& RaindropSchedule, int ConfigIndex);
 	void CancelAsyncRaindrops();
 	
@@ -79,5 +110,6 @@ private:
 	                             TWeakObjectPtr<USpatialObservationComponent_Stud> ThisWeak);
 #endif
 	
+	TMap<int, FRaindropCategorySchedule> RaindropSchedules;
 	TSharedPtr<std::atomic<uint16>, ESPMode::ThreadSafe>  AsyncRaindropsActiveCount;
 };

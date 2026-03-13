@@ -1,5 +1,6 @@
 ﻿#include "Components/SpatialObservationComponent_GoodBoy.h"
 
+#include "Data/LogChannels.h"
 #include "Settings/CombatLearningSettings.h"
 #include "Settings/RaindropSettings.h"
 
@@ -15,35 +16,41 @@ void USpatialObservationComponent_GoodBoy::BeginPlay()
 {
 	Super::BeginPlay();
 	TraceDelegate.BindUObject(this, &USpatialObservationComponent_GoodBoy::AsyncTraceCallback);
-	CurrentConfigIndex = GetNextConfigIndex(0);
 }
 
 void USpatialObservationComponent_GoodBoy::SetSpatialObservationActive_Internal(bool bActive)
 {
 	Super::SetSpatialObservationActive_Internal(bActive);
-#if WITH_EDITOR
 	if (bActive)
 	{
-		GridsDebugDataMap.Empty();
-		for (int i = 0; i < Settings->Configs.Num(); i++)
+		if (Configs.IsEmpty())
 		{
-			if (Settings->Configs[i].IsValid())
+			for (int i = 0; i < Settings->Configs.Num(); i++)
 			{
-				GridsDebugDataMap.Add(i);
-				for (int g = 0; g < Settings->Configs[i].Grids.Num(); g++)
-					GridsDebugDataMap[i].Add(FRaindropGridDebugData());
+				if (Settings->Configs[i].IsValid())
+				{
+					Configs.Add(i, FConfigExecutor(this, i));
+					ConfigsQueue.Add(i);
+				}
+			}
+		}
+		else
+		{
+			ConfigsQueue.Reset();
+			for (auto& Config : Configs)
+			{
+				Config.Value.Restart();
+				ConfigsQueue.Add(Config.Key);
 			}
 		}
 	}
-#endif
 }
 
 void USpatialObservationComponent_GoodBoy::ResetRaindropData()
 {
 	Super::ResetRaindropData();
-#if WITH_EDITOR
-	GridsDebugDataMap.Reset();
-#endif
+	Configs.Empty();
+	ConfigsQueue.Reset();
 }
 
 void USpatialObservationComponent_GoodBoy::TickComponent(float DeltaTime, enum ELevelTick TickType,
@@ -52,106 +59,60 @@ void USpatialObservationComponent_GoodBoy::TickComponent(float DeltaTime, enum E
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	
 	{
-	TRACE_CPUPROFILER_EVENT_SCOPE(USpatialObservationComponent_GoodBoy::TickComponent)	
+		TRACE_CPUPROFILER_EVENT_SCOPE(USpatialObservationComponent_GoodBoy::TickComponent)	
 	
-	if (!ensure(bSpatialObservationActive))
-	{
-		SetComponentTickEnabled(false);
-		return;
-	}
-	
-	if (CurrentConfigIndex < 0)
-	{
-		SetComponentTickEnabled(false); // waiting for cooldown to end for some config
-		return;
-	}
-	
-	const int MaxCountOfRequestsThisFrame = GetMaxCountOfRequests();
-	
-	const bool bNewConfig = CurrentGridIndex == 0 && RowIndex == 0 && ColumnIndex == 0;
-	if (bNewConfig)
-	{
-		auto TimeNow =  FPlatformTime::Seconds();
-		Variables = GetVariables(CurrentConfigIndex, CurrentGridIndex);
-		RaindropSchedules[CurrentConfigIndex].StartTime = TimeNow;
-#if WITH_EDITOR
-		GridsDebugDataMap[CurrentConfigIndex][CurrentGridIndex] = FRaindropGridDebugData(Settings->Configs[CurrentConfigIndex].Params, TimeNow);
-#endif
-	}
-	
-	const FRaindropParams& Params = Settings->Configs[CurrentConfigIndex].Params;
-	const FCollisionResponseParams& CollisionResponseParams = FCollisionResponseParams::DefaultResponseParam;
-	int CountOfTraces = 0;
-	auto WorldLocal = GetWorld();
-	while (CountOfTraces < MaxCountOfRequestsThisFrame)
-	{
-		uint32 TraceData = 0;
-		TraceData |= (CurrentConfigIndex << ConfigIndexMaskShift) & ConfigIndexMask;
-		TraceData |= (CurrentGridIndex << GridIndexMaskShift) & GridIndexMask;
-		TraceData |= (Variables.CellSpan << CellSpanMaskShift) & CellSpanMask;
-		
-#if WITH_EDITOR
-		const int CheckConfigIndex = (TraceData & ConfigIndexMask) >> ConfigIndexMaskShift;
-		const int CheckGridIndex = (TraceData & GridIndexMask) >> GridIndexMaskShift;
-		const int CheckCellSpan = (TraceData & CellSpanMask) >> CellSpanMaskShift;
-		ensure(CheckConfigIndex == CurrentConfigIndex);
-		ensure(CheckGridIndex == CurrentGridIndex);
-		ensure(CheckCellSpan == Variables.CellSpan);
-#endif
-		
-		for (; RowIndex < Params.Rows && CountOfTraces < MaxCountOfRequestsThisFrame; RowIndex += Variables.CellSpan)
+		if (!ensure(bSpatialObservationActive))
 		{
-			const FVector StartPoint = Variables.OriginLocation 
-				+ (-Variables.RightVector * Variables.BaseOffsetH)  
-				+ (Variables.UpVector * (Variables.BaseOffsetV - RowIndex * Params.CellDimension));
-			
-			for (; ColumnIndex < Params.Columns && CountOfTraces < MaxCountOfRequestsThisFrame; ColumnIndex += Variables.CellSpan)
+			SetComponentTickEnabled(false);
+			return;
+		}
+		
+		if (Configs.IsEmpty() || ConfigsQueue.IsEmpty())
+		{
+			SetComponentTickEnabled(false); // waiting for cooldown to end for some config
+			return;
+		}
+		
+		UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Tick: frame %llu START"), GFrameCounter);
+		
+		int TracesLeft = GetMaxCountOfRequests();
+		TArray<int, TInlineAllocator<4>> ConfigsQueueCopy = ConfigsQueue;
+		for (const int ConfigIndex : ConfigsQueueCopy)
+		{
+			auto& Config = Configs[ConfigIndex];
+			TracesLeft -= Config.RequestAsyncTraces(TracesLeft);
+			if (Config.IsCompleted())
 			{
-				const FVector TraceStart = StartPoint + Variables.RightVector * ColumnIndex * Params.CellDimension;
-				const FVector TraceEnd = TraceStart + Variables.TraceDirection * Variables.TraceDistance;
-				FTraceHandle TraceHandle;
-				TraceData = (TraceData & ~ElementIndexMask) | ((RowIndex * Params.Columns + ColumnIndex) & ElementIndexMask);
+				ConfigsQueue.Remove(ConfigIndex);
 #if WITH_EDITOR
-				const int ElementIndex = TraceData & ElementIndexMask;
-				const int CheckRowIndex = ElementIndex / Params.Columns;
-				const int CheckColumnIndex = ElementIndex % Params.Columns;
-				ensure(CheckRowIndex == RowIndex);
-				ensure(CheckColumnIndex == ColumnIndex);
-#endif
-				
-				switch (Params.TraceMode)
+				TWeakObjectPtr ThisWeak = this;
+				GetWorld()->GetTimerManager().SetTimerForNextTick([ThisWeak, ConfigIndex]()
 				{
-					case ERaindropTraceMode::Linetrace:
-						TraceHandle = WorldLocal->AsyncLineTraceByChannel(EAsyncTraceType::Single, TraceStart, TraceEnd, 
-							Params.TraceChannel, CollisionQueryParams, CollisionResponseParams,
-							&TraceDelegate, TraceData);
-						break;
-					case ERaindropTraceMode::BoxSweep:
-					case ERaindropTraceMode::SphereSweep:
-						TraceHandle = WorldLocal->AsyncSweepByChannel(EAsyncTraceType::Single, TraceStart, TraceEnd, 
-							Variables.SweepRotation, Params.TraceChannel, Variables.SweepShape, CollisionQueryParams, CollisionResponseParams,
-							&TraceDelegate, TraceData);
-						break;
-				}
-				
-				if (ensure(TraceHandle.IsValid()))
-					CountOfTraces++;
-				else 
-					return; // idk it probably means that no more traces can be requested (although i'm not sure there's a code for that down the async trace calls.
+					if (!ThisWeak.IsValid())
+						return;
+					
+					auto EndTime = FPlatformTime::Seconds();
+					auto ConfigInfo = ThisWeak->Settings->Configs[ConfigIndex];
+					auto ConfigQueueData = ThisWeak->Configs[ConfigIndex];
+					auto Duration = EndTime - ConfigQueueData.RequestedAt;
+					UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Frame %llu:: Finished traces for config %d (%s) in %.2f ms"), GFrameCounter, ConfigIndex, *ConfigInfo.UserDescription, Duration * 1000);
+				});
+#endif
 			}
 			
-		}
-		
-		bool bGridProcessed = RowIndex + Variables.CellSpan >= Params.Rows && ColumnIndex + Variables.CellSpan >= Params.Columns;
-		if (bGridProcessed)
-		{
-			OnGridLastTraceRequested(DeltaTime);
-			if (CurrentConfigIndex >= 0)
-				Variables = GetVariables(CurrentConfigIndex, CurrentGridIndex);
-			else 
+			if (TracesLeft == 0)
 				break;
 		}
-	}
+
+#if WITH_EDITOR
+		if (bDebug_DoOnce && ConfigsQueue.IsEmpty())
+		{
+			SetSpatialObservationActive(false);
+			bDebug_DoOnce = false;
+		}
+		
+		UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Tick: frame %llu END"), GFrameCounter);
+#endif
 	}
 }
 
@@ -161,81 +122,12 @@ void USpatialObservationComponent_GoodBoy::Debug_DoOnce()
 	SetSpatialObservationActive(true);
 }
 
-void USpatialObservationComponent_GoodBoy::RemoveCooldown(int ConfigIndex)
+void USpatialObservationComponent_GoodBoy::RestartQueue(int ConfigIndex)
 {
-	RaindropSchedules[ConfigIndex].Reset(GetWorld());
-	if (CurrentConfigIndex == -1 && bSpatialObservationActive)
-	{
-		CurrentConfigIndex = GetNextConfigIndex(0);
-		if (ensure(CurrentConfigIndex >= 0))
-			SetComponentTickEnabled(true);
-	}
-}
-
-void USpatialObservationComponent_GoodBoy::OnGridLastTraceRequested(const float DeltaTime)
-{
-	
-#if WITH_EDITOR
-	const auto TimeNow = FPlatformTime::Seconds();
-	// + delta time because data will be ready on next tick and I assume that frame rate is stable
-	GridsDebugDataMap[CurrentConfigIndex][CurrentGridIndex].FinishedAt = TimeNow + DeltaTime; 
-	// when last request for grid was made - debug data will only be ready in next 2 ticks with certainty
-	TWeakObjectPtr ThisWeak = this;
-	GetWorld()->GetTimerManager().SetTimerForNextTick([ThisWeak, ConfigIndex = CurrentConfigIndex, GridIndex = CurrentGridIndex]()
-	{ 
-		if (ThisWeak.IsValid())
-		{
-			ThisWeak->GetWorld()->GetTimerManager().SetTimerForNextTick([ThisWeak, ConfigIndex, GridIndex]()
-			{
-				if (ThisWeak.IsValid())
-					ThisWeak->ProcessRaindropDebug(ThisWeak->GridsDebugDataMap[ConfigIndex][GridIndex], ThisWeak->RaindropConfigsData[ConfigIndex].GetArrayView(GridIndex), ConfigIndex, GridIndex);
-			});
-		}
-	});
-#endif
-	
-	RaindropSchedules[CurrentConfigIndex].IncrementGridsCompleted();
-	if (RaindropSchedules[CurrentConfigIndex].IsCompleted())
-	{
-		FTimerDelegate Delegate = FTimerDelegate::CreateUObject(this, &USpatialObservationComponent_GoodBoy::RemoveCooldown, CurrentConfigIndex);
-		GetWorld()->GetTimerManager().SetTimer(RaindropSchedules[CurrentConfigIndex].CooldownTimer, Delegate,  RaindropSchedules[CurrentConfigIndex].UpdateInterval, false);
-		CurrentConfigIndex = GetNextConfigIndex(CurrentConfigIndex);
-		if (CurrentConfigIndex >= 0)
-			CurrentGridIndex = 0;
-	}
-	else
-	{
-		CurrentGridIndex = (CurrentGridIndex + 1) % RaindropConfigsData[CurrentConfigIndex].GridsCount;
-	}
-
-#if WITH_EDITOR
-	if (CurrentConfigIndex >= 0)
-	{
-		GridsDebugDataMap[CurrentConfigIndex][CurrentGridIndex] = FRaindropGridDebugData(Settings->Configs[CurrentConfigIndex].Params, TimeNow);
-		GridsDebugDataMap[CurrentConfigIndex][CurrentGridIndex].StartTime = TimeNow;
-	}
-	else if (bDebug_DoOnce)
-	{
-		SetSpatialObservationActive(false);
-		bDebug_DoOnce = false;
-	}
-#endif
-	
-	RowIndex = 0;
-	ColumnIndex = 0;
-}
-
-int USpatialObservationComponent_GoodBoy::GetNextConfigIndex(int StartingFrom)
-{
-	const int ConfigsNum = Settings->Configs.Num();
-	for (int i = 0; i < ConfigsNum; i++)
-	{
-		int TestIndex = (StartingFrom + i) % ConfigsNum;
-		if (Settings->Configs[TestIndex].IsValid() && !RaindropSchedules[TestIndex].IsOnCooldown())
-			return TestIndex;
-	}
-	
-	return -1;
+	Configs[ConfigIndex].Restart();
+	ConfigsQueue.Add(ConfigIndex);
+	if (bSpatialObservationActive && !IsComponentTickEnabled())
+		SetComponentTickEnabled(true);
 }
 
 int USpatialObservationComponent_GoodBoy::GetMaxCountOfRequests() const
@@ -250,6 +142,7 @@ int USpatialObservationComponent_GoodBoy::GetMaxCountOfRequests() const
 void USpatialObservationComponent_GoodBoy::AsyncTraceCallback(const FTraceHandle& TraceHandle, FTraceDatum& TraceDatum)
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(USpatialObservationComponent_GoodBoy::AsyncTraceCallback)
+	UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("AsyncTraceCallback: frame %llu"), GFrameCounter);
 	
 	const int ConfigIndex = (TraceDatum.UserData & ConfigIndexMask) >> ConfigIndexMaskShift;
 	const int GridIndex = (TraceDatum.UserData & GridIndexMask) >> GridIndexMaskShift;
@@ -260,6 +153,8 @@ void USpatialObservationComponent_GoodBoy::AsyncTraceCallback(const FTraceHandle
 	const int Columns = Params.Columns;
 	const int TraceRowIndex = ElementIndex / Columns;
 	const int TraceColumnIndex = ElementIndex % Columns;
+
+	UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("AsyncTraceCallback [%d, %d]: Row = %d, Column = %d"), ConfigIndex, GridIndex, TraceRowIndex, TraceColumnIndex);
 	
 #if WITH_EDITOR
 	FRaindropDebugData_Trace DebugTrace;
@@ -285,7 +180,7 @@ void USpatialObservationComponent_GoodBoy::AsyncTraceCallback(const FTraceHandle
 
 	float RawValue = TraceDistance / Settings->Configs[ConfigIndex].Params.TraceDistance;
 	float UnifiedValue = FMath::RoundToFloat(RawValue * 100.f) / 100.f;
-	auto GridArrayView = RaindropConfigsData[ConfigIndex].GetArrayView(GridIndex);
+	auto GridArrayView = RaindropData[ConfigIndex].GetArrayView(GridIndex);
 	
 	if (CellSpan == 1)
 	{
@@ -299,7 +194,187 @@ void USpatialObservationComponent_GoodBoy::AsyncTraceCallback(const FTraceHandle
 	}
 	
 #if WITH_EDITOR
-	if (Settings->Configs[ConfigIndex].Grids[GridIndex].Debug_DrawGridShapes)
-		GridsDebugDataMap[ConfigIndex][GridIndex].Traces.Add(DebugTrace);
+	const auto& GridConfig = Settings->Configs[ConfigIndex].Grids[GridIndex];
+	if (GridConfig.Debug_DrawGridShapes)
+		Configs[ConfigIndex][GridIndex].DebugData.Traces.Add(DebugTrace);
+#endif
+}
+
+USpatialObservationComponent_GoodBoy::FConfigExecutor::FConfigExecutor(USpatialObservationComponent_GoodBoy* InOwner, int InConfigIndex)
+	: Owner(InOwner), ConfigIndex(InConfigIndex)
+{
+	for (int i = 0; i < Owner->Settings->Configs[ConfigIndex].Grids.Num(); i++)
+		GridQueue.Add(FGridExecutor(InOwner, ConfigIndex, i));
+	
+	RestartTimerDelegate = FTimerDelegate::CreateUObject(Owner.Get(), &USpatialObservationComponent_GoodBoy::RestartQueue, ConfigIndex);
+	RequestedAt = FPlatformTime::Seconds();
+}
+
+int USpatialObservationComponent_GoodBoy::FConfigExecutor::RequestAsyncTraces(int TracesBudget)
+{
+	ensure(!bCompleted);
+	int TracesDone = 0;
+	while (TracesDone < TracesBudget && CurrentGridIndex < GridQueue.Num())
+	{
+		TracesDone += GridQueue[CurrentGridIndex].RequestAsyncTraces(TracesBudget - TracesDone);
+		if (GridQueue[CurrentGridIndex].IsCompleted())
+			CurrentGridIndex++;
+	}
+
+	bCompleted = CurrentGridIndex == GridQueue.Num();
+	if (bCompleted)
+	{
+		const float UpdateInterval = Owner->Settings->Configs[ConfigIndex].UpdateInterval;
+		Owner->GetWorld()->GetTimerManager().SetTimer(RestartQueueTimer, RestartTimerDelegate, UpdateInterval, false);
+	}
+	
+	ensure(TracesBudget - TracesDone >= 0);
+	return TracesDone;
+}
+
+void USpatialObservationComponent_GoodBoy::FConfigExecutor::Restart()
+{
+	for (int i = 0; i < GridQueue.Num(); i++)
+		GridQueue[i].Restart();
+
+	RequestedAt = FPlatformTime::Seconds();
+	CurrentGridIndex = 0;
+	bCompleted = false;
+}
+
+USpatialObservationComponent_GoodBoy::FGridExecutor::FGridExecutor(USpatialObservationComponent_GoodBoy* InOwner, int InConfigIndex, int InGridIndex) 
+	: Owner(InOwner), ConfigIndex(InConfigIndex), GridIndex(InGridIndex)
+{
+	const int CellSpan = InOwner->Settings->Configs[ConfigIndex].Grids[GridIndex].CellSpan;
+	TraceData |= (ConfigIndex << ConfigIndexMaskShift) & ConfigIndexMask;
+	TraceData |= (GridIndex << GridIndexMaskShift) & GridIndexMask;
+	TraceData |= (CellSpan << CellSpanMaskShift) & CellSpanMask;
+#if WITH_EDITOR
+	DebugData = FRaindropGridDebugData(Owner->Settings->Configs[ConfigIndex].Params, FPlatformTime::Seconds(), CellSpan);
+#endif
+}
+
+int USpatialObservationComponent_GoodBoy::FGridExecutor::RequestAsyncTraces(int TracesBudget)
+{
+	if (!ensure(TracesBudget > 0))
+		return 0;
+	
+	if (LastRow == 0 && LastColumn == 0)
+	{
+	#if WITH_EDITOR
+		DebugData.StartTime = FPlatformTime::Seconds();		
+	#endif
+		Variables = Owner->GetVariables(ConfigIndex, GridIndex);
+	}
+	
+	int CountOfTraces = 0;
+	auto Params = Owner->Settings->Configs[ConfigIndex].Params;
+	auto WorldLocal = Owner->GetWorld();
+	
+	int CurrentRow = LastRow;
+	int CurrentColumn = LastColumn;
+	ensure(CurrentRow < Params.Rows);
+	
+	for (; CurrentRow < Params.Rows; CurrentRow += Variables.CellSpan)
+	{
+		const FVector StartPoint = Variables.OriginLocation 
+			+ (-Variables.RightVector * Variables.BaseOffsetH)  
+			+ (Variables.UpVector * (Variables.BaseOffsetV - CurrentRow * Params.CellDimension));
+		
+		if (CurrentColumn >= Params.Columns)
+			CurrentColumn = 0;
+		
+		for (; CurrentColumn < Params.Columns && CountOfTraces < TracesBudget; CurrentColumn += Variables.CellSpan)
+		{
+			const FVector TraceStart = StartPoint + Variables.RightVector * CurrentColumn * Params.CellDimension;
+			const FVector TraceEnd = TraceStart + Variables.TraceDirection * Variables.TraceDistance;
+			FTraceHandle TraceHandle;
+			TraceData = (TraceData & ~ElementIndexMask) | ((CurrentRow * Params.Columns + CurrentColumn) & ElementIndexMask);
+#if WITH_EDITOR
+				const int ElementIndex = TraceData & ElementIndexMask;
+				const int CheckRowIndex = ElementIndex / Params.Columns;
+				const int CheckColumnIndex = ElementIndex % Params.Columns;
+				ensure(CheckRowIndex == CurrentRow);
+				ensure(CheckColumnIndex == CurrentColumn);
+#endif
+				
+			switch (Params.TraceMode)
+			{
+				case ERaindropTraceMode::Linetrace:
+					TraceHandle = WorldLocal->AsyncLineTraceByChannel(EAsyncTraceType::Single, TraceStart, TraceEnd, 
+						Params.TraceChannel, Owner->CollisionQueryParams, FCollisionResponseParams::DefaultResponseParam,
+						&Owner->TraceDelegate, TraceData);
+					break;
+				case ERaindropTraceMode::BoxSweep:
+				case ERaindropTraceMode::SphereSweep:
+					TraceHandle = WorldLocal->AsyncSweepByChannel(EAsyncTraceType::Single, TraceStart, TraceEnd, 
+						Variables.SweepRotation, Params.TraceChannel, Variables.SweepShape, Owner->CollisionQueryParams,
+						FCollisionResponseParams::DefaultResponseParam,
+						&Owner->TraceDelegate, TraceData);
+					break;
+			}
+			
+			if (ensure(TraceHandle.IsValid()))
+			{
+				CountOfTraces++;
+#if WITH_EDITOR
+				UE_LOG(LogNpcMl_Raindrop_Debug, Log, TEXT("Requested async trace: Grid = %d, Row = %d, Column = %d"), GridIndex, CurrentRow, CurrentColumn);
+#endif
+			}
+			else
+			{
+				return CountOfTraces;
+			}
+				// idk it probably means that no more traces can be requested (although i'm not sure there's a code for that down the async trace calls.
+		}
+		
+		// must be in the end of the loop body so that LastRow gets a correct value for continuation
+		if (CountOfTraces >= TracesBudget)
+		{
+			if (CurrentColumn >= Params.Columns)
+				CurrentRow++;
+			
+			break;
+		}
+	}
+	
+	LastRow = CurrentRow;
+	LastColumn = CurrentColumn;
+	
+	bool bGridProcessed = CurrentRow >= Params.Rows && CurrentColumn >= Params.Columns;
+	if (bGridProcessed)
+	{
+		bCompleted = true;
+#if WITH_EDITOR
+		TWeakObjectPtr OwnerWeak = Owner;
+		Owner->GetWorld()->GetTimerManager().SetTimerForNextTick([OwnerWeak, ConfigIndex = ConfigIndex, GridIndex = GridIndex]()
+		{ 
+			if (OwnerWeak.IsValid())
+			{
+				OwnerWeak->Configs[ConfigIndex][GridIndex].DebugData.FinishedAt = FPlatformTime::Seconds();
+				OwnerWeak->GetWorld()->GetTimerManager().SetTimerForNextTick([OwnerWeak, ConfigIndex, GridIndex]()
+				{
+					if (OwnerWeak.IsValid())
+					{
+						OwnerWeak->ProcessRaindropDebug(OwnerWeak->Configs[ConfigIndex][GridIndex].DebugData,
+							OwnerWeak->RaindropData[ConfigIndex].GetArrayView(GridIndex), ConfigIndex, GridIndex);
+					}
+				});
+			}
+		});
+#endif
+	}
+
+	return CountOfTraces;
+}
+
+void USpatialObservationComponent_GoodBoy::FGridExecutor::Restart()
+{
+	LastRow = 0;
+	LastColumn = 0;
+	bCompleted = false;
+#if WITH_EDITOR
+	DebugData.Reset();
+	DebugData.RequestedAt = FPlatformTime::Seconds();
 #endif
 }

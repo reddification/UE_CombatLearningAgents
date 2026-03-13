@@ -15,9 +15,6 @@ void USpatialObservationComponent::BeginPlay()
 	Super::BeginPlay();
 	CollisionQueryParams.AddIgnoredActor(GetOwner());
 	Settings = GetDefault<URaindropSettings>();
-	for (int i = 0; i < Settings->Configs.Num(); i++)
-		if (Settings->Configs[i].IsValid())
-			RaindropSchedules.Add(i, FRaindropCategorySchedule(Settings->Configs[i].Grids.Num(), Settings->Configs[i].UpdateInterval));
 }
 
 void USpatialObservationComponent::SetSpatialObservationActive(bool bActive)
@@ -25,12 +22,6 @@ void USpatialObservationComponent::SetSpatialObservationActive(bool bActive)
 	if (bSpatialObservationActive == bActive)
 	{
 		UE_VLOG(GetOwner(), LogNpcMl_Raindrop, Warning, TEXT("USpatialObservationComponent::SetSpatialObservationActive: same state requested: %d"), bActive ? 1 : 0);
-		return;
-	}
-	
-	if (bActive && RaindropSchedules.IsEmpty())
-	{
-		UE_VLOG(GetOwner(), LogNpcMl_Raindrop, Verbose, TEXT("Not starting raindrop because there are no schedules"));
 		return;
 	}
 	
@@ -52,10 +43,10 @@ void USpatialObservationComponent::SetSpatialObservationActive_Internal(bool bAc
 		{
 			if (Settings->Configs[i].IsValid())
 			{
-				if (!RaindropConfigsData.Contains(i))
+				if (!RaindropData.Contains(i))
 				{
 					FRaindropData NewPreset = FRaindropData(Settings->Configs[i].Grids.Num(), Settings->Configs[i].Params.GetResolution());
-					RaindropConfigsData.Add(i, MoveTemp(NewPreset));
+					RaindropData.Add(i, MoveTemp(NewPreset));
 				}
 			}
 		}
@@ -126,15 +117,12 @@ FRaindropVariables USpatialObservationComponent::GetVariables(int ConfigIndex, i
 
 void USpatialObservationComponent::ResetRaindropData()
 {
-	RaindropConfigsData.Empty();
-	auto WorldLocal = GetWorld();
-	for (auto& RaindropSchedule : RaindropSchedules)
-		RaindropSchedule.Value.Reset(WorldLocal);
+	RaindropData.Empty();
 }
 
 #if WITH_EDITOR
 
-void USpatialObservationComponent::ProcessRaindropDebug(const FRaindropGridDebugData& DebugData, const TArrayView<const float>& RaindropData,
+void USpatialObservationComponent::ProcessRaindropDebug(const FRaindropGridDebugData& DebugData, const TArrayView<const float>& RaindropDataSlice,
                                                         int ConfigIndex, int GridIndex) const
 {
 	TRACE_CPUPROFILER_EVENT_SCOPE(USpatialObservationComponent_Stud::ProcessRaindropDebug);
@@ -145,19 +133,12 @@ void USpatialObservationComponent::ProcessRaindropDebug(const FRaindropGridDebug
 	const auto& Grid = Settings->Configs[ConfigIndex].Grids[GridIndex];
 	const FString& GridInfo = Grid.UserDescription;
 	
-	UE_VLOG_UELOG(LogOwner, LogNpcMl_Raindrop, Log, 
-		TEXT("Raindrop [%s -> %s]\nTotal Duration = %.5f\nBackground work duration = %.5f"),
-		*ConfigInfo, *GridInfo, EndTime - DebugData.RequestedAt, DebugData.FinishedAt - DebugData.StartTime);
+	UE_VLOG_UELOG(LogOwner, LogNpcMl_Raindrop_Debug, Log, 
+		TEXT("Raindrop grid [%s -> %s] completed. Total Duration = %.2f ms; Background work duration = %.2f ms. Frame: %llu"),
+		*ConfigInfo, *GridInfo, (EndTime - DebugData.RequestedAt) * 1000.0, (DebugData.FinishedAt - DebugData.StartTime) * 1000.0, GFrameCounter);
 					
 	if (Grid.Debug_DrawGridShapes)
 	{
-		for (const auto& DrawArrow : DebugData.Arrows)
-		{
-			UE_VLOG_ARROW(LogOwner, LogNpcMl_Raindrop, VeryVerbose, DrawArrow.Location,
-				DrawArrow.Location + DrawArrow.Direction * 1000.f, FColor::Red, TEXT(""));
-			UE_VLOG_LOCATION(LogOwner, LogNpcMl_Raindrop, VeryVerbose, DrawArrow.Location, 12, FColor::Red, TEXT("%s"), *DrawArrow.Text);
-		}
-		
 		auto WorldLocal = LogOwner->GetWorld();
 		for (const auto& DebugTrace : DebugData.Traces)
 		{
@@ -200,12 +181,12 @@ void USpatialObservationComponent::ProcessRaindropDebug(const FRaindropGridDebug
 	{
 		UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Raindrop %s->%s dump:"), *ConfigInfo, *GridInfo);
 		FString GridLogLine;
-		GridLogLine.Reserve(DebugData.CellsCountPerRow * 5); // "x.xx " -> 5 characters
-		for (int i = 0; i < DebugData.CellsCountPerRow; i++)
+		GridLogLine.Reserve(DebugData.Rows * 5); // "x.xx " -> 5 characters
+		for (int i = 0; i < DebugData.Rows; i++)
 		{
 			GridLogLine.Reset();
-			for (int j = 0; j < DebugData.CellsCountPerRow; j++)
-				GridLogLine += FString::Printf(TEXT("%.2f "), RaindropData[i * DebugData.CellsCountPerRow + j]);
+			for (int j = 0; j < DebugData.Columns; j++)
+				GridLogLine += FString::Printf(TEXT("%.2f "), RaindropDataSlice[i * DebugData.Columns + j]);
 		
 			UE_LOG(LogNpcMl_Raindrop, Log, TEXT("%s"), *GridLogLine);
 		}

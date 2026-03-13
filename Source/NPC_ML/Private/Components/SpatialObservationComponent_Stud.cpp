@@ -9,6 +9,14 @@ void USpatialObservationComponent_Stud::BeginPlay()
 {
 	Super::BeginPlay();
 	AsyncRaindropsActiveCount = MakeShared<std::atomic<uint16>, ESPMode::ThreadSafe>(0);
+	for (int i = 0; i < Settings->Configs.Num(); i++)
+	{
+		if (Settings->Configs[i].IsValid())
+		{
+			RaindropSchedules.Add(i, FRaindropCategorySchedule(Settings->Configs[i].Grids.Num(),
+				Settings->Configs[i].UpdateInterval, this, i));
+		}
+	}
 }
 
 void USpatialObservationComponent_Stud::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -40,6 +48,12 @@ void USpatialObservationComponent_Stud::EndPlay(const EEndPlayReason::Type EndPl
 
 void USpatialObservationComponent_Stud::SetSpatialObservationActive_Internal(bool bActive)
 {
+	if (bActive && RaindropSchedules.IsEmpty())
+	{
+		UE_VLOG(GetOwner(), LogNpcMl_Raindrop, Warning, TEXT("Not starting raindrop because there are no schedules"));
+		return;
+	}
+	
 	Super::SetSpatialObservationActive_Internal(bActive);
 	if (bActive)
 	{
@@ -52,6 +66,14 @@ void USpatialObservationComponent_Stud::SetSpatialObservationActive_Internal(boo
 	}
 }
 
+void USpatialObservationComponent_Stud::ResetRaindropData()
+{
+	Super::ResetRaindropData();
+	auto WorldLocal = GetWorld();
+	for (auto& RaindropSchedule : RaindropSchedules)
+		RaindropSchedule.Value.Reset(WorldLocal);
+}
+
 void USpatialObservationComponent_Stud::Debug_DoOnce()
 {
 	if (IsAsyncRaindropActive())
@@ -61,10 +83,10 @@ void USpatialObservationComponent_Stud::Debug_DoOnce()
 	{
 		if (Settings->Configs[i].IsValid())
 		{
-			if (!RaindropConfigsData.Contains(i))
+			if (!RaindropData.Contains(i))
 			{
 				FRaindropData NewPreset = FRaindropData(Settings->Configs[i].Grids.Num(), Settings->Configs[i].Params.GetResolution());
-				RaindropConfigsData.Add(i, MoveTemp(NewPreset));
+				RaindropData.Add(i, MoveTemp(NewPreset));
 			}
 		}
 	}
@@ -141,7 +163,7 @@ void USpatialObservationComponent_Stud::LidarRaindropAsync_Atomic(FRaindropVaria
 		AsyncRaindropsActiveCount->fetch_add(1);
 			
 #if WITH_EDITOR
-		FRaindropGridDebugData DebugData(RaindropParams, RequestedAt);
+		FRaindropGridDebugData DebugData(RaindropParams, RequestedAt, RaindropVariables.CellSpan);
 #endif
 			
 		TArray<float> Array;
@@ -280,13 +302,6 @@ void USpatialObservationComponent_Stud::RaindropToArray(TWeakObjectPtr<UWorld> W
 		+ (-Variables.RightVector * Variables.BaseOffsetH)  
 		+ (Variables.UpVector * (Variables.BaseOffsetV - RowIndex * Params.CellDimension));
 	
-#if WITH_EDITOR
-	DebugData.Arrows.Add(FRaindropDebugData_Arrow
-	{
-		StartPoint, Variables.TraceDirection, FString::Printf(TEXT("row %d start"), RowIndex)
-	});
-#endif
-	
 	for (int ColumnIndex = 0; ColumnIndex < Params.Columns; ColumnIndex += Variables.CellSpan)
 	{
 		// if (!CanTraceFunc())
@@ -360,7 +375,7 @@ void USpatialObservationComponent_Stud::RaindropToArray(TWeakObjectPtr<UWorld> W
 	}
 }
 
-void USpatialObservationComponent_Stud::StartAsyncRaindrop(int ConfigIndex)
+void USpatialObservationComponent_Stud::RestartAsyncRaindrop(int ConfigIndex)
 {
 	if (bSpatialObservationActive)
 		StartAsyncRaindrop(RaindropSchedules[ConfigIndex], ConfigIndex);
@@ -423,7 +438,7 @@ void USpatialObservationComponent_Stud::ProcessAsyncResult(const TArray<float>& 
 #endif
 					
 	// ThisWeak->RaindropData[GridIndex].Data = MoveTemp(RaindropBatch);
-	RaindropConfigsData[ConfigIndex].StoreData(GridIndex, RaindropBatch);
+	RaindropData[ConfigIndex].StoreData(GridIndex, RaindropBatch);
 	RaindropSchedules[ConfigIndex].IncrementGridsCompleted();
 	if (RaindropSchedules[ConfigIndex].IsCompleted())
 	{
@@ -432,9 +447,9 @@ void USpatialObservationComponent_Stud::ProcessAsyncResult(const TArray<float>& 
 		auto TotalTimeMs = (FPlatformTime::Seconds() - RaindropSchedules[ConfigIndex].StartTime) * 1000.0;
 		UE_LOG(LogNpcMl_Raindrop, Log, TEXT("Raindrop for config %d took total %.2f ms"), ConfigIndex, TotalTimeMs);
 #endif
-		FTimerDelegate Delegate = FTimerDelegate::CreateUObject(this, &USpatialObservationComponent_Stud::StartAsyncRaindrop, ConfigIndex);
 		const float TimeToNextUpdate =  Settings->Configs[ConfigIndex].UpdateInterval * FMath::RandRange(0.8f, 1.2f); //randomzing to prevent reduce thread pool pressure
-		GetWorld()->GetTimerManager().SetTimer(RaindropSchedules[ConfigIndex].CooldownTimer, Delegate, TimeToNextUpdate, false);
+		GetWorld()->GetTimerManager().SetTimer(RaindropSchedules[ConfigIndex].CooldownTimer, RaindropSchedules[ConfigIndex].TimerDelegate,
+			TimeToNextUpdate, false);
 	}
 }
 
