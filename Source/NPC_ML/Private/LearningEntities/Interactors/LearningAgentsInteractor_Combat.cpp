@@ -762,14 +762,14 @@ FObservationSchemasMap ULearningAgentsInteractor_Combat::SpecifySelfLIDARObserva
 		if (!Config.IsValid())
 			continue;
 		
-		const int GridRowSize = Config.Params.Rows;
-		const int GridColumnSize = Config.Params.Columns;
+		const int Rows = Config.Params.Rows;
+		const int Columns = Config.Params.Columns;
 		auto Conv2DParamsLocal = Config.Conv2dParams;
-		Conv2DParamsLocal.InputWidth = GridRowSize;
-		Conv2DParamsLocal.InputHeight = GridColumnSize;
+		Conv2DParamsLocal.InputWidth = Columns;
+		Conv2DParamsLocal.InputHeight = Rows;
 		Conv2DParamsLocal.InChannels = Config.Grids.Num();
 		auto RaindropContinuousObservation = ULearningAgentsObservations::SpecifyContinuousObservation(InObservationSchema,
-			GridRowSize * GridColumnSize * Config.Grids.Num(), 1.f, Key_Observation_Surrounding_LIDAR_Raindrop_Continuous);
+			Rows * Columns * Config.Grids.Num(), 1.f, Key_Observation_Surrounding_LIDAR_Raindrop_Continuous);
 		auto RaindropObservationsConvolved = ULearningAgentsObservations::SpecifyConv2dObservation(InObservationSchema,
 			RaindropContinuousObservation, Conv2DParamsLocal, Key_Observation_Surrounding_LIDAR_Raindrop_Convolved);
 		
