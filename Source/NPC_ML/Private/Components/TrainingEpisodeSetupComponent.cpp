@@ -533,3 +533,8 @@ FVector UTrainingEpisodeSetupComponent::GetEQSLocation(const TSharedPtr<FEnvQuer
 	auto RawData = Result->RawData.GetData() + Result->Items[0].DataOffset;
 	return ItemTypeCDO->GetItemLocation(RawData);
 }
+
+void UTrainingEpisodeSetupComponent::SetTrainingPreset(const UMLTrainingEpisodesPreset* NewTrainingPreset)
+{
+	TrainingPresetsDataAsset = NewTrainingPreset;
+}

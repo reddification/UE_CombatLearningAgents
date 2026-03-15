@@ -8,7 +8,7 @@ struct FMLTrainingEpisodeTemplate;
 /**
  * 
  */
-UCLASS()
+UCLASS(Blueprintable)
 class NPC_ML_API UMLTrainingEpisodesPreset : public UDataAsset
 {
 	GENERATED_BODY()

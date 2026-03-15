@@ -69,6 +69,9 @@ public:
 	FTrainingEpisodeSetupCompletedEvent TrainingEpisodeSetupCompletedEvent;
 	FTrainingEpisodeSetupStepChangedEvent TrainingEpisodeSetupStepChangedEvent;
 
+	UFUNCTION(BlueprintCallable)
+	void SetTrainingPreset(const UMLTrainingEpisodesPreset* NewTrainingPreset);
+	
 protected:
 	virtual void BeginPlay() override;
 

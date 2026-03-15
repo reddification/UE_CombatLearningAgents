@@ -16,7 +16,7 @@ class UMLModelVersion;
 /**
  * 
  */
-UCLASS(Abstract, NotBlueprintable)
+UCLASS(Abstract, Blueprintable)
 class NPC_ML_API UMLTrainingConfigurationBase : public UDataAsset
 {
 	GENERATED_BODY()
@@ -35,7 +35,7 @@ public:
 	int32 Seed = 1234;
 };
 
-UCLASS(Abstract, NotBlueprintable)
+UCLASS(Abstract, Blueprintable)
 class NPC_ML_API UMLTrainingConfiguration : public UMLTrainingConfigurationBase
 {
 	GENERATED_BODY()
